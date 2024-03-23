@@ -22,4 +22,5 @@ ssh-keygen -y -f ~/.ssh/id_rsa > ~/.ssh/id_rsa.pub
 git clone git@github.com:michalmatoga/dotfiles.git
 sudo mv /etc/nixos /etc/nixos.bak
 sudo ln -s ~/dotfiles/etc/nixos/ /etc/nixos
+sudo nixos-rebuild switch
 ```
