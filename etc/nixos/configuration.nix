@@ -20,6 +20,7 @@
   users.users.michmato = {
     isNormalUser = true;
     group = "michmato";
+    extraGroups = [ "wheel" ];
     openssh.authorizedKeys.keys = [
         # Replace with your own public key
         "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC7UM9MJ5Nf1Ht7E2QDdSh1wuZcjjYy0BlQv6NIIwEwUZpwMg4YFtMD+QcT+xergDHzaVbNgjXC0jouLnLAF3o3k67mXYguflm4iRHgy4c4EwtDE1gljnpCj6JrDuWFOXib8WRLwgRyc5CiY5QvT/dlJX0jVq5xbSpjd8DAOXTYve1GQTOfvgylVVaCKBbwxH2Y29EuXsmUAVP9fGIsbLjLZ/dacpgxeN3il/SdklKZWAXb3Ec/KodgWC9V/4GdqtvLNu36h7OO17+yiomx2Rx50/NEcqHj4ld8ZNcflE/fZ6Fu6xB4l6G/ANg9Ypu/AmQ8a7OZe6WBNllK7YFrY8Sn"
