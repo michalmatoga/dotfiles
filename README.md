@@ -14,9 +14,9 @@ wsl -d NixOS
 In NixOS shell:
 
 ```sh
-sudo nix-channel --update
-sudo nixos-rebuild switch
+sudo nix-channel --update && sudo nixos-rebuild switch
 nix-shell -p git
+mkdir ~/.ssh
 # Grab your SSH private key to clipboard, then:
 # cat ~/.ssh/id_rsa | clip.exe
 powershell.exe -command 'Get-Clipboard' > ~/.ssh/id_rsa
