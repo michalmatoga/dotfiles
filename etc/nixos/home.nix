@@ -5,12 +5,6 @@ let
 in
 {
   home.username = username;
-  users.users.${username} = {
-    isNormalUser = true;
-    group = username;
-  };
-	users.groups.${username} = {};
-
 
   # home.homeDirectory = "/home/${username}";
 

@@ -16,6 +16,13 @@
     neovim
     curl
   ];
+  
+  users.users.michmato = {
+    isNormalUser = true;
+    group = michmato;
+  };
+	users.groups.michmato = {};
+
 
 
   # This value determines the NixOS release from which the default
