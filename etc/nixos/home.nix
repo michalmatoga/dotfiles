@@ -4,6 +4,11 @@ let
 	username = "michmato";
 in
 {
+  users.users.${username} = {
+    isNormalUser = true;
+    group = username;
+  };
+
   # home.username = username;
   # home.homeDirectory = "/home/${username}";
 
@@ -22,11 +27,6 @@ in
   #     xxx
   # '';
 
-  # set cursor size and dpi for 4k monitor
-  xresources.properties = {
-    "Xcursor.size" = 16;
-    "Xft.dpi" = 172;
-  };
 
   # Packages that should be installed to the user profile.
   home.packages = with pkgs; [
