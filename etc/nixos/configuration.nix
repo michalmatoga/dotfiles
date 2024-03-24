@@ -9,7 +9,7 @@
 
 {
   wsl.enable = true;
-  wsl.defaultUser = "michmato";
+  wsl.defaultUser = "nixos";
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
   environment.systemPackages = with pkgs; [
     git
