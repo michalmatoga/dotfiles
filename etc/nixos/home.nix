@@ -4,8 +4,8 @@ let
 	username = "michmato";
 in
 {
-  home.username = username;
-  home.homeDirectory = "/home/${username}";
+  # home.username = username;
+  # home.homeDirectory = "/home/${username}";
 
   # link the configuration file in current directory to the specified location in home directory
   # home.file.".config/i3/wallpaper.jpg".source = ./wallpaper.jpg;
