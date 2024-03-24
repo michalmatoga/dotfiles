@@ -19,7 +19,7 @@
   
   users.users.michmato = {
     isNormalUser = true;
-    group = michmato;
+    group = "michmato";
   };
 	users.groups.michmato = {};
 
