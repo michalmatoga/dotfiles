@@ -1,7 +1,7 @@
 { config, pkgs, ... }:
 
 let 
-	username = "michmato"
+	username = "michmato";
 in
 {
   home.username = username;
