@@ -4,12 +4,14 @@ let
 	username = "michmato";
 in
 {
+  home.username = username;
   users.users.${username} = {
     isNormalUser = true;
     group = username;
   };
+	users.groups.${username} = {};
 
-  # home.username = username;
+
   # home.homeDirectory = "/home/${username}";
 
   # link the configuration file in current directory to the specified location in home directory
