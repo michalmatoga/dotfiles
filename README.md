@@ -1,10 +1,9 @@
 # dotfiles
 
-## WSL
-
-Assuming WSL2 is already configured. In powershell:
+## WSL2
 
 ```powershell
+wsl --install # if not already installed
 # Check for new releases at https://github.com/nix-community/NixOS-WSL/releases
 Invoke-WebRequest -Uri "https://github.com/nix-community/NixOS-WSL/releases/download/2311.5.3/nixos-wsl.tar.gz" -OutFile "nixos-wsl.tar.gz"
 wsl --import NixOS $env:USERPROFILE\NixOS\ nixos-wsl.tar.gz
@@ -27,4 +26,18 @@ sudo mv /etc/nixos /etc/nixos.bak
 sudo ln -s ~/dotfiles/etc/nixos/ /etc/nixos
 sudo nixos-rebuild switch
 rm -rf /etc/nixos.bak
+```
+
+New steps
+
+```sh
+sudo nix-channel --update && sudo nixos-rebuild switch
+nix-shell -p bitwarden-cli git git-crypt
+bw login
+export BW_SESSION=$(bw unlock --raw)
+export PAT=$(bw get item 9d72d740-f444-4c8a-9559-ad37009bc2d3 | jq -r '.fields[] | select(.name=="PAT [GENERAL]") | .value')
+git clone https://$PAT@github.com/michalmatoga/dotfiles.git ./tmp/dotfiles
+bw get item 6672d1f6-cde1-4582-be66-b13e00a82547 | jq -r .notes | gpg --import
+cd ./tmp/dotfiles
+git-crypt unlock
 ```
