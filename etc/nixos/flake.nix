@@ -22,7 +22,7 @@
         {
           home-manager.useGlobalPkgs = true;
           home-manager.useUserPackages = true;
-          home-manager.users.micmat = import ./home.nix;
+          home-manager.users.nixos = import ./home.nix;
         }
        ];
      };

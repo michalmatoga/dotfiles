@@ -1,10 +1,7 @@
 { config, pkgs, ... }:
 
-let
-  shared = import ./shared.nix;
-in
 {
-  home.username = shared.username;
+  home.username = "nixos"
 
   # home.homeDirectory = "/home/${username}";
 
@@ -60,7 +57,7 @@ in
   # basic configuration of git, please change to your own
   programs.git = {
     enable = true;
-    userName = shared.username;
+    userName = "Michał Matoga";
     userEmail = "michalmatoga@gmail.com";
   };
 

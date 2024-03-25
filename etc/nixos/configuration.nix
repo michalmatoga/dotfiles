@@ -7,9 +7,6 @@
 
 { config, lib, pkgs, ... }:
 
-let
-  shared = import ./shared.nix;
-in
 {
   wsl.enable = true;
   wsl.defaultUser = "nixos";
@@ -20,12 +17,5 @@ in
     curl
   ];
   
-  users.users.${shared.username} = {
-    isNormalUser = true;
-    group = shared.username;
-    extraGroups = [ "wheel" ];
-  };
-	users.groups.${shared.username} = {};
-
   system.stateVersion = "23.11";
 }
