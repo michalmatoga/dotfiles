@@ -1,7 +1,7 @@
 { config, pkgs, ... }:
 
 {
-  home.username = "nixos"
+  home.username = "nixos";
 
   # home.homeDirectory = "/home/${username}";
 
