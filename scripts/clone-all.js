@@ -3,7 +3,7 @@ const fs = require("fs");
 const path = require("path");
 
 const secrets = JSON.parse(
-  fs.readFileSync(path.join(__dirname, "secrets.json"), "utf8")
+  fs.readFileSync(path.join(__dirname, "../secrets.json"), "utf8")
 );
 const TOKEN = secrets.gh_pat_personal;
 
