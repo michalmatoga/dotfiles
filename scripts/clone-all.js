@@ -7,10 +7,10 @@ const fetchConfig = [
     provider: "github.com",
     fetch: ["elikonas", "michalmatoga/dotfiles"],
   },
-  {
-    provider: "github.schibsted.io",
-    fetch: ["svp"],
-  },
+  // {
+  //   provider: "github.schibsted.io",
+  //   fetch: ["svp"],
+  // },
 ];
 
 const secrets = JSON.parse(
