@@ -11,6 +11,7 @@
       # the `inputs.nixpkgs` of the current flake,
       # to avoid problems caused by different versions of nixpkgs.
       inputs.nixpkgs.follows = "nixpkgs";
+      shared = import ./shared.nix;
     };
   };
 
@@ -26,7 +27,7 @@
         {
           home-manager.useGlobalPkgs = true;
           home-manager.useUserPackages = true;
-          home-manager.users.michmato = import ./home.nix;
+          home-manager.users.${shared.username} = import ./home.nix;
 
         }
        ];
