@@ -59,8 +59,9 @@ async function fetchAllOrgRepos(provider, org) {
     }
     repos.push(...providerRepos);
   }
+  let i = 1;
   for (const repo of repos) {
-    console.log(`Cloning ${repo}`);
+    console.log(`Cloning ${repo}, ${i++}/${repos.length}`);
     execSync(`ghq get --shallow -p ${repo}`);
   }
 })();
