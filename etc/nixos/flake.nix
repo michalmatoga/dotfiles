@@ -1,6 +1,3 @@
-let
-  shared = import ./shared.nix;
-in
 {
   # description = "A very basic flake";
   
@@ -25,6 +22,9 @@ in
         {
           home-manager.useGlobalPkgs = true;
           home-manager.useUserPackages = true;
+          let
+            shared = import ./shared.nix;
+          in
           home-manager.users.${shared.username} = import ./home.nix;
         }
        ];
