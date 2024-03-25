@@ -22,8 +22,9 @@ mkdir ~/.ssh
 powershell.exe -command 'Get-Clipboard' > ~/.ssh/id_rsa
 chmod 600 ~/.ssh/id_rsa
 ssh-keygen -y -f ~/.ssh/id_rsa > ~/.ssh/id_rsa.pub
-git clone git@github.com:michalmatoga/dotfiles.git
+git clone git@github.com:michalmatoga/dotfiles.git ./c/github.com/michalmatoga/dotfiles
 sudo mv /etc/nixos /etc/nixos.bak
 sudo ln -s ~/dotfiles/etc/nixos/ /etc/nixos
 sudo nixos-rebuild switch
+rm -rf /etc/nixos.bak
 ```
