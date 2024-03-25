@@ -22,10 +22,7 @@
         {
           home-manager.useGlobalPkgs = true;
           home-manager.useUserPackages = true;
-          let
-            shared = import ./shared.nix;
-          in
-          home-manager.users.${shared.username} = import ./home.nix;
+          home-manager.users.micmat = import ./home.nix;
         }
        ];
      };
