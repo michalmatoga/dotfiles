@@ -140,6 +140,8 @@
       unbind C-b
       set-option -g prefix C-f
 
+      unbind p
+      bind p paste-buffer
       bind-key -Tcopy-mode-vi 'v' send -X begin-selection
     '';
   };
