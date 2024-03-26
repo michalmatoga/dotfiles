@@ -90,6 +90,7 @@
     enableCompletion = true;
     # autosuggestions.enable = true;
     syntaxHighlighting.enable = true;
+    sha256 = lib.fakeSha256;
 
     shellAliases = {
       update = "sudo nixos-rebuild switch";
