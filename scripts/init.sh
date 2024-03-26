@@ -12,10 +12,9 @@ export BW_SESSION=$(bw unlock --raw)
 bw get item 6672d1f6-cde1-4582-be66-b13e00a82547 | jq -r .notes | gpg --import
 git-crypt unlock
 eval $(ssh-agent)
-jq -r '.id_rsa' secrets.json | base64 -d | ssh-add /dev/stdin
-# mkdir ~/.ssh
-# jq -r '.id_rsa' secrets.json | base64 -d > ~/.ssh/id_rsa
-# chmod 600 ~/.ssh/id_rsa
-# ssh-keygen -y -f ~/.ssh/id_rsa > ~/.ssh/id_rsa.pub
-node scripts/clone-all.js
+mkdir ~/.ssh
+jq -r '.id_rsa' secrets.json | base64 -d > ~/.ssh/id_rsa
+chmod 600 ~/.ssh/id_rsa
+ssh-keygen -y -f ~/.ssh/id_rsa > ~/.ssh/id_rsa.pub
+node scripts/sync-repos.js
 cd ~

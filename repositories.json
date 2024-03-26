@@ -1,0 +1,14 @@
+[
+  {
+    "provider": "github.com",
+    "fetch": ["elikonas", "michalmatoga/dotfiles"]
+  },
+  {
+    "provider": "github.schibsted.io",
+    "fetch": ["svp"]
+  },
+  {
+    "provider": "gitlab.com",
+    "fetch": ["habify", "michalmatoga/journal"]
+  }
+]
