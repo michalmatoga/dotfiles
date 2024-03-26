@@ -52,6 +52,13 @@
     gawk
     zstd
     gnupg
+    
+    bitwarden-cli
+    git-crypt
+    ghq
+    gnupg
+    jq
+    nodejs-slim_20
   ];
 
   # basic configuration of git, please change to your own
