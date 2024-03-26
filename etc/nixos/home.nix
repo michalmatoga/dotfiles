@@ -20,7 +20,7 @@
   #     xxx
   # '';
   
-  home.file.".ssh/config" = ''
+  home.file.".ssh/config".text = ''
     Host *
       StrictHostKeyChecking no
       UserKnownHostsFile=/dev/null
