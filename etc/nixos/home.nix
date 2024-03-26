@@ -111,7 +111,7 @@
           owner = "zsh-users";
           repo = "zsh-autosuggestions";
           rev = "v0.7.0";
-          sha256 = "0ip26j2h11n1kgkz36rl4akv694yz65hr72q4kv4b3lxcbi65b3p";
+          # sha256 = "0ip26j2h11n1kgkz36rl4akv694yz65hr72q4kv4b3lxcbi65b3p";
         };
       }
     ];
