@@ -98,7 +98,7 @@
     
     oh-my-zsh = {
       enable = true;
-      plugins = [ "git" "thefuck" "autosuggestions"];
+      plugins = [ "git" "zsh-autosuggestions"];
       # theme = "robbyrussell";
     };
   };
