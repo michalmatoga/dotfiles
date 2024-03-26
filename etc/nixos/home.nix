@@ -88,12 +88,11 @@
   programs.zsh = {
     enable = true;
     enableCompletion = true;
-    # autosuggestions.enable = true;
     syntaxHighlighting.enable = true;
 
     shellAliases = {
       update = "sudo nixos-rebuild switch";
-      cplc="history | tail -n 2 | head -n 1 | cut -d' ' -f6-";
+      cplc="history | tail -n 1 | cut -d' ' -f6-";
     };
     history.size = 10000;
     
