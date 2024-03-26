@@ -88,13 +88,19 @@
   programs.zsh = {
     enable = true;
     enableCompletion = true;
-    autosuggestions.enable = true;
+    # autosuggestions.enable = true;
     syntaxHighlighting.enable = true;
 
     shellAliases = {
       update = "sudo nixos-rebuild switch";
     };
     history.size = 10000;
+    
+    oh-my-zsh = {
+      enable = true;
+      plugins = [ "git" "thefuck" "autosuggestions"];
+      # theme = "robbyrussell";
+    };
   };
   
   programs.neovim = {
