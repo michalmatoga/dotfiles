@@ -105,7 +105,7 @@
     historyLimit = 100000;
     plugins = with pkgs;
       [
-        tmuxPlugins.tmux-jump
+        jump
       ];
     extraConfig = ''
       unbind C-b
