@@ -99,6 +99,14 @@
     };
   };
   
+  programs.neovim = {
+    enable = true;
+    defaultEditor = true;
+    viAlias = true;
+    vimAlias = true;
+    vimdiffAlias = true;
+  };
+  
   programs.tmux = {
     enable = true;
     terminal = "tmux-256color";
@@ -108,8 +116,15 @@
         tmuxPlugins.jump
       ];
     extraConfig = ''
+      set-window-option -g mode-keys vi
+      set -g status-right '#(TZ="Europe/Warsaw" date +"%Y-%m-%d %%H:%%M")'
+
       unbind C-b
       set-option -g prefix C-f
+
+      unbind p
+      bind p paste-buffer
+      bind-key -Tcopy-mode-vi 'v' send -X begin-selection
     '';
   };
 
