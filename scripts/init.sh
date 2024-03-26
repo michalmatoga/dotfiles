@@ -2,7 +2,7 @@
 
 CHECKOUT_PATH=~/ghq/github.com/michalmatoga/dotfiles
 
-sudo rm -f /etc/nixos
+sudo rm -rf /etc/nixos
 sudo ln -s "$CHECKOUT_PATH/etc/nixos/" /etc/nixos
 sudo nix-channel --update && sudo nixos-rebuild switch
 
