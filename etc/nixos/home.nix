@@ -19,7 +19,12 @@
   # home.file.".xxx".text = ''
   #     xxx
   # '';
-
+  
+  home.file.".ssh/config" = ''
+    Host *
+      StrictHostKeyChecking no
+      UserKnownHostsFile=/dev/null
+  '';
 
   # Packages that should be installed to the user profile.
   home.packages = with pkgs; [
