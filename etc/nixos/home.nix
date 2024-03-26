@@ -98,6 +98,22 @@
       k = "kubectl";
     };
   };
+  
+  programs.tmux = {
+    enable = true;
+    terminal = "tmux-256color";
+    historyLimit = 100000;
+    plugins = with pkgs;
+      [
+        {
+          plugin = tmux-jump;
+        }
+      ];
+    extraConfig = ''
+      unbind C-b
+      set-option -g prefix C-f
+    '';
+  };
 
 
   programs.home-manager.enable = true;
