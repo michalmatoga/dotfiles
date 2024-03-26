@@ -110,7 +110,7 @@
           owner = "zsh-users";
           repo = "zsh-autosuggestions";
           rev = "v0.7.0";
-          sha256 = "ccd97fe9d7250b634683c651ef8a2fe3513ea917d1b491e8696a2a352b714f08";
+          sha256 = "dbe35227fd596019bace4c5d38d1be23";
         };
       }
     ];
