@@ -85,18 +85,16 @@
     };
   };
 
-  programs.bash = {
+  programs.zsh = {
     enable = true;
     enableCompletion = true;
-    # TODO add your custom bashrc here
-    bashrcExtra = ''
-      export PATH="$PATH:$HOME/bin:$HOME/.local/bin:$HOME/go/bin"
-    '';
+    autosuggestions.enable = true;
+    syntaxHighlighting.enable = true;
 
-    # set some aliases, feel free to add more or remove some
     shellAliases = {
-      k = "kubectl";
+      update = "sudo nixos-rebuild switch";
     };
+    history.size = 10000;
   };
   
   programs.neovim = {
@@ -123,8 +121,6 @@
       unbind C-b
       set-option -g prefix C-f
 
-      unbind p
-      bind p paste-buffer
       bind-key -Tcopy-mode-vi 'v' send -X begin-selection
     '';
   };
