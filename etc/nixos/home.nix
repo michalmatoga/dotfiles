@@ -93,13 +93,13 @@
 
     shellAliases = {
       update = "sudo nixos-rebuild switch";
+      cplc="history | tail -n 2 | head -n 1 | cut -d' ' -f6-";
     };
     history.size = 10000;
     
     oh-my-zsh = {
       enable = true;
       plugins = [ "git" "fzf"];
-      # theme = "robbyrussell";
     };
     
     plugins = [
