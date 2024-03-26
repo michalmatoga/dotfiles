@@ -16,6 +16,8 @@
     neovim
     curl
   ];
+
+  programs.zsh.enable = true;
   users.defaultUserShell = pkgs.zsh;
   
   system.stateVersion = "23.11";
