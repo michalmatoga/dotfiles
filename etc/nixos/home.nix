@@ -114,6 +114,7 @@
     plugins = with pkgs;
       [
         tmuxPlugins.jump
+        tmuxPlugins.yank
       ];
     extraConfig = ''
       set-window-option -g mode-keys vi
