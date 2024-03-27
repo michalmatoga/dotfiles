@@ -43,6 +43,7 @@
     gnumake
     gcc
     zig
+    rustc
 
     # networking tools
     nmap # A utility for network discovery and security auditing
