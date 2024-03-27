@@ -103,7 +103,11 @@
     
     oh-my-zsh = {
       enable = true;
-      plugins = [ "git" "fzf"];
+      plugins = [
+        git
+        fzf
+        zsh-vi-mode
+      ];
     };
     
     plugins = [
