@@ -105,7 +105,7 @@
     plugins = [
       {
         name = "zsh-autosuggestions";
-        src = pkgs.autosuggestions;
+        src = pkgs.zsh-autosuggestions;
       }
       {
         name = "zsh-vi-mode";
