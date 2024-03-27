@@ -7,7 +7,7 @@
 		gp="git push";
 		gpsup="git push --set-upstream origin $(git_current_branch)";
 		gco="git checkout";
-		'gcan!'="git commit --verbose --all --no-edit --amend";
+		"gcan!"="git commit --verbose --all --no-edit --amend";
 		# egrep='grep -E --color=auto --exclude-dir={.bzr,CVS,.git,.hg,.svn,.idea,.tox}'
 		# fgrep='grep -F --color=auto --exclude-dir={.bzr,CVS,.git,.hg,.svn,.idea,.tox}'
 		# g=git
