@@ -100,7 +100,7 @@
       enable = true;
       plugins = [
         { name = "zsh-users/zsh-autosuggestions"; }
-        { name = "jeffreytse/zsh-vi-mode"; }
+        # { name = "jeffreytse/zsh-vi-mode"; }
         { name = "joshskidmore/zsh-fzf-history-search"; }
       ];
     };
