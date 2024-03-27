@@ -69,6 +69,7 @@
     # WSL-specific
     wsl-open
     
+    zsh-autosuggestions
     zsh-vi-mode
   ];
 
