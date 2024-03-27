@@ -106,7 +106,6 @@
         { name = "zsh-users/zsh-autosuggestions"; }
         { name = "joshskidmore/zsh-fzf-history-search"; }
         { name = "unixorn/fzf-zsh-plugin"; }
-        # { name = "jeffreytse/zsh-vi-mode"; }
       ];
     };
 
