@@ -4,7 +4,7 @@
   imports =
     [
       ./aliases/git.nix
-    ]
+    ];
   # home.username = "nixos";
 
   # home.homeDirectory = "/home/${username}";
