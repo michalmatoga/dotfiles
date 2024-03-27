@@ -15,6 +15,7 @@
     git
     neovim
     curl
+    wget
   ];
 
   programs.zsh.enable = true;
