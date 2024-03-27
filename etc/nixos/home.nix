@@ -145,6 +145,8 @@
       unbind p
       bind p paste-buffer
       bind-key -Tcopy-mode-vi 'v' send -X begin-selection
+      
+      set -g @thumbs-command 'echo -n {} | clip.exe'
     '';
   };
 
