@@ -44,6 +44,7 @@
     eza # A modern replacement for ‘ls’
     fzf # A command-line fuzzy finder
 		tmux
+    xdg-utils
 
     # networking tools
     nmap # A utility for network discovery and security auditing
@@ -133,7 +134,6 @@
         tmuxPlugins.jump
         tmuxPlugins.yank
         tmuxPlugins.tmux-thumbs
-        tmuxPlugins.open
       ];
     extraConfig = ''
       set-window-option -g mode-keys vi
