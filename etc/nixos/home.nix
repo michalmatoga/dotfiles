@@ -102,28 +102,34 @@
     };
     history.size = 10000;
     
-    plugins = [
-      {
-        # will source zsh-autosuggestions.plugin.zsh
-        name = "zsh-autosuggestions";
-        src = pkgs.fetchFromGitHub {
-          owner = "zsh-users";
-          repo = "zsh-autosuggestions";
-          rev = "v0.7.0";
-          sha256 = "KLUYpUu4DHRumQZ3w59m9aTW6TBKMCXl2UcKi4uMd7w=";
-        };
-      }
-      {
-        # will source zsh-autosuggestions.plugin.zsh
-        name = "zsh-vi-mode";
-        src = pkgs.fetchFromGitHub {
-          owner = "jeffreytse";
-          repo = "zsh-vi-mode";
-          rev = "v0.11.0";
-          sha256 = "KLUYpUu4DHRumQZ3w59m9aTW6TBKMCXl2UcKi4uMd7w=";
-        };
-      }
-    ];
+    # plugins = [
+    #   {
+    #     name = "zsh-autosuggestions";
+    #     src = pkgs.fetchFromGitHub {
+    #       owner = "zsh-users";
+    #       repo = "zsh-autosuggestions";
+    #       rev = "v0.7.0";
+    #       sha256 = "KLUYpUu4DHRumQZ3w59m9aTW6TBKMCXl2UcKi4uMd7w=";
+    #     };
+    #   }
+    #   {
+    #     name = "zsh-vi-mode";
+    #     src = pkgs.fetchFromGitHub {
+    #       owner = "jeffreytse";
+    #       repo = "zsh-vi-mode";
+    #       rev = "v0.11.0";
+    #       sha256 = "";
+    #     };
+    #   }
+    # ];
+    
+    zplug = {
+      enable = true;
+      plugins = [
+        { name = "zsh-users/zsh-autosuggestions"; }
+        { name = "jeffreytse/zsh-vi-mode"; }
+      ];
+    };
 
     oh-my-zsh = {
       enable = true;
