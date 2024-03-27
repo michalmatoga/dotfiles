@@ -94,12 +94,6 @@
     enable = true;
     enableCompletion = true;
     syntaxHighlighting.enable = true;
-
-    shellAliases = {
-      update = "sudo nixos-rebuild switch";
-      cplc="history | tail -n 1 | cut -d' ' -f6- | clip.exe";
-      cpwd="pwd | tr -d '\n' | clip.exe";
-    };
     history.size = 10000;
     
     zplug = {
@@ -116,6 +110,12 @@
         "git"
         "fzf"
       ];
+    };
+
+    shellAliases = {
+      update = "sudo nixos-rebuild switch";
+      cplc="history | tail -n 1 | cut -d' ' -f6- | clip.exe";
+      cpwd="pwd | tr -d '\n' | clip.exe";
     };
   };
   
