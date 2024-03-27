@@ -26,6 +26,7 @@
 
     # archives
     zip
+    unzip
 
     # utils
     ripgrep # recursively searches directories for a regex pattern
