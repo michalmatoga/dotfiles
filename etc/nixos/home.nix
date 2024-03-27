@@ -7,13 +7,13 @@
     ];
 
   home.file.".config/dotfiles/scripts" = {
-    source = ./scripts;
-    recursive = true;   # link recursively
-    executable = true;  # make all files executable
+    source = ../../scripts;
+    recursive = true;
+    executable = true;
   };
 
   home.file."repositories.json" = {
-    source = ./repositories.json;
+    source = ../../repositories.json;
   };
   
   home.file.".ssh/config".text = ''
