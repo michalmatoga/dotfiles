@@ -68,6 +68,10 @@
 
     # WSL-specific
     wsl-open
+    
+    # nvim
+
+    lua-language-server
   ];
 
   # basic configuration of git, please change to your own
