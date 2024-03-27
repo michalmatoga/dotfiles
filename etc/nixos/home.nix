@@ -65,6 +65,9 @@
     gnupg
     jq
     nodejs-slim_20
+
+    # WSL-specific
+    wsl-open
   ];
 
   # basic configuration of git, please change to your own
