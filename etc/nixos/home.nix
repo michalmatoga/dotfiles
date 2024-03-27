@@ -35,8 +35,8 @@
     fzf # A command-line fuzzy finder
 		tmux
     xdg-utils
-    make
-    gcc
+    gnumake
+    libgcc
     zig
 
     # networking tools
