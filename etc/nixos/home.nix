@@ -101,17 +101,17 @@
       plugins = [
         { name = "zsh-users/zsh-autosuggestions"; }
         # { name = "jeffreytse/zsh-vi-mode"; }
-        # { name = "joshskidmore/zsh-fzf-history-search"; }
+        { name = "joshskidmore/zsh-fzf-history-search"; }
       ];
     };
 
-    oh-my-zsh = {
-      enable = true;
-      plugins = [
-        "git"
-        "fzf"
-      ];
-    };
+    # oh-my-zsh = {
+    #   enable = true;
+    #   plugins = [
+    #     "git"
+    #     "fzf"
+    #   ];
+    # };
 
     shellAliases = {
       update = "sudo nixos-rebuild switch";
