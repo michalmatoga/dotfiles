@@ -13,8 +13,12 @@
   home.file.".ssh/config".text = ''
     Host *
       StrictHostKeyChecking no
-      UserKnownHostsFile=/dev/null
   '';
+
+  home.file.".config/nvim" = {
+    recursive = true;
+    source = ../../.config/nvim;
+  };
 
   # Packages that should be installed to the user profile.
   home.packages = with pkgs; [
