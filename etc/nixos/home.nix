@@ -101,7 +101,7 @@
       plugins = [
         { name = "zsh-users/zsh-autosuggestions"; }
         # { name = "jeffreytse/zsh-vi-mode"; }
-        { name = "joshskidmore/zsh-fzf-history-search"; }
+        # { name = "joshskidmore/zsh-fzf-history-search"; }
       ];
     };
 
@@ -109,7 +109,7 @@
       enable = true;
       plugins = [
         "git"
-        # "fzf"
+        "fzf"
       ];
     };
 
