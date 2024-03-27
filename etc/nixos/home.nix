@@ -6,12 +6,6 @@
       ./aliases/git.nix
     ];
 
-  # home.file.".config/dotfiles/scripts" = {
-  #   source = ../../scripts;
-  #   recursive = true;
-  #   executable = true;
-  # };
-
   home.file."repositories.json" = {
     source = ../../repositories.json;
   };
@@ -99,7 +93,8 @@
       ];
     };
     shellAliases = {
-      update = "zsh ~/ghq/github.com/michalmatoga/dotfiles/scripts/update.sh";
+      sync-repos = "node ~/ghq/github.com/michalmatoga/dotfiles/scripts/sync-repos.js";
+      update = "sudo nixos-rebuild switch";
       cplc="history | tail -n 1 | cut -d' ' -f5- | clip.exe";
       cpwd="pwd | tr -d '\n' | clip.exe";
     };
