@@ -132,6 +132,7 @@
       [
         tmuxPlugins.jump
         tmuxPlugins.yank
+        tmuxPlugins.tmux-thumbs
       ];
     extraConfig = ''
       set-window-option -g mode-keys vi
