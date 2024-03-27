@@ -101,7 +101,7 @@
       plugins = [
         { name = "zsh-users/zsh-autosuggestions"; }
         { name = "jeffreytse/zsh-vi-mode"; }
-        { name = "unixorn/fzf-zsh-plugin"; }
+        { name = "joshskidmore/zsh-fzf-history-search"; }
       ];
     };
 
