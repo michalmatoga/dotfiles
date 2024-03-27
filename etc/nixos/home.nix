@@ -135,6 +135,8 @@
     extraConfig = ''
       set-window-option -g mode-keys vi
       set -g status-right '#(TZ="Europe/Warsaw" date +"%Y-%m-%d %%H:%%M")'
+      set-option -sg escape-time 10
+
 
       unbind C-b
       set-option -g prefix C-f
