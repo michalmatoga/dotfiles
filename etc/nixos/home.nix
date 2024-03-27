@@ -149,7 +149,8 @@
       bind p paste-buffer
       bind-key -Tcopy-mode-vi 'v' send -X begin-selection
       
-      set -g @thumbs-command 'echo -n {} | clip.exe'
+      set -g @thumbs-command 'echo -n {} | clip.exe && tmux display-message \"Copied {}\"'
+      set -g @thumbs-upcase-command 'tmux display-message \"Opening {}\" && wsl-open {}'
     '';
   };
 
