@@ -102,6 +102,17 @@
     };
     history.size = 10000;
     
+    plugins = [
+      {
+        name = "zsh-autosuggestions";
+        src = pkgs.autosuggestions;
+      }
+      {
+        name = "zsh-vi-mode";
+        src = pkgs.zsh-vi-mode;
+      }
+    ];
+
     oh-my-zsh = {
       enable = true;
       plugins = [
@@ -110,23 +121,6 @@
         "zsh-vi-mode"
       ];
     };
-    
-    plugins = [
-      {
-        # will source zsh-autosuggestions.plugin.zsh
-        name = "zsh-autosuggestions";
-        src = pkgs.fetchFromGitHub {
-          owner = "zsh-users";
-          repo = "zsh-autosuggestions";
-          rev = "v0.7.0";
-          sha256 = "KLUYpUu4DHRumQZ3w59m9aTW6TBKMCXl2UcKi4uMd7w=";
-        };
-      }
-      {
-        name = "zsh-vi-mode";
-        src = pkgs.zsh-vi-mode;
-      }
-    ];
   };
   
   programs.neovim = {
