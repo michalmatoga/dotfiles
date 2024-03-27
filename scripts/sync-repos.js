@@ -58,11 +58,11 @@ async function fetchAllOrgRepos(provider, org) {
     }
     repos.push(...providerRepos);
   }
-  fs.writeFileSync("dist/repolist.txt", repos.join("\n"));
+  fs.writeFileSync("repolist.txt", repos.join("\n"));
 
   const result = spawnSync(
     "bash",
-    ["-c", "cat dist/repolist.txt | ghq get -p --shallow --parallel"],
+    ["-c", "cat repolist.txt | ghq get -p --shallow --parallel"],
     { stdio: "inherit" }
   );
 
@@ -72,7 +72,7 @@ async function fetchAllOrgRepos(provider, org) {
   }
 
   const removeList = execSync(
-    `bash -c "comm -23 <(ghq list | sort) <(sort dist/repolist.txt)"`
+    `bash -c "comm -23 <(ghq list | sort) <(sort repolist.txt)"`
   ).toString();
   if (removeList) {
     console.log(`Removing repos:\n\n${removeList}`);
