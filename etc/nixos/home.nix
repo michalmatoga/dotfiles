@@ -35,6 +35,9 @@
     fzf # A command-line fuzzy finder
 		tmux
     xdg-utils
+    make
+    gcc
+    zig
 
     # networking tools
     nmap # A utility for network discovery and security auditing
