@@ -5,24 +5,16 @@
     [
       ./aliases/git.nix
     ];
-  # home.username = "nixos";
 
-  # home.homeDirectory = "/home/${username}";
+  home.file.".config/dotfiles/scripts" = {
+    source = ./scripts;
+    recursive = true;   # link recursively
+    executable = true;  # make all files executable
+  };
 
-  # link the configuration file in current directory to the specified location in home directory
-  # home.file.".config/i3/wallpaper.jpg".source = ./wallpaper.jpg;
-
-  # link all files in `./scripts` to `~/.config/i3/scripts`
-  # home.file.".config/i3/scripts" = {
-  #   source = ./scripts;
-  #   recursive = true;   # link recursively
-  #   executable = true;  # make all files executable
-  # };
-
-  # encode the file content in nix configuration file directly
-  # home.file.".xxx".text = ''
-  #     xxx
-  # '';
+  home.file."repositories.json" = {
+    source = ./repositories.json;
+  };
   
   home.file.".ssh/config".text = ''
     Host *
@@ -72,7 +64,6 @@
 
     # WSL-specific
     wsl-open
-    
   ];
 
   # basic configuration of git, please change to your own
@@ -99,7 +90,6 @@
     enableCompletion = true;
     syntaxHighlighting.enable = true;
     history.size = 10000;
-    
     zplug = {
       enable = true;
       plugins = [
@@ -108,10 +98,9 @@
         { name = "unixorn/fzf-zsh-plugin"; }
       ];
     };
-
     shellAliases = {
-      update = "sudo nixos-rebuild switch";
-      cplc="history | tail -n 1 | cut -d' ' -f6- | clip.exe";
+      update = "zsh ~/.config/dotfiles/scripts/update.sh";
+      cplc="history | tail -n 1 | cut -d' ' -f5- | clip.exe";
       cpwd="pwd | tr -d '\n' | clip.exe";
     };
   };
