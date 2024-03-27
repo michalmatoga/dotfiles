@@ -17,3 +17,13 @@ In NixOS shell:
 ```sh
 sudo nix-channel --update && sudo nixos-rebuild switch && nix-shell -p git --run "git clone https://github.com/michalmatoga/dotfiles.git ~/ghq/github.com/michalmatoga/dotfiles && ./ghq/github.com/michalmatoga/dotfiles/scripts/init.sh"
 ```
+
+### Hacks
+
+After first running nvim and installing plugins with Lazy, run:
+
+```sh
+ln -s `which lua-language-server` ~/.local/share/nvim/mason/bin/lua-language-server
+```
+
+to fix Lua LSP.
