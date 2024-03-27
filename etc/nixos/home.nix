@@ -36,7 +36,7 @@
 		tmux
     xdg-utils
     gnumake
-    libgcc
+    gcc
     zig
 
     # networking tools
