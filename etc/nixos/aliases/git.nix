@@ -3,10 +3,11 @@
 {
   programs.zsh.shellAliases = {
 		ga="git add";
-		gst="git status";
+		gco="git checkout";
+		glgg="git log --graph";
 		gp="git push";
 		gpsup="git push --set-upstream origin $(git_current_branch)";
-		gco="git checkout";
+		gst="git status";
 		"gcan!"="git commit --verbose --all --no-edit --amend";
 		# egrep='grep -E --color=auto --exclude-dir={.bzr,CVS,.git,.hg,.svn,.idea,.tox}'
 		# fgrep='grep -F --color=auto --exclude-dir={.bzr,CVS,.git,.hg,.svn,.idea,.tox}'
@@ -88,7 +89,6 @@
 		# gke='\gitk --all $(git log --walk-reflogs --pretty=%h) &!'
 		# gl='git pull'
 		# glg='git log --stat'
-		# glgg='git log --graph'
 		# glgga='git log --graph --decorate --all'
 		# glgm='git log --graph --max-count=10'
 		# glgp='git log --stat --patch'
