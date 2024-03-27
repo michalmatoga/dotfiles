@@ -110,13 +110,6 @@
       ];
     };
 
-    oh-my-zsh = {
-      enable = true;
-      plugins = [
-        "git"
-      ];
-    };
-
     shellAliases = {
       update = "sudo nixos-rebuild switch";
       cplc="history | tail -n 1 | cut -d' ' -f6- | clip.exe";
