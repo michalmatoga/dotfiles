@@ -6,11 +6,11 @@
       ./aliases/git.nix
     ];
 
-  home.file.".config/dotfiles/scripts" = {
-    source = ../../scripts;
-    recursive = true;
-    executable = true;
-  };
+  # home.file.".config/dotfiles/scripts" = {
+  #   source = ../../scripts;
+  #   recursive = true;
+  #   executable = true;
+  # };
 
   home.file."repositories.json" = {
     source = ../../repositories.json;
@@ -99,7 +99,7 @@
       ];
     };
     shellAliases = {
-      update = "zsh ~/.config/dotfiles/scripts/update.sh";
+      update = "zsh ~/ghq/github.com/michalmatoga/dotfiles/scripts/update.sh";
       cplc="history | tail -n 1 | cut -d' ' -f5- | clip.exe";
       cpwd="pwd | tr -d '\n' | clip.exe";
     };
