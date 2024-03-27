@@ -101,6 +101,7 @@
       plugins = [
         { name = "zsh-users/zsh-autosuggestions"; }
         { name = "jeffreytse/zsh-vi-mode"; }
+        { name = "unixorn/fzf-zsh-plugin"; }
       ];
     };
 
@@ -108,7 +109,7 @@
       enable = true;
       plugins = [
         "git"
-        "fzf"
+        # "fzf"
       ];
     };
 
