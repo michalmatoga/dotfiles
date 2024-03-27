@@ -2,13 +2,15 @@
 
 {
   programs.zsh.shellAliases = {
+		"gcan!"="git commit --verbose --all --no-edit --amend";
 		ga="git add";
 		gco="git checkout";
 		glgg="git log --graph";
 		gp="git push";
 		gpsup="git push --set-upstream origin $(git_current_branch)";
+		grh="git reset";
+		grhh="git reset --hard";
 		gst="git status";
-		"gcan!"="git commit --verbose --all --no-edit --amend";
 		# egrep='grep -E --color=auto --exclude-dir={.bzr,CVS,.git,.hg,.svn,.idea,.tox}'
 		# fgrep='grep -F --color=auto --exclude-dir={.bzr,CVS,.git,.hg,.svn,.idea,.tox}'
 		# g=git
@@ -133,8 +135,6 @@
 		# grbs='git rebase --skip'
 		# grep='grep --color=auto --exclude-dir={.bzr,CVS,.git,.hg,.svn,.idea,.tox}'
 		# grev='git revert'
-		# grh='git reset'
-		# grhh='git reset --hard'
 		# grm='git rm'
 		# grmc='git rm --cached'
 		# grmv='git remote rename'
