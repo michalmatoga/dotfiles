@@ -351,9 +351,8 @@ require('lazy').setup({
         --     i = { ['<c-enter>'] = 'to_fuzzy_refine' },
         --   },
         -- },
-        -- pickers = { },
-        defaults = {
-          find_command = {'rg', '--files', '--hidden', '-g', '!.git' }
+        pickers = {
+          find_files = { hidden = true }
         },
         extensions = {
           ['ui-select'] = {
