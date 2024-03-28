@@ -250,6 +250,29 @@ require('lazy').setup({
     event = { "InsertLeave", "TextChanged" }, -- optional for lazy loading on trigger events
     opts = {},
   },
+  {
+    "nvim-neo-tree/neo-tree.nvim",
+    version = "*",
+    dependencies = {
+      "nvim-lua/plenary.nvim",
+      "nvim-tree/nvim-web-devicons", -- not strictly required, but recommended
+      "MunifTanjim/nui.nvim",
+    },
+    config = function ()
+      require('neo-tree').setup {
+        auto_close = true,
+        update_focused_file = {
+          enable = true,
+          update_cwd = true,
+        },
+        view = {
+          width = 30,
+          side = 'left',
+          auto_resize = true,
+        },
+      }
+    end,
+  },
 
   -- NOTE: Plugins can also be added by using a table,
   -- with the first argument being the link and the following
