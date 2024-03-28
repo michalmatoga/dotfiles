@@ -260,6 +260,9 @@ require('lazy').setup({
     },
     config = function ()
       require('neo-tree').setup {
+        keys = {
+          { "<leader>t", mode = { "n" }, function() require("neo-tree").toggle() end, desc = "Toggle Neo[T]ree" },
+        },
         auto_close = true,
         update_focused_file = {
           enable = true,
