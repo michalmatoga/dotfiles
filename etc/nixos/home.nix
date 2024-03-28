@@ -15,9 +15,14 @@
       StrictHostKeyChecking no
   '';
 
-  home.file.".config" = {
+  home.file.".config/nvim" = {
     recursive = true;
-    source = ../../.config;
+    source = ../../.config/nvim;
+  };
+
+  home.file.".config/tmuxinator" = {
+    recursive = true;
+    source = ../../.config/tmuxinator;
   };
 
   # Packages that should be installed to the user profile.
