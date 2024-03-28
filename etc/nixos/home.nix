@@ -64,7 +64,7 @@
     gawk
     zstd
     gnupg
-    
+
     bitwarden-cli
     git-crypt
     ghq
@@ -74,8 +74,6 @@
 
     # WSL-specific
     wsl-open
-    
-    # nvim
 
     lua-language-server
   ];
@@ -123,6 +121,7 @@
   
   programs.neovim = {
     enable = true;
+    package = unstable.neovim;
     defaultEditor = true;
     viAlias = true;
     vimAlias = true;
