@@ -312,6 +312,7 @@ require('lazy').setup({
   --   },
   --   config = true
   -- },
+  { 'sindrets/diffview.nvim', opts = {} },
 
 
   -- NOTE: Plugins can also be added by using a table,
