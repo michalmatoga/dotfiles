@@ -115,8 +115,9 @@
     shellAliases = {
       sync-repos = "node ~/ghq/github.com/michalmatoga/dotfiles/scripts/sync-repos.js";
       update = "sudo nixos-rebuild switch";
-      cplc="history | tail -n 1 | cut -d' ' -f5- | clip.exe";
-      cpwd="pwd | tr -d '\n' | clip.exe";
+      cplc = "history | tail -n 1 | cut -d' ' -f5- | clip.exe";
+      cpwd = "pwd | tr -d '\n' | clip.exe";
+      mux = "tmuxinator start";
     };
   };
   
