@@ -353,7 +353,7 @@ require('lazy').setup({
         -- },
         -- pickers = { },
         defaults = {
-          find_command = {'rg', '--no-ignore', '--hidden', '--files', '--iglob', '!{.git,.gitignore}'},
+          find_command = {'rg', '--hidden' },
         },
         extensions = {
           ['ui-select'] = {
