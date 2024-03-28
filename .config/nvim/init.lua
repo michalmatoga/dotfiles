@@ -263,16 +263,6 @@ require('lazy').setup({
         keys = {
           { "<leader>t", mode = { "n" }, function() require("neo-tree").toggle() end, desc = "Toggle Neo[T]ree" },
         },
-        auto_close = true,
-        update_focused_file = {
-          enable = true,
-          update_cwd = true,
-        },
-        view = {
-          width = 30,
-          side = 'left',
-          auto_resize = true,
-        },
       }
     end,
   },
