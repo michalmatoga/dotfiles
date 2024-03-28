@@ -15,9 +15,9 @@
       StrictHostKeyChecking no
   '';
 
-  home.file.".config/nvim" = {
+  home.file.".config" = {
     recursive = true;
-    source = ../../.config/nvim;
+    source = ../../.config;
   };
 
   # Packages that should be installed to the user profile.
