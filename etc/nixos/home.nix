@@ -39,6 +39,7 @@
     eza # A modern replacement for ‘ls’
     fzf # A command-line fuzzy finder
 		tmux
+    tmuxinator
     xdg-utils
     gnumake
     gcc
