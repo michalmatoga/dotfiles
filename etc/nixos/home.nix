@@ -121,7 +121,6 @@
   
   programs.neovim = {
     enable = true;
-    package = nixos-unstable.neovim;
     defaultEditor = true;
     viAlias = true;
     vimAlias = true;
