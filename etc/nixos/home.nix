@@ -75,6 +75,10 @@
 
     lua-language-server
   ];
+  # setup some environment variables
+  home.sessionVariables = {
+    BROWSER = "wsl-open";
+  };
 
   # basic configuration of git, please change to your own
   programs.git = {
