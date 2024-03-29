@@ -304,18 +304,13 @@ require('lazy').setup({
   -- {
   -- 'rmagatti/auto-session', opts = {},
   -- },
-  -- {
-  --   "NeogitOrg/neogit",
-  --   dependencies = {
-  --     "nvim-lua/plenary.nvim",
-  --     "sindrets/diffview.nvim",
-  --     "nvim-telescope/telescope.nvim",
-  --   },
-  --   config = true
-  -- },
-  { 'sindrets/diffview.nvim', opts = {} },
-
-
+  {
+    'sindrets/diffview.nvim',
+      opts = {},
+      config = function ()
+        vim.keymap.set('n', '<leader>do', ':DiffviewOpen<CR>', { desc = '[D]iffView [O]pen' })
+      end
+  },
   -- NOTE: Plugins can also be added by using a table,
   -- with the first argument being the link and the following
   -- keys can be used to configure plugin behavior/loading/etc.
