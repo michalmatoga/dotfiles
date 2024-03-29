@@ -75,10 +75,6 @@
 
     lua-language-server
   ];
-  # setup some environment variables
-  home.sessionVariables = {
-    BROWSER = "wsl-open";
-  };
 
   # basic configuration of git, please change to your own
   programs.git = {
@@ -118,6 +114,10 @@
       cplc = "history | tail -n 1 | cut -d' ' -f5- | clip.exe";
       cpwd = "pwd | tr -d '\n' | clip.exe";
       mux = "tmuxinator start";
+    };
+    sessionVariables = {
+      # setup some environment variables
+      BROWSER = "wsl-open";
     };
   };
   
