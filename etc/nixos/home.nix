@@ -137,6 +137,7 @@
         tmuxPlugins.yank
         tmuxPlugins.tmux-thumbs
         tmuxPlugins.tmux-fzf
+        tmuxPlugins.tmux-catppuccin
       ];
     extraConfig = ''
       set-window-option -g mode-keys vi
@@ -152,7 +153,7 @@
       unbind p
       bind p paste-buffer
       bind-key -Tcopy-mode-vi 'v' send -X begin-selection
-      
+
       set -g @thumbs-command 'echo -n {} | clip.exe && tmux display-message \"Copied {}\"'
       set -g @thumbs-upcase-command 'wsl-open {}'
     '';
