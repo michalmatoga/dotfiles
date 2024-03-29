@@ -268,7 +268,6 @@ require('lazy').setup({
   },
   {
     "nvim-neo-tree/neo-tree.nvim",
-    version = "*",
     dependencies = {
       "nvim-lua/plenary.nvim",
       "nvim-tree/nvim-web-devicons", -- not strictly required, but recommended
@@ -276,27 +275,14 @@ require('lazy').setup({
     },
     config = function ()
       require('neo-tree').setup {
-        buffers = { follow_current_file = { enabled = true } },
+        update_focused_file = {
+          enable = true,
+          -- update_cwd = true,
+        },
+        -- buffers = { follow_current_file = { enabled = true } },
         keys = {
           { "<leader>t", mode = { "n" }, function() require("neo-tree").toggle() end, desc = "Toggle Neo[T]ree" },
         },
-        -- TODO: apply hacks for auto-session
-        -- event_handlers = {
-        --   {
-        --     event = "neo_tree_buffer_leave",
-        --     handler = function()
-        --       local shown_buffers = {}
-        --       for _, win in ipairs(vim.api.nvim_list_wins()) do
-        --           shown_buffers[vim.api.nvim_win_get_buf(win)] = true
-        --       end
-        --       for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-        --           if not shown_buffers[buf] and vim.api.nvim_buf_get_option(buf, 'buftype') == 'nofile' and vim.api.nvim_buf_get_option(buf, 'filetype') == 'neo-tree' then
-        --               vim.api.nvim_buf_delete(buf, {})
-        --           end
-        --       end
-        --     end,
-        --   },
-        -- },
       }
     end,
   },
