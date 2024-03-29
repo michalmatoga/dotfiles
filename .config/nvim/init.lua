@@ -289,10 +289,9 @@ require('lazy').setup({
       }
     end,
   },
-  -- TODO: setup session resume after neo-tree issue is resolved
-  -- {
-  -- 'rmagatti/auto-session', opts = {},
-  -- },
+  {
+  'rmagatti/auto-session', opts = {},
+  },
   {
     'sindrets/diffview.nvim',
       opts = {},
