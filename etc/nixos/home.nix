@@ -51,6 +51,7 @@
     zig
     rustc
     python3
+    gh
 
     # networking tools
     nmap # A utility for network discovery and security auditing
