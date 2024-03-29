@@ -1,5 +1,4 @@
 --[[
-
 =====================================================================
 ==================== READ THIS BEFORE CONTINUING ====================
 =====================================================================
@@ -275,11 +274,12 @@ require('lazy').setup({
     },
     config = function ()
       require('neo-tree').setup {
-        update_focused_file = {
-          enable = true,
-          update_cwd = true,
-        },
-        -- buffers = { follow_current_file = { enabled = true } },
+        -- update_focused_file = {
+        --   enable = true,
+        --   update_cwd = true,
+        -- },
+        buffers = { follow_current_file = { enabled = true } },
+        filesystem = { follow_current_file = { enabled = true } },
         keys = {
           { "<leader>t", mode = { "n" }, function() require("neo-tree").toggle() end, desc = "Toggle Neo[T]ree" },
         },
