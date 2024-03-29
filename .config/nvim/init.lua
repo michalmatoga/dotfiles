@@ -279,7 +279,10 @@ require('lazy').setup({
         --   update_cwd = true,
         -- },
         buffers = { follow_current_file = { enabled = true } },
-        filesystem = { follow_current_file = { enabled = true } },
+        filesystem = {
+          filtered_items = { visible = true },
+          follow_current_file = { enabled = true }
+        },
         keys = {
           { "<leader>t", mode = { "n" }, function() require("neo-tree").toggle() end, desc = "Toggle Neo[T]ree" },
         },
