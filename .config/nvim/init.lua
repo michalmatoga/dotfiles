@@ -278,7 +278,7 @@ require('lazy').setup({
         --   enable = true,
         --   update_cwd = true,
         -- },
-        buffers = { follow_current_file = { enabled = true } },
+        -- buffers = { follow_current_file = { enabled = true } },
         filesystem = {
           filtered_items = { visible = true },
           follow_current_file = { enabled = true }
