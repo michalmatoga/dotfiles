@@ -70,7 +70,7 @@
     ghq
     gnupg
     jq
-    nodejs-slim_20
+    nodejs_20
 
     # WSL-specific
     wsl-open
