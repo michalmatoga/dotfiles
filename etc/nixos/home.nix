@@ -115,10 +115,10 @@
       cpwd = "pwd | tr -d '\n' | clip.exe";
       mux = "tmuxinator start";
     };
-    sessionVariables = {
-      # setup some environment variables
-      BROWSER = "wsl-open";
-    };
+    # setup some environment variables
+    initExtra = '' 
+      export BROWSER="wsl-open";
+    '';
   };
   
   programs.neovim = {
