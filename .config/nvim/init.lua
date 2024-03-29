@@ -309,6 +309,7 @@ require('lazy').setup({
       opts = {},
       config = function ()
         vim.keymap.set('n', '<leader>do', ':DiffviewOpen<CR>', { desc = '[D]iffView [O]pen' })
+        vim.keymap.set('n', '<leader>dc', ':DiffviewClose<CR>', { desc = '[D]iffView [C]lose' })
       end
   },
   -- NOTE: Plugins can also be added by using a table,
