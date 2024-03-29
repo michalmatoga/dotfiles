@@ -276,6 +276,7 @@ require('lazy').setup({
     },
     config = function ()
       require('neo-tree').setup {
+        buffers = { follow_current_file = { enabled = true } },
         keys = {
           { "<leader>t", mode = { "n" }, function() require("neo-tree").toggle() end, desc = "Toggle Neo[T]ree" },
         },
