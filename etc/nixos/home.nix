@@ -142,6 +142,8 @@
       set-window-option -g mode-keys vi
       set -g status-right '#(TZ="Europe/Warsaw" date +"%Y-%m-%d %%H:%%M")'
       set-option -sg escape-time 10
+      set -g default-terminal "tmux-256color"
+      set -ag terminal-overrides ",xterm-256color:RGB"
 
 
       unbind C-b
