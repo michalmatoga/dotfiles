@@ -137,7 +137,6 @@
         tmuxPlugins.yank
         tmuxPlugins.tmux-thumbs
         tmuxPlugins.tmux-fzf
-        tmuxPlugins.tmux-catppuccin
       ];
     extraConfig = ''
       set-window-option -g mode-keys vi
