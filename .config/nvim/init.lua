@@ -274,11 +274,6 @@ require('lazy').setup({
     },
     config = function ()
       require('neo-tree').setup {
-        -- update_focused_file = {
-        --   enable = true,
-        --   update_cwd = true,
-        -- },
-        -- buffers = { follow_current_file = { enabled = true } },
         filesystem = {
           filtered_items = { visible = true },
           follow_current_file = { enabled = true }
