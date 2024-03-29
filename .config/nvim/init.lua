@@ -289,8 +289,13 @@ require('lazy').setup({
       }
     end,
   },
+  -- {
+  -- 'rmagatti/auto-session', opts = {},
+  -- },
   {
-  'rmagatti/auto-session', opts = {},
+  'folke/persistence.nvim',
+    event = "BufReadPre",
+    opts = {  }
   },
   {
     'sindrets/diffview.nvim',
