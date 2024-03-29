@@ -295,7 +295,9 @@ require('lazy').setup({
   {
   'folke/persistence.nvim',
     event = "BufReadPre",
-    opts = {  }
+    config = function ()
+      vim.keymap.set('n', '<leader>os', '<cmd>lua require("persistence").load()<CR>', { desc = '[O]pen [S]ession' })
+    end,
   },
   {
     'sindrets/diffview.nvim',
