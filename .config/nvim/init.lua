@@ -302,19 +302,19 @@ require('lazy').setup({
         vim.keymap.set('n', '<leader>dv', '<cmd>lua toggle_diffview()<CR>', { desc = '[D]iff[V]iew toggle' })
       end,
   },
-  -- {
-  --   'pwntester/octo.nvim',
-  --   dependencies = {
-  --     'nvim-lua/plenary.nvim',
-  --     'nvim-telescope/telescope.nvim',
-  --     'nvim-tree/nvim-web-devicons',
-  --   },
-  --   config = function ()
-  --     require("octo").setup({
-  --       enable_builtin = true,
-  --     })
-  --   end
-  -- },
+  {
+    'pwntester/octo.nvim',
+    dependencies = {
+      'nvim-lua/plenary.nvim',
+      'nvim-telescope/telescope.nvim',
+      'nvim-tree/nvim-web-devicons',
+    },
+    config = function ()
+      require("octo").setup({
+        enable_builtin = true,
+      })
+    end
+  },
   -- NOTE: Plugins can also be added by using a table,
   -- with the first argument being the link and the following
   -- keys can be used to configure plugin behavior/loading/etc.
