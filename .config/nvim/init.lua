@@ -289,15 +289,8 @@ require('lazy').setup({
       }
     end,
   },
-  -- {
-  -- 'rmagatti/auto-session', opts = {},
-  -- },
   {
-  'folke/persistence.nvim',
-    event = "BufReadPre",
-    config = function ()
-      vim.keymap.set('n', '<leader>os', '<cmd>lua require("persistence").load()<CR>', { desc = '[O]pen [S]ession' })
-    end,
+  'rmagatti/auto-session', opts = {},
   },
   {
     'sindrets/diffview.nvim',
