@@ -308,8 +308,16 @@ require('lazy').setup({
     'sindrets/diffview.nvim',
       opts = {},
       config = function ()
-        vim.keymap.set('n', '<leader>do', ':DiffviewOpen<CR>', { desc = '[D]iffView [O]pen' })
-        vim.keymap.set('n', '<leader>dc', ':DiffviewClose<CR>', { desc = '[D]iffView [C]lose' })
+        function _G.toggle_diffview()
+          local bufnr = vim.api.nvim_get_current_buf()
+          local buftype = vim.api.nvim_buf_get_option(bufnr, 'buftype')
+          if buftype == 'nofile' then
+            vim.cmd('DiffviewClose')
+          else
+            vim.cmd('DiffviewOpen')
+          end
+        end
+        vim.keymap.set('n', '<leader>dv', '<cmd>lua toggle_diffview()<CR>', { desc = '[D]iff[V]iew toggle' })
       end,
   },
   -- NOTE: Plugins can also be added by using a table,
@@ -989,22 +997,6 @@ require('lazy').setup({
     },
   },
 })
-
-
-function _G.toggle_diffview()
-  local bufnr = vim.api.nvim_get_current_buf()
-  local buftype = vim.api.nvim_buf_get_option(bufnr, 'buftype')
-
-  if buftype == 'nofile' then
-    vim.cmd('DiffviewClose')
-  else
-    vim.cmd('DiffviewOpen')
-  end
-end
-
--- Map the function to a key
-vim.keymap.set('n', '<leader>dv', '<cmd>lua toggle_diffview()<CR>', { desc = '[D]iffView toggle' })
-
 
 -- The line beneath this is called `modeline`. See `:help modeline`
 -- vim: ts=2 sts=2 sw=2 et
