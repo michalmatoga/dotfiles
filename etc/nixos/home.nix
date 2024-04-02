@@ -142,9 +142,6 @@
         tmuxPlugins.vim-tmux-navigator
         tmuxPlugins.catppuccin
       ];
-      # set -g status-right '#(TZ="Europe/Warsaw" date +"%Y-%m-%d %%H:%%M")'
-      # set -g default-terminal "tmux-256color"
-      # set -g default-terminal "tmux-256color"
     extraConfig = ''
       set-window-option -g mode-keys vi
       set-option -sg escape-time 10
