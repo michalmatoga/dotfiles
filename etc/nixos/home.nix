@@ -142,20 +142,17 @@
         tmuxPlugins.vim-tmux-navigator
         tmuxPlugins.catppuccin
       ];
+      # set -g status-right '#(TZ="Europe/Warsaw" date +"%Y-%m-%d %%H:%%M")'
+      # set -g default-terminal "tmux-256color"
+      # set -ag terminal-overrides ",xterm-256color:RGB"
     extraConfig = ''
       set-window-option -g mode-keys vi
-      set -g status-right '#(TZ="Europe/Warsaw" date +"%Y-%m-%d %%H:%%M")'
       set-option -sg escape-time 10
-      set -g default-terminal "tmux-256color"
-      set -ag terminal-overrides ",xterm-256color:RGB"
       set -g @catppuccin_flavour "frappe"
-      set -g status-interval 0
 
       unbind C-b
       set-option -g prefix C-f
 
-      unbind p
-      bind p paste-buffer
       bind-key -Tcopy-mode-vi 'v' send -X begin-selection
 
       set -g @thumbs-command 'echo -n {} | clip.exe && tmux display-message \"Copied {}\"'
