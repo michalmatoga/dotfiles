@@ -9,7 +9,7 @@
   home.file."repositories.json" = {
     source = ../../repositories.json;
   };
-  
+
   home.file.".ssh/config".text = ''
     Host *
       StrictHostKeyChecking no
@@ -91,7 +91,7 @@
       add_newline = false;
       aws.disabled = true;
       gcloud.disabled = true;
-      line_break.disabled = false;
+      line_break.disabled = true;
     };
   };
 
