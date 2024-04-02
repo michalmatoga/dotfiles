@@ -117,8 +117,8 @@
     };
     # setup some environment variables
     initExtra = '' 
-      export BROWSER="wsl-open";
-      eval "$(fnm env --use-on-cd)"
+      export BROWSER="wsl-open"
+      fnm env --use-on-cd | source
     '';
   };
   
