@@ -239,7 +239,6 @@ require('lazy').setup({
     },
     opts = {
       debug = true, -- Enable debugging
-      window = { layout = "float" },
       mappings = {
         reset = {
           normal ="<leader><C-l>",
