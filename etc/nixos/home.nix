@@ -149,6 +149,7 @@
       set -g default-terminal "tmux-256color"
       set -ag terminal-overrides ",xterm-256color:RGB"
       set -g @catppuccin_flavour "frappe"
+      set -g status-interval 0
 
       unbind C-b
       set-option -g prefix C-f
