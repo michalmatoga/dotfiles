@@ -148,6 +148,7 @@
     extraConfig = ''
       set-window-option -g mode-keys vi
       set-option -sg escape-time 10
+      set -g default-terminal "tmux-256color"
       set -g @catppuccin_flavour "frappe"
 
       unbind C-b
