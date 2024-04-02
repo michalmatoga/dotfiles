@@ -144,13 +144,12 @@
       ];
       # set -g status-right '#(TZ="Europe/Warsaw" date +"%Y-%m-%d %%H:%%M")'
       # set -g default-terminal "tmux-256color"
-      # set -g @catppuccin_flavour "frappe"
+      # set -g default-terminal "tmux-256color"
     extraConfig = ''
       set-window-option -g mode-keys vi
       set-option -sg escape-time 10
-      set -g default-terminal "tmux-256color"
       set -ag terminal-overrides ",xterm-256color:RGB"
-      set -g @catppuccin_status_modules_right "application session date_time"
+      set -g @catppuccin_flavour "frappe"
 
 
       unbind C-b
