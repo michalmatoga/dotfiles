@@ -139,6 +139,7 @@
         tmuxPlugins.yank
         tmuxPlugins.tmux-thumbs
         tmuxPlugins.tmux-fzf
+        tmuxPlugins.vim-tmux-navigator
       ];
     extraConfig = ''
       set-window-option -g mode-keys vi
