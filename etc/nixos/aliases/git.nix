@@ -11,6 +11,7 @@
 		grh="git reset";
 		grhh="git reset --hard";
 		gst="git status";
+		grt='cd "$(git rev-parse --show-toplevel || echo .)"'
 		# egrep='grep -E --color=auto --exclude-dir={.bzr,CVS,.git,.hg,.svn,.idea,.tox}'
 		# fgrep='grep -F --color=auto --exclude-dir={.bzr,CVS,.git,.hg,.svn,.idea,.tox}'
 		# g=git
@@ -144,7 +145,6 @@
 		# grset='git remote set-url'
 		# grss='git restore --source'
 		# grst='git restore --staged'
-		# grt='cd "$(git rev-parse --show-toplevel || echo .)"'
 		# gru='git reset --'
 		# grup='git remote update'
 		# grv='git remote --verbose'
