@@ -120,16 +120,6 @@
     # setup some environment variables
     initExtra = '' 
       export BROWSER="wsl-open"
-
-      cd_npmrc () {
-        if [[ "$PWD" =~ "github.schibsted.io" ]]; then
-          npx -y npmrc work > /dev/null
-        else
-          npx -y npmrc personal > /dev/null
-        fi
-      }
-      chpwd_functions+=(cd_npmrc)
-      cd_npmrc
     '';
   };
   programs.neovim = {
