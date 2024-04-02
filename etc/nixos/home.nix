@@ -140,6 +140,7 @@
         tmuxPlugins.tmux-thumbs
         tmuxPlugins.tmux-fzf
         tmuxPlugins.vim-tmux-navigator
+        tmuxPlugins.catppuccin
       ];
     extraConfig = ''
       set-window-option -g mode-keys vi
