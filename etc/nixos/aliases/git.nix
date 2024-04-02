@@ -11,7 +11,7 @@
 		grh="git reset";
 		grhh="git reset --hard";
 		gst="git status";
-		grt='cd "$(git rev-parse --show-toplevel || echo .)"'
+		grt='cd "$(git rev-parse --show-toplevel || echo .)';
 		# egrep='grep -E --color=auto --exclude-dir={.bzr,CVS,.git,.hg,.svn,.idea,.tox}'
 		# fgrep='grep -F --color=auto --exclude-dir={.bzr,CVS,.git,.hg,.svn,.idea,.tox}'
 		# g=git
