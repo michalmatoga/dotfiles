@@ -68,7 +68,7 @@
     ghq
     gnupg
     jq
-    fnm
+    nodejs_20
 
     # WSL-specific
     wsl-open
@@ -118,10 +118,8 @@
     # setup some environment variables
     initExtra = '' 
       export BROWSER="wsl-open"
-      fnm env --use-on-cd | source
     '';
   };
-  
   programs.neovim = {
     enable = true;
     defaultEditor = true;
@@ -129,7 +127,6 @@
     vimAlias = true;
     vimdiffAlias = true;
   };
-  
   programs.tmux = {
     enable = true;
     terminal = "tmux-256color";
