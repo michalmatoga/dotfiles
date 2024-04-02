@@ -68,6 +68,8 @@
     ghq
     gnupg
     jq
+
+    # nodejs & npm
     nodejs_20
 
     # WSL-specific
@@ -118,6 +120,16 @@
     # setup some environment variables
     initExtra = '' 
       export BROWSER="wsl-open"
+
+      cd_npmrc () {
+        if [[ "$PWD" =~ "github.schibsted.io" ]]; then
+          npmrc work > /dev/null
+        else
+          npmrc personal > /dev/null
+        fi
+      }
+      chpwd_functions+=(cd_npmrc)
+      cd_npmrc
     '';
   };
   programs.neovim = {
