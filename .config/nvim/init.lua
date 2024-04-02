@@ -239,7 +239,13 @@ require('lazy').setup({
     },
     opts = {
       debug = true, -- Enable debugging
-      -- See Configuration section for rest
+      window = { layout = "float" },
+      mappings = {
+        reset = {
+          normal ="<leader><C-l>",
+          insert = nil,
+        },
+      },
     },
     -- See Commands section for default commands if you want to lazy load on them
   },
