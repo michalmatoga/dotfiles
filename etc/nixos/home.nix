@@ -68,7 +68,7 @@
     ghq
     gnupg
     jq
-    nodejs_20
+    fnm
 
     # WSL-specific
     wsl-open
