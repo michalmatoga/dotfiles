@@ -123,9 +123,9 @@
 
       cd_npmrc () {
         if [[ "$PWD" =~ "github.schibsted.io" ]]; then
-          npmrc work > /dev/null
+          npx npmrc work > /dev/null
         else
-          npmrc personal > /dev/null
+          npx npmrc personal > /dev/null
         fi
       }
       chpwd_functions+=(cd_npmrc)
