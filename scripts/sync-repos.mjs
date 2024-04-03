@@ -47,7 +47,7 @@ async function fetchAllOrgRepos(provider, org) {
 function createMuxConfigs(repos) {
   execSync(`rm -f ${__dirname}/../.config/tmuxinator/*.yml`);
   for (const repo of repos) {
-    const projectName = repo.replaceAll("/", "_");
+    const projectName = repo.replaceAll("/", "_").replaceAll(".", "_");
     const templateYml = `name: ${projectName}
 root: ~/ghq/${repo}
 windows:
