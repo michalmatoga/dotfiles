@@ -133,7 +133,6 @@
         tmuxPlugins.jump
         tmuxPlugins.yank
         tmuxPlugins.tmux-thumbs
-        tmuxPlugins.tmux-fzf
         tmuxPlugins.vim-tmux-navigator
         tmuxPlugins.catppuccin
       ];
@@ -151,7 +150,6 @@
 
       set -g @thumbs-command 'echo -n {} | clip.exe && tmux display-message \"Copied {}\"'
       set -g @thumbs-upcase-command 'wsl-open {}'
-      set -g @plugin 'sainnhe/tmux-fzf'
     '';
   };
 
