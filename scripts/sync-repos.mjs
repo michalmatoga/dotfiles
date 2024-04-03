@@ -50,6 +50,9 @@ function createMuxConfigs(repos) {
     const projectName = repo.replaceAll("/", "_").replaceAll(".", "_");
     const templateYml = `name: ${projectName}
 root: ~/ghq/${repo}
+pre_window: |
+  export NPM_CONFIG_REGISTRY=https://artifacts.schibsted.io/artifactory/api/npm/npm-virtual/
+  tmux setenv NPM_CONFIG_REGISTRY $NPM_CONFIG_REGISTRY
 windows:
   - editor:
       layout: e796,238x58,0,0{179x58,0,0,1,58x58,180,0,2}
