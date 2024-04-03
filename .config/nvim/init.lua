@@ -640,6 +640,7 @@ require('lazy').setup({
         -- is found.
         javascript = { { "prettierd", "prettier" } },
         typescript = { { "prettierd", "prettier" } },
+        markdown = { "prettierd", "prettier" },
       },
     },
   },
