@@ -194,6 +194,7 @@ require('lazy').setup({
       require("octo").setup({
         enable_builtin = true,
       })
+      vim.treesitter.language.register('markdown', 'octo')
     end
   },
   {
