@@ -150,7 +150,7 @@
 
 
       unbind C-b
-      set-option -g prefix C-;
+      set-option -g prefix C-\;
 
       bind-key -Tcopy-mode-vi 'v' send -X begin-selection
 
