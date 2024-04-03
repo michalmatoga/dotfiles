@@ -32,6 +32,7 @@
   # Packages that should be installed to the user profile.
   home.packages = with pkgs; [
     bitwarden-cli
+    eslint_d
     eza # A modern replacement for ‘ls’
     file
     fzf # A command-line fuzzy finder
