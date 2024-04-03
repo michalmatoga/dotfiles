@@ -27,55 +27,40 @@
 
   # Packages that should be installed to the user profile.
   home.packages = with pkgs; [
-    neofetch
-    nnn # terminal file manager
-
-    # archives
-    zip
-    unzip
-
-    # utils
-    ripgrep # recursively searches directories for a regex pattern
-    jq # A lightweight and flexible command-line JSON processor
-    yq-go # yaml processor https://github.com/mikefarah/yq
+    bitwarden-cli
     eza # A modern replacement for ‘ls’
-    fzf # A command-line fuzzy finder
-    tmux
-    tmuxinator
-    xdg-utils
-    gnumake
-    gcc
-    zig
-    rustc
-    python3
-    gh
-
-    # networking tools
-    nmap # A utility for network discovery and security auditing
-
-    # misc
     file
-    which
-    tree
+    fzf # A command-line fuzzy finder
+    gawk
+    gcc
+    gh
+    ghq
+    git-crypt
+    gnumake
+    gnupg
     gnused
     gnutar
-    gawk
-    zstd
-    gnupg
-
-    bitwarden-cli
-    git-crypt
-    ghq
-    gnupg
-    jq
-
-    # nodejs & npm
-    nodejs_20
-
-    # WSL-specific
-    wsl-open
-
+    jq # A lightweight and flexible command-line JSON processor
     lua-language-server
+    neofetch
+    nmap # A utility for network discovery and security auditing
+    nnn # terminal file manager
+    nodejs_20 # nodejs & npm
+    prettierd
+    python3
+    ripgrep # recursively searches directories for a regex pattern
+    rustc
+    tmux
+    tmuxinator
+    tree
+    unzip
+    which
+    wsl-open # WSL-specific
+    xdg-utils
+    yq-go # yaml processor https://github.com/mikefarah/yq
+    zig
+    zip
+    zstd
   ];
 
   # basic configuration of git, please change to your own
