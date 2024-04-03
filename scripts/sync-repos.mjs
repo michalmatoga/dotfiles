@@ -44,6 +44,25 @@ async function fetchAllOrgRepos(provider, org) {
   return await response.json();
 }
 
+function createMuxConfigs(repos) {
+  execSync(`rm -f ${__dirname}/../.config/tmuxinator/*.yml`);
+  for (const repo of repos) {
+    const projectName = repo.replaceAll("/", "_");
+    const templateYml = `name: ${projectName}
+root: ~/ghq/${repo}
+windows:
+  - editor:
+      layout: e796,238x58,0,0{179x58,0,0,1,58x58,180,0,2}
+      panes:
+        - vim
+        -`;
+    writeFileSync(
+      path.join(__dirname, `../.config/tmuxinator/${projectName}.yml`),
+      templateYml,
+    );
+  }
+}
+
 (async () => {
   const repos = [];
   for (const { provider, fetch } of fetchConfig) {
@@ -60,6 +79,7 @@ async function fetchAllOrgRepos(provider, org) {
     }
     repos.push(...providerRepos);
   }
+  createMuxConfigs(repos);
   writeFileSync("repolist.txt", repos.join("\n"));
 
   const result = spawnSync(
