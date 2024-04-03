@@ -32,6 +32,13 @@ const providerApiMap = {
   },
 };
 
+const preWindowMap = {
+  "github.schibsted.io": `pre_window: |
+  export NPM_CONFIG_REGISTRY=https://artifacts.schibsted.io/artifactory/api/npm/npm-virtual/
+  tmux setenv NPM_CONFIG_REGISTRY $NPM_CONFIG_REGISTRY
+`,
+};
+
 async function fetchAllOrgRepos(provider, org) {
   const { urlTemplate, headers } = providerApiMap[provider];
   const response = await fetch(urlTemplate.replace("ORG_ID", org), { headers });
@@ -47,12 +54,11 @@ async function fetchAllOrgRepos(provider, org) {
 function createMuxConfigs(repos) {
   execSync(`rm -f ${__dirname}/../.config/tmuxinator/*.yml`);
   for (const repo of repos) {
+    const ghHost = repo.split("/")[0];
     const projectName = repo.replaceAll("/", "_").replaceAll(".", "_");
     const templateYml = `name: ${projectName}
 root: ~/ghq/${repo}
-pre_window: |
-  export NPM_CONFIG_REGISTRY=https://artifacts.schibsted.io/artifactory/api/npm/npm-virtual/
-  tmux setenv NPM_CONFIG_REGISTRY $NPM_CONFIG_REGISTRY
+${preWindowMap[ghHost] || ""}
 windows:
   - editor:
       layout: e796,238x58,0,0{179x58,0,0,1,58x58,180,0,2}
