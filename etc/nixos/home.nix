@@ -110,10 +110,10 @@
       update = "sudo nixos-rebuild switch";
       cplc = "history | tail -n 1 | cut -d' ' -f5- | clip.exe";
       cpwd = "pwd | tr -d '\n' | clip.exe";
-      mux = "tmuxinator start";
+      mux = "~/ghq/github.com/michalmatoga/dotfiles/scripts/mux.sh";
     };
     # setup some environment variables
-    initExtra = '' 
+    initExtra = ''
       export BROWSER="wsl-open"
     '';
   };
