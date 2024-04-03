@@ -161,6 +161,11 @@ require('lazy').setup({
         keys = {
           { "<leader>t", mode = { "n" }, function() require("neo-tree").toggle() end, desc = "Toggle Neo[T]ree" },
         },
+        window = {
+          mappings = {
+            ["l"] = "open",
+          },
+        },
       }
     end,
   },

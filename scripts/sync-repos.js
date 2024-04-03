@@ -1,13 +1,13 @@
-const { execSync, spawnSync } = require("child_process");
-const fs = require("fs");
-const path = require("path");
+import { execSync, spawnSync } from "child_process";
+import { readFileSync, writeFileSync } from "fs";
+import { join } from "path";
 
 const fetchConfig = JSON.parse(
-  fs.readFileSync(path.join(__dirname, "../repositories.json"), "utf8")
+  readFileSync(join(__dirname, "../repositories.json"), "utf8"),
 );
 
 const secrets = JSON.parse(
-  fs.readFileSync(path.join(__dirname, "../secrets.json"), "utf8")
+  readFileSync(join(__dirname, "../secrets.json"), "utf8"),
 );
 
 const providerApiMap = {
@@ -58,12 +58,12 @@ async function fetchAllOrgRepos(provider, org) {
     }
     repos.push(...providerRepos);
   }
-  fs.writeFileSync("repolist.txt", repos.join("\n"));
+  writeFileSync("repolist.txt", repos.join("\n"));
 
   const result = spawnSync(
     "bash",
     ["-c", "cat repolist.txt | ghq get -p --shallow --parallel"],
-    { stdio: "inherit" }
+    { stdio: "inherit" },
   );
 
   if (result.status !== 0) {
@@ -72,7 +72,7 @@ async function fetchAllOrgRepos(provider, org) {
   }
 
   const removeList = execSync(
-    `bash -c "comm -23 <(ghq list | sort) <(sort repolist.txt)"`
+    `bash -c "comm -23 <(ghq list | sort) <(sort repolist.txt)"`,
   ).toString();
   if (removeList) {
     console.log(`Removing repos:\n\n${removeList}`);
