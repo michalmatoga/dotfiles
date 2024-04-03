@@ -25,6 +25,10 @@
     source = ../../.config/tmuxinator;
   };
 
+  home.file.".markdownlintrc" = {
+    source = ../../.config/markdownlintrc.json;
+  };
+
   # Packages that should be installed to the user profile.
   home.packages = with pkgs; [
     bitwarden-cli
