@@ -639,7 +639,7 @@ require('lazy').setup({
         -- is found.
         json = { { "prettierd", "prettier" } },
         javascript = { { "prettierd", "prettier" } },
-        -- typescript = { { "prettierd", "prettier" } },
+        typescript = { { "prettierd", "prettier" } },
         markdown = { "prettierd", "prettier" },
       },
     },
