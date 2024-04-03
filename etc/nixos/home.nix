@@ -42,6 +42,7 @@
     gnutar
     jq # A lightweight and flexible command-line JSON processor
     lua-language-server
+    markdownlint-cli
     neofetch
     nmap # A utility for network discovery and security auditing
     nnn # terminal file manager
