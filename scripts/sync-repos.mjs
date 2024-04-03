@@ -35,7 +35,10 @@ const providerApiMap = {
 const preWindowMap = {
   "github.schibsted.io": `pre_window: |
   export NPM_CONFIG_REGISTRY=https://artifacts.schibsted.io/artifactory/api/npm/npm-virtual/
+  export NPM_CONFIG_//artifacts.schibsted.io/artifactory/api/npm/npm-virtual/:_auth=${secrets.npm_auth_sch}
+
   tmux setenv NPM_CONFIG_REGISTRY $NPM_CONFIG_REGISTRY
+  tmux setenv NPM_CONFIG_//artifacts.schibsted.io/artifactory/api/npm/npm-virtual/:_auth $NPM_CONFIG_//artifacts.schibsted.io/artifactory/api/npm/npm-virtual/:_auth
 `,
 };
 
