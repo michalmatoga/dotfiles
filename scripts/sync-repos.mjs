@@ -1,13 +1,15 @@
 import { execSync, spawnSync } from "child_process";
 import { readFileSync, writeFileSync } from "fs";
-import { join } from "path";
+import path from "path";
+import { fileURLToPath } from "url";
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const fetchConfig = JSON.parse(
-  readFileSync(join(__dirname, "../repositories.json"), "utf8"),
+  readFileSync(path.join(__dirname, "../repositories.json"), "utf8"),
 );
 
 const secrets = JSON.parse(
-  readFileSync(join(__dirname, "../secrets.json"), "utf8"),
+  readFileSync(path.join(__dirname, "../secrets.json"), "utf8"),
 );
 
 const providerApiMap = {
