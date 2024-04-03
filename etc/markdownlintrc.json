@@ -1,0 +1,13 @@
+{
+  "default": true,
+  "no-hard-tabs": true,
+  "whitespace": false,
+  "MD003": { "style": "consistent" },
+  "MD013": false,
+  "MD053": false,
+  "MD024": {
+    "siblings_only": true
+  },
+  "MD033": false,
+  "MD041": false
+}
