@@ -29,6 +29,10 @@
     source = ../../.config/markdownlintrc.json;
   };
 
+  home.file.".editorconfig" = {
+    source = ../../.config/.editorconfig;
+  };
+
   # Packages that should be installed to the user profile.
   home.packages = with pkgs; [
     bitwarden-cli
