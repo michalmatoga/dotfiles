@@ -389,7 +389,7 @@ require('lazy').setup({
       vim.keymap.set('n', '<leader><leader>', function()
         builtin.buffers({ sort_mru = true, ignore_current_buffer = true })
       end, { desc = '[ ] Find existing buffers' })
-      vim.keymap.set('n', '<leader>p', builtin.commands, { desc = '[C]ommands' })
+      vim.keymap.set('n', '<leader>e', builtin.commands, { desc = '[E]xecute Commands' })
 
       -- Slightly advanced example of overriding default behavior and theme
       vim.keymap.set('n', '<leader>/', function()
