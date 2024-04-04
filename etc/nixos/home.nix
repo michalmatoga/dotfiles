@@ -103,6 +103,7 @@
         { name = "zsh-users/zsh-autosuggestions"; }
         { name = "joshskidmore/zsh-fzf-history-search"; }
         { name = "unixorn/fzf-zsh-plugin"; }
+        { name = "Tarrasch/zsh-autoenv"; }
       ];
     };
     shellAliases = {
