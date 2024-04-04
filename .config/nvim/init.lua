@@ -623,7 +623,7 @@ require('lazy').setup({
         json = { { "prettierd", "prettier" } },
         javascript = { { "prettierd", "prettier" } },
         typescript = { { "prettierd", "prettier" } },
-        markdown = { "prettierd", "prettier" },
+        markdown = { "markdownlint -f", "prettierd", "prettier" },
       },
     },
   },
