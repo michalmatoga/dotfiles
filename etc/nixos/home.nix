@@ -36,6 +36,7 @@
   # Packages that should be installed to the user profile.
   home.packages = with pkgs; [
     bitwarden-cli
+    direnv
     eslint_d
     eza # A modern replacement for ‘ls’
     file
@@ -103,7 +104,6 @@
         { name = "zsh-users/zsh-autosuggestions"; }
         { name = "joshskidmore/zsh-fzf-history-search"; }
         { name = "unixorn/fzf-zsh-plugin"; }
-        { name = "Tarrasch/zsh-autoenv"; }
       ];
     };
     shellAliases = {

@@ -44,7 +44,7 @@ async function fetchAllOrgRepos(provider, org) {
   return await response.json();
 }
 
-function createMuxConfigs(repos) {
+function createTmuxinatorConfigs(repos) {
   execSync(`rm -f ${__dirname}/../.config/tmuxinator/*.yml`);
   for (const repo of repos) {
     const projectName = repo.replaceAll("/", "_").replaceAll(".", "_");
@@ -79,7 +79,7 @@ windows:
     }
     repos.push(...providerRepos);
   }
-  createMuxConfigs(repos);
+  createTmuxinatorConfigs(repos);
   writeFileSync("repolist.txt", repos.join("\n"));
 
   const result = spawnSync(
