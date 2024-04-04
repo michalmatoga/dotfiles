@@ -374,6 +374,7 @@ require('lazy').setup({
       -- Enable Telescope extensions if they are installed
       pcall(require('telescope').load_extension, 'fzf')
       pcall(require('telescope').load_extension, 'ui-select')
+      pcall(require('telescope').load_extension, 'tmuxinator')
 
       -- See `:help telescope.builtin`
       local builtin = require 'telescope.builtin'
@@ -414,48 +415,51 @@ require('lazy').setup({
         builtin.find_files { cwd = vim.fn.stdpath 'config' }
       end, { desc = '[S]earch [N]eovim files' })
 
-
       vim.keymap.set('n', '<leader>sp', function()
-
-        local action_set = require('telescope.actions.set')
-        local actions_state = require('telescope.actions.state')
-        local pickers = require('telescope.pickers')
-        local finders = require('telescope.finders')
-        local sorters = require('telescope.sorters')
-
-        -- Execute the shell command and read its output
-        local handle = io.popen('tmuxinator list --newline')
-        if handle == nil then
-          print("Failed to run the command")
-          return
-        end
-        local result = handle:read("*a")
-        handle:close()
-
-        -- Split the output into lines
-        local lines = {}
-        for s in result:gmatch("[^\r\n]+") do
-            table.insert(lines, s)
-        end
-
-        pickers.new({}, {
-          prompt_title = 'Custom Picker',
-          finder = finders.new_table({
-            results = lines,
-          }),
-          sorter = sorters.get_generic_fuzzy_sorter(),
-          attach_mappings = function(prompt_bufnr)
-            action_set.select:enhance({
-              post = function()
-                local selection = actions_state.get_selected_entry(prompt_bufnr)
-                vim.fn.system('tmux switch -t ' .. selection.value .. ' || tmuxinator start ' .. selection.value)
-              end,
-            })
-            return true
-          end,
-        }):find()
-
+        require('telescope').extensions.tmuxinator.projects{}
       end, { desc = '[S]witch [P]roject' })
+
+      -- vim.keymap.set('n', '<leader>sp', function()
+      --
+      --   local action_set = require('telescope.actions.set')
+      --   local actions_state = require('telescope.actions.state')
+      --   local pickers = require('telescope.pickers')
+      --   local finders = require('telescope.finders')
+      --   local sorters = require('telescope.sorters')
+      --
+      --   -- Execute the shell command and read its output
+      --   local handle = io.popen('tmuxinator list --newline')
+      --   if handle == nil then
+      --     print("Failed to run the command")
+      --     return
+      --   end
+      --   local result = handle:read("*a")
+      --   handle:close()
+      --
+      --   -- Split the output into lines
+      --   local lines = {}
+      --   for s in result:gmatch("[^\r\n]+") do
+      --       table.insert(lines, s)
+      --   end
+      --
+      --   pickers.new({}, {
+      --     prompt_title = 'Custom Picker',
+      --     finder = finders.new_table({
+      --       results = lines,
+      --     }),
+      --     sorter = sorters.get_generic_fuzzy_sorter(),
+      --     attach_mappings = function(prompt_bufnr)
+      --       action_set.select:enhance({
+      --         post = function()
+      --           local selection = actions_state.get_selected_entry(prompt_bufnr)
+      --           vim.fn.system('tmux switch -t ' .. selection.value .. ' || tmuxinator start ' .. selection.value)
+      --         end,
+      --       })
+      --       return true
+      --     end,
+      --   }):find()
+      --
+      -- end, { desc = '[S]witch [P]roject' })
     end,
   },
   { -- LSP Configuration & Plugins
