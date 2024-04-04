@@ -418,6 +418,7 @@ require('lazy').setup({
       vim.keymap.set('n', '<leader>sp', function()
 
         local action_set = require('telescope.actions.set')
+        local actions_state = require('telescope.actions.state')
         local pickers = require('telescope.pickers')
         local finders = require('telescope.finders')
         local sorters = require('telescope.sorters')
@@ -431,11 +432,6 @@ require('lazy').setup({
         local result = handle:read("*a")
         handle:close()
 
-        -- if result == nil or result == '' then
-        --   print("No output from the command")
-        --   return
-        -- end
-
         -- Split the output into lines
         local lines = {}
         for s in result:gmatch("[^\r\n]+") do
@@ -448,10 +444,10 @@ require('lazy').setup({
             results = lines,
           }),
           sorter = sorters.get_generic_fuzzy_sorter(),
-          attach_mappings = function(prompt_bufnr, map)
+          attach_mappings = function(prompt_bufnr)
             action_set.select:enhance({
               post = function()
-                local selection = action_set.get_selected_entry(prompt_bufnr)
+                local selection = actions_state.get_selected_entry(prompt_bufnr)
                 vim.cmd('!tmuxinator start ' .. selection.value)
               end,
             })
