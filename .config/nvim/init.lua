@@ -448,7 +448,7 @@ require('lazy').setup({
             action_set.select:enhance({
               post = function()
                 local selection = actions_state.get_selected_entry(prompt_bufnr)
-                vim.fn.systemlist('tmuxinator start ' .. selection.value)
+                vim.fn.system('tmux switch -t ' .. selection.value .. ' || tmuxinator start ' .. selection.value)
               end,
             })
             return true
