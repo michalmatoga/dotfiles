@@ -79,12 +79,12 @@
     zstd
   ];
 
-  # basic configuration of git, please change to your own
-  # programs.git = {
-  #   enable = true;
-  #   userName = "Michał Matoga";
-  #   userEmail = "michalmatoga@gmail.com";
-  # };
+  programs.gnupg = {
+    enable = true;
+    agent = {
+      enable = true;
+    };
+  };
 
   # starship - an customizable prompt for any shell
   programs.starship = {
