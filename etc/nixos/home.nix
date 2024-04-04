@@ -108,11 +108,13 @@
       ];
     };
     shellAliases = {
-      sync-repos = "node ~/ghq/github.com/michalmatoga/dotfiles/scripts/sync-repos.mjs";
-      update = "sudo nixos-rebuild switch";
+      clip = "clip.exe";
       cplc = "history | tail -n 1 | cut -d' ' -f5- | clip.exe";
       cpwd = "pwd | tr -d '\n' | clip.exe";
+      paste = "powershell.exe get-clipboard";
       pro = "tmuxinator start $(tmuxinator list --newline | fzf)";
+      sync-repos = "node ~/ghq/github.com/michalmatoga/dotfiles/scripts/sync-repos.mjs";
+      update = "sudo nixos-rebuild switch";
     };
     # setup some environment variables
     initExtra = ''
