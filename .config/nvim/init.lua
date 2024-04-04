@@ -368,6 +368,11 @@ require('lazy').setup({
           ['ui-select'] = {
             require('telescope.themes').get_dropdown(),
           },
+          tmuxinator = {
+            select_action = 'switch', -- | 'stop' | 'kill'
+            stop_action = 'stop', -- | 'kill'
+            disable_icons = false,
+          },
         },
       }
 
