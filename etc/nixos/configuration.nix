@@ -19,7 +19,6 @@
   ];
 
   programs.gnupg = {
-    # enable = true;
     agent = {
       enable = true;
     };
