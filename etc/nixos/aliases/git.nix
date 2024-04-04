@@ -9,6 +9,7 @@
     gfa="git fetch --all --prune --jobs=10";
     glgg="git log --graph";
     gp="git push";
+    gpf="git push --force-with-lease --force-if-includes";
     gpsup="git push --set-upstream origin $(git_current_branch)";
     grh="git reset";
     grhh="git reset --hard";
@@ -119,7 +120,6 @@
     # gmtlvim='git mergetool --no-prompt --tool=vimdiff'
     # gmum='git merge upstream/$(git_main_branch)'
     # gpd='git push --dry-run'
-    # gpf='git push --force-with-lease --force-if-includes'
     # 'gpf!'='git push --force'
     # gpoat='git push origin --all && git push origin --tags'
     # gpod='git push origin --delete'
