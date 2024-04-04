@@ -17,6 +17,7 @@
     gsm="gh repo sync";
     gsrb="gfa && npx -y git-removed-branches";
     gst="git status";
+    gunshallow="git fetch --unshallow && git config remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*' && git fetch origin";
     # egrep='grep -E --color=auto --exclude-dir={.bzr,CVS,.git,.hg,.svn,.idea,.tox}'
     # fgrep='grep -F --color=auto --exclude-dir={.bzr,CVS,.git,.hg,.svn,.idea,.tox}'
     # g=git
