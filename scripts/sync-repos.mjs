@@ -63,6 +63,16 @@ windows:
   }
 }
 
+function setupDirenv() {
+  const rootDir = "~/ghq/github.schibsted.io";
+  execSync(
+    `cat ${__dirname}/../secrets.json | jq -r '.npmrc_sch' | base64 -d > ${rootDir}/.npmrc`,
+  );
+  execSync(
+    `echo export NPM_CONFIG_USERCONFIG=${rootDir}/.npmrc > ${rootDir}/.envrc && direnv allow ${rootDir}`,
+  );
+}
+
 (async () => {
   const repos = [];
   for (const { provider, fetch } of fetchConfig) {
@@ -106,4 +116,5 @@ windows:
     execSync(`rm -rf ${rmParams}`);
     execSync('find ~/ghq -type d -empty -not -path "*.git*" -delete');
   }
+  setupDirenv();
 })();
