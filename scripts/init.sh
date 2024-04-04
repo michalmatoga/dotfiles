@@ -11,6 +11,7 @@ bw login
 export BW_SESSION=$(bw unlock --raw)
 bw get item 6672d1f6-cde1-4582-be66-b13e00a82547 | jq -r .notes | gpg --import
 git-crypt unlock
+cat secrets.json | jq -r '.gpg_work' | base64 -d | gpg --import
 eval $(ssh-agent)
 mkdir ~/.ssh
 jq -r '.id_rsa' secrets.json | base64 -d > ~/.ssh/id_rsa
