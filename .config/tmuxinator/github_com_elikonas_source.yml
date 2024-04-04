@@ -1,0 +1,8 @@
+name: github_com_elikonas_source
+root: ~/ghq/github.com/elikonas/source
+windows:
+  - editor:
+      layout: e796,238x58,0,0{179x58,0,0,1,58x58,180,0,2}
+      panes:
+        - vim
+        -
