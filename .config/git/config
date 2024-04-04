@@ -1,0 +1,20 @@
+[user]
+  name = michmato
+  email = michal.matoga@schibsted.com
+  signingkey = AB007B7061670124
+[core]
+  editor = nvim
+  pager = less
+  excludesfile = ~/.config/git/gitignore-global
+[pull]
+	rebase = true
+[pager]
+  diff = false
+  branch = false
+[commit]
+  gpgsign = true
+[includeIf "gitdir:~/ghq/gitlab.com/"]
+  path = ~/.config/git/personal.cfg
+[includeIf "gitdir:~/ghq/github.com/"]
+  path = ~/.config/git/personal.cfg
+

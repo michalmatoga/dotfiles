@@ -15,6 +15,11 @@
       StrictHostKeyChecking no
   '';
 
+  home.file.".config/git" = {
+    recursive = true;
+    source = ../../.config/git;
+  };
+
   home.file.".config/nvim" = {
     recursive = true;
     source = ../../.config/nvim;
@@ -75,11 +80,11 @@
   ];
 
   # basic configuration of git, please change to your own
-  programs.git = {
-    enable = true;
-    userName = "Michał Matoga";
-    userEmail = "michalmatoga@gmail.com";
-  };
+  # programs.git = {
+  #   enable = true;
+  #   userName = "Michał Matoga";
+  #   userEmail = "michalmatoga@gmail.com";
+  # };
 
   # starship - an customizable prompt for any shell
   programs.starship = {
