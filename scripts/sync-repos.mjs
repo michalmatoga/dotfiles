@@ -70,7 +70,7 @@ function setupDirenv() {
   );
   execSync(
     `echo export NPM_CONFIG_USERCONFIG=${rootDir}/.npmrc > ${rootDir}/.envrc \
-     echo export GH_USER="michal-matoga" >> ${rootDir}.envrc \
+     && echo export GH_USER="michal-matoga" >> ${rootDir}.envrc \
      && direnv allow ${rootDir}`,
   );
 }
