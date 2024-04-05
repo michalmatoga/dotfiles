@@ -135,11 +135,12 @@
     historyLimit = 100000;
     plugins = with pkgs;
       [
+        tmuxPlugins.catppuccin
         tmuxPlugins.jump
-        tmuxPlugins.yank
+        tmuxPlugins.resurrect
         tmuxPlugins.tmux-thumbs
         tmuxPlugins.vim-tmux-navigator
-        tmuxPlugins.catppuccin
+        tmuxPlugins.yank
       ];
     extraConfig = ''
       set-window-option -g mode-keys vi
