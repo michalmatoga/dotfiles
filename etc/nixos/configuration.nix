@@ -12,6 +12,7 @@
   wsl.defaultUser = "nixos";
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
   environment.systemPackages = with pkgs; [
+    docker
     git
     neovim
     curl
@@ -26,6 +27,8 @@
 
   programs.zsh.enable = true;
   users.defaultUserShell = pkgs.zsh;
+
+  virtualisation.docker.enable = true;
 
   system.stateVersion = "23.11";
 }
