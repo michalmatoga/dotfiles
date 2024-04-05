@@ -108,7 +108,7 @@ vim.api.nvim_create_autocmd('TextYankPost', {
 
 vim.api.nvim_create_user_command("CopyRelPath", "call setreg('+', expand('%'))", {})
 vim.api.nvim_create_user_command("ReviewsRequested", function()
-  vim.cmd("Octo search is:open is:pr review-requested:michal-matoga archived:false sort:created-asc")
+  vim.cmd("Octo search is:open is:pr review-requested:" .. os.getenv("GH_USER") .. " archived:false sort:created-asc")
 end, {})
 
 -- [[ Install `lazy.nvim` plugin manager ]]

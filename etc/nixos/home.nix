@@ -119,6 +119,7 @@
     # setup some environment variables
     initExtra = ''
       export BROWSER="wsl-open"
+      export GH_USER="michalmatoga"
     '';
   };
   programs.neovim = {
