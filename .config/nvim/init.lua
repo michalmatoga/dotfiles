@@ -358,7 +358,6 @@ require('lazy').setup({
       },
       { 'nvim-telescope/telescope-ui-select.nvim' },
       { 'danielpieper/telescope-tmuxinator.nvim' },
-      { 'nvim-telescope/telescope-frecency.nvim' },
       -- Useful for getting pretty icons, but requires a Nerd Font.
       { 'nvim-tree/nvim-web-devicons', enabled = vim.g.have_nerd_font },
     },
@@ -393,7 +392,6 @@ require('lazy').setup({
       pcall(require('telescope').load_extension, 'fzf')
       pcall(require('telescope').load_extension, 'ui-select')
       pcall(require('telescope').load_extension, 'tmuxinator')
-      pcall(require('telescope').load_extension, 'frecency')
 
       -- See `:help telescope.builtin`
       local builtin = require 'telescope.builtin'
@@ -408,11 +406,8 @@ require('lazy').setup({
       vim.keymap.set('n', '<leader>sr', builtin.resume, { desc = '[S]earch [R]esume' })
       vim.keymap.set('n', '<leader>s.', builtin.oldfiles, { desc = '[S]earch Recent Files ("." for repeat)' })
       vim.keymap.set('n', '<leader><leader>', function()
-        require("telescope").extensions.frecency.frecency {
-          workspace = "CWD",
-        }
-      end, { desc = '[ ] Find buffers by frecency' })
-
+        builtin.buffers({ sort_mru = true, ignore_current_buffer = true })
+      end, { desc = '[ ] Find existing buffers' })
       vim.keymap.set('n', '<leader>e', builtin.commands, { desc = '[E]xecute Commands' })
 
       -- Slightly advanced example of overriding default behavior and theme
