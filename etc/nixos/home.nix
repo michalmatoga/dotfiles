@@ -136,6 +136,7 @@
     plugins = with pkgs;
       [
         tmuxPlugins.catppuccin
+        tmuxPlugins.continuum
         tmuxPlugins.jump
         tmuxPlugins.resurrect
         tmuxPlugins.tmux-thumbs
@@ -157,6 +158,9 @@
       set -g @thumbs-command 'echo -n {} | clip.exe && tmux display-message \"Copied {}\"'
       set -g @thumbs-upcase-command 'wsl-open {}'
 
+      set -g @continuum-restore 'on'
+      set -g @continuum-save-interval '10'
+      set -g @resurrect-capture-pane-contents 'on'
       set -g @resurrect-strategy-nvim 'session'
     '';
   };
