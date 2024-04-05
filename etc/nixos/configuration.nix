@@ -17,7 +17,9 @@
     neovim
     curl
     wget
-    (import ./win32yank.nix )
+  ];
+  environment.systemPackages = [
+    (import ./win32yank.nix {inherit pkgs;})
   ];
 
   programs.gnupg = {
