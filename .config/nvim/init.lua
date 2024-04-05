@@ -855,6 +855,9 @@ require('lazy').setup({
           path = "~/ghq/gitlab.com/michalmatoga/journal",
         },
       },
+      daily_notes = {
+        folder = "journal",
+      },
     },
   },
   -- Highlight todo, notes, etc in comments
