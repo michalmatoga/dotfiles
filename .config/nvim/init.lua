@@ -198,7 +198,11 @@ require('lazy').setup({
   {
     "olimorris/persisted.nvim",
     lazy = false, -- make sure the plugin is always loaded at startup
-    config = true
+    config = function ()
+      require('persisted').setup {
+        autoload = true,
+      }
+    end,
   },
   {
     'sindrets/diffview.nvim',
