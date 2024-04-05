@@ -23,6 +23,11 @@ vim.g.clipboard = {
     },
     cache_enabled = true,
 }
+vim.opt.smarttab = true
+vim.opt.expandtab = true
+vim.opt.tabstop = 2
+vim.opt.shiftwidth = 2
+vim.opt.softtabstop = 2
 -- Enable break indent
 vim.opt.breakindent = true
 -- Save undo history
