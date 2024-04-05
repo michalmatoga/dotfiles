@@ -57,6 +57,7 @@
     gnutar
     jq # A lightweight and flexible command-line JSON processor
     kubectl
+    k9s
     lua-language-server
     markdownlint-cli
     neofetch
