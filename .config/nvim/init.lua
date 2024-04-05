@@ -408,8 +408,11 @@ require('lazy').setup({
       vim.keymap.set('n', '<leader>sr', builtin.resume, { desc = '[S]earch [R]esume' })
       vim.keymap.set('n', '<leader>s.', builtin.oldfiles, { desc = '[S]earch Recent Files ("." for repeat)' })
       vim.keymap.set('n', '<leader><leader>', function()
-        builtin.buffers({ sort_mru = true, ignore_current_buffer = true })
-      end, { desc = '[ ] Find existing buffers' })
+        require("telescope").extensions.frecency.frecency {
+          workspace = "CWD",
+        }
+      end, { desc = '[ ] Find buffers by frecency' })
+
       vim.keymap.set('n', '<leader>e', builtin.commands, { desc = '[E]xecute Commands' })
 
       -- Slightly advanced example of overriding default behavior and theme
