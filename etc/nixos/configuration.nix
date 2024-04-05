@@ -26,7 +26,10 @@
   };
 
   programs.zsh.enable = true;
+
   users.defaultUserShell = pkgs.zsh;
+  users.users.nixos.extraGroups = [ "docker" ];
+
 
   virtualisation.docker.enable = true;
 
