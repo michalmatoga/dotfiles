@@ -17,8 +17,6 @@
     neovim
     curl
     wget
-  ];
-  environment.systemPackages = [
     (import ./win32yank.nix {inherit pkgs;})
   ];
 
