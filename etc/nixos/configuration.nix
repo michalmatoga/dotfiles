@@ -17,6 +17,7 @@
     neovim
     curl
     wget
+    (import ./win32yank.nix )
   ];
 
   programs.gnupg = {
@@ -29,7 +30,6 @@
 
   users.defaultUserShell = pkgs.zsh;
   users.users.nixos.extraGroups = [ "docker" ];
-
 
   virtualisation.docker.enable = true;
 
