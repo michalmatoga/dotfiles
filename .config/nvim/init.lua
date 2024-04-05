@@ -110,6 +110,9 @@ vim.api.nvim_create_user_command("CopyRelPath", "call setreg('+', expand('%'))",
 vim.api.nvim_create_user_command("ReviewsRequested", function()
   vim.cmd("Octo search is:open is:pr review-requested:" .. os.getenv("GH_USER") .. " archived:false sort:created-asc")
 end, {})
+vim.api.nvim_create_user_command("IssuesAssigned", function()
+  vim.cmd("Octo search is:open is:issue assignee:" .. os.getenv("GH_USER") .. " sort:created-asc")
+end, {})
 
 -- [[ Install `lazy.nvim` plugin manager ]]
 --    See `:help lazy.nvim.txt` or https://github.com/folke/lazy.nvim for more info
