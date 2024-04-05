@@ -238,7 +238,7 @@ require('lazy').setup({
   {
   "iamcco/markdown-preview.nvim",
     cmd = { "MarkdownPreviewToggle", "MarkdownPreview", "MarkdownPreviewStop" },
-    build = "cd app && yarn install",
+    build = "cd app && npm install",
     init = function()
       vim.g.mkdp_filetypes = { "markdown" }
     end,
@@ -845,7 +845,6 @@ require('lazy').setup({
     --   "BufNewFile path/to/my-vault/**.md",
     -- },
     dependencies = {
-      -- Required.
       "nvim-lua/plenary.nvim",
     },
     opts = {
