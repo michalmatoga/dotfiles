@@ -156,6 +156,8 @@
 
       set -g @thumbs-command 'echo -n {} | clip.exe && tmux display-message \"Copied {}\"'
       set -g @thumbs-upcase-command 'wsl-open {}'
+
+      set -g @resurrect-strategy-nvim 'session'
     '';
   };
 
