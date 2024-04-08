@@ -145,7 +145,7 @@
       ];
     extraConfig = ''
       set-window-option -g mode-keys vi
-      set-option -sg escape-time 10
+      set-option -s escape-time 0
       set -ag terminal-overrides ",xterm-256color:RGB"
       set -g @catppuccin_flavour "frappe"
 
