@@ -60,7 +60,7 @@ vim.opt.scrolloff = 10
 vim.opt.hlsearch = true
 
 vim.opt.swapfile = false
-vim.opt_local.conceallevel = 2
+vim.opt.conceallevel = 2
 
 vim.keymap.set('n', '<Esc>', '<cmd>nohlsearch<CR>')
 vim.keymap.set('i', 'jj', '<Esc>')
