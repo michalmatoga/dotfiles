@@ -33,4 +33,3 @@ To edit alacritty config:
 ```sh
 vim /mnt/c/Users/micmat/AppData/Roaming/alacritty/alacritty.toml
 ```
-
