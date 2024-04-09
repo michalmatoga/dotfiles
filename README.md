@@ -28,7 +28,7 @@ ln -s `which lua-language-server` ~/.local/share/nvim/mason/bin/lua-language-ser
 
 to fix Lua LSP.
 
-Edit alacritty config:
+To edit alacritty config:
 
 ```sh
 vim /mnt/c/Users/micmat/AppData/Roaming/alacritty/alacritty.toml
