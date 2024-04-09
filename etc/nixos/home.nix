@@ -146,6 +146,7 @@
       set-option -s escape-time 0
       set -ag terminal-overrides ",xterm-256color:RGB"
       set -g @catppuccin_flavour "frappe"
+      set -g base-index 1
 
 
       unbind C-b
