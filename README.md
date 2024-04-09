@@ -26,10 +26,10 @@ After first running nvim and installing plugins with Lazy, run:
 ln -s `which lua-language-server` ~/.local/share/nvim/mason/bin/lua-language-server
 ```
 
-Edit WezTerm config:
+to fix Lua LSP.
+
+Edit alacritty config:
 
 ```sh
-vim /mnt/c/Users/micmat/.wezterm.lua
+vim /mnt/c/Users/micmat/AppData/Roaming/alacritty/alacritty.toml
 ```
-
-to fix Lua LSP.
