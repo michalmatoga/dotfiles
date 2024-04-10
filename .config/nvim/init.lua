@@ -62,6 +62,11 @@ vim.opt.hlsearch = true
 vim.opt.swapfile = false
 vim.opt.virtualedit = "all"
 
+vim.opt.textwidth = 120
+vim.opt.wrap = true
+vim.opt.linebreak = true
+vim.opt.colorcolumn = 120
+
 -- Conceal certain characters in the editor - used in obsidian.nvim for example
 -- vim.opt.conceallevel = 2
 
