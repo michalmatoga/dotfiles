@@ -369,15 +369,13 @@ require('lazy').setup({
       { 'nvim-tree/nvim-web-devicons', enabled = vim.g.have_nerd_font },
     },
     config = function()
+      local actions = require('telescope.actions')
       require('telescope').setup {
-        -- You can put your default mappings / updates / etc. in here
-        --  All the info you're looking for is in `:help telescope.setup()`
-        --
-        -- defaults = {
-        --   mappings = {
-        --     i = { ['<c-enter>'] = 'to_fuzzy_refine' },
-        --   },
-        -- },
+        defaults = {
+          mappings = {
+            i = { ['<c-s>'] = actions.send_to_qflist + actions.open_qflist, },
+          },
+        },
         pickers = {
           find_files = {
             find_command = {'rg', '--files', '--hidden', '-g', '!.git' }
@@ -443,10 +441,6 @@ require('lazy').setup({
       vim.keymap.set('n', '<leader>sp', function()
         require('telescope').extensions.tmuxinator.projects{}
       end, { desc = '[S]witch [P]roject' })
-
-      vim.keymap.set('i', '<C-S>', function()
-        require('telescope.actions').send_to_qflist{}
-      end, { desc = '[S]end to quick fix list' })
 
     end,
   },
