@@ -56,8 +56,8 @@
     gnused
     gnutar
     jq # A lightweight and flexible command-line JSON processor
-    kubectl
     k9s
+    kubectl
     lua-language-server
     markdownlint-cli
     neofetch
@@ -72,6 +72,7 @@
     tmuxinator
     tree
     unzip
+    vault
     which
     wsl-open # WSL-specific
     xdg-utils
