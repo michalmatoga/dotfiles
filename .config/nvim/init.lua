@@ -62,8 +62,6 @@ vim.opt.hlsearch = true
 vim.opt.swapfile = false
 vim.opt.virtualedit = "all"
 
-vim.opt.textwidth = 120
-vim.opt.wrap = true
 vim.opt.colorcolumn = '120'
 
 -- Conceal certain characters in the editor - used in obsidian.nvim for example
@@ -985,7 +983,9 @@ require('lazy').setup({
   {
       "andrewferrier/wrapping.nvim",
       config = function()
-          require("wrapping").setup()
+          require("wrapping").setup({
+              softener = { markdown = true },
+          })
       end
   },
   -- The following two comments only work if you have downloaded the kickstart repo, not just copy pasted the
