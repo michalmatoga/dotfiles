@@ -60,6 +60,7 @@ vim.opt.scrolloff = 10
 vim.opt.hlsearch = true
 
 vim.opt.swapfile = false
+vim.opt.virtualedit = "all"
 
 -- Conceal certain characters in the editor - used in obsidian.nvim for example
 -- vim.opt.conceallevel = 2
