@@ -60,7 +60,9 @@ vim.opt.scrolloff = 10
 vim.opt.hlsearch = true
 
 vim.opt.swapfile = false
-vim.opt.conceallevel = 2
+
+-- Conceal certain characters in the editor - used in obsidian.nvim for example
+-- vim.opt.conceallevel = 2
 
 vim.keymap.set('n', '<Esc>', '<cmd>nohlsearch<CR>')
 vim.keymap.set('i', 'jj', '<Esc>')
