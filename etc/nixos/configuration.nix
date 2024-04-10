@@ -33,5 +33,7 @@
 
   virtualisation.docker.enable = true;
 
+  services.automatic-timezoned.enable = true;
+
   system.stateVersion = "23.11";
 }
