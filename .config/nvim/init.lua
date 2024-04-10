@@ -856,13 +856,14 @@ require('lazy').setup({
           path = "~/ghq/gitlab.com/michalmatoga/journal",
         },
       },
-      daily_notes = {
-        folder = "journal",
-      },
       templates = {
           subdir = "obsidian_templates",
           date_format = "%Y-%m-%d-%a",
           time_format = "%H:%M",
+      },
+      daily_notes = {
+        folder = "journal",
+        template = "daily-note.md",
       },
     },
   },
