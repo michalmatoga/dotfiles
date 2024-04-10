@@ -858,7 +858,7 @@ require('lazy').setup({
       },
       templates = {
           subdir = "obsidian_templates",
-          date_format = "%Y-%m-%d-%a",
+          date_format = "%Y-%m-%d",
           time_format = "%H:%M",
       },
       daily_notes = {
