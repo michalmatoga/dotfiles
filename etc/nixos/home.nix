@@ -80,6 +80,7 @@
     zig
     zip
     zstd
+    nodePackages."@squoosh/cli"
   ];
 
   # starship - an customizable prompt for any shell
