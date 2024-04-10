@@ -444,7 +444,7 @@ require('lazy').setup({
         require('telescope').extensions.tmuxinator.projects{}
       end, { desc = '[S]witch [P]roject' })
 
-      vim.keymap.set('i', 'C-S', function()
+      vim.keymap.set('i', '<C-S>', function()
         require('telescope.actions').send_to_qflist{}
       end, { desc = '[S]end to quick fix list' })
 
