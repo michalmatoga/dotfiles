@@ -148,6 +148,7 @@
       set -g @catppuccin_flavour "frappe"
       set -g base-index 1
       setw -g pane-base-index 1
+      setw -g mouse on
 
       unbind C-b
       set-option -g prefix C-f
