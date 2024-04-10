@@ -69,7 +69,7 @@ function setupDirenv() {
     `cat ${__dirname}/../secrets.json | jq -r '.npmrc_sch' | base64 -d > ${rootDir}/.npmrc`,
   );
   execSync(
-    `echo -e 'export NPM_CONFIG_USERCONFIG=${rootDir}/.npmrc\nexport GH_USER="michal-matoga"' > ${rootDir}/.envrc && direnv allow ${rootDir}`,
+    `echo -e 'export NPM_CONFIG_USERCONFIG=${rootDir}/.npmrc\nexport GH_USER="michal-matoga"\nexport VAULT_ADDR=https://vault.int.vgnett.no' > ${rootDir}/.envrc && direnv allow ${rootDir}`,
   );
 }
 
