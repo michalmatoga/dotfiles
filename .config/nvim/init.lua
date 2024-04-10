@@ -443,6 +443,11 @@ require('lazy').setup({
       vim.keymap.set('n', '<leader>sp', function()
         require('telescope').extensions.tmuxinator.projects{}
       end, { desc = '[S]witch [P]roject' })
+
+      vim.keymap.set('i', 'C-S', function()
+        require('telescope.actions').send_to_qflist{}
+      end, { desc = '[S]end to quick fix list' })
+
     end,
   },
   { -- LSP Configuration & Plugins
