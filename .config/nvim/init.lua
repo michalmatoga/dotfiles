@@ -994,6 +994,10 @@ require('lazy').setup({
       require('sort-import').setup()
     end
   },
+  {
+    "folke/zen-mode.nvim",
+    opts = {}
+  },
   { import = 'custom.plugins' },
 }, {
   ui = {
