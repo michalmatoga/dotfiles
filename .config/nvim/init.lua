@@ -440,9 +440,9 @@ require('lazy').setup({
         builtin.find_files { cwd = vim.fn.stdpath 'config' }
       end, { desc = '[S]earch [N]eovim files' })
 
-      vim.keymap.set('n', '<leader>sp', function()
+      vim.keymap.set('n', '<leader>op', function()
         require('telescope').extensions.tmuxinator.projects{}
-      end, { desc = '[S]witch [P]roject' })
+      end, { desc = '[O]pen [P]roject' })
 
     end,
   },
@@ -975,9 +975,9 @@ require('lazy').setup({
       vim.keymap.set('v', '<leader>sw', '<esc><cmd>lua require("spectre").open_visual()<CR>', {
           desc = "Search current word"
       })
-      -- vim.keymap.set('n', '<leader>sp', '<cmd>lua require("spectre").open_file_search({select_word=true})<CR>', {
-      --     desc = "Search on current file"
-      -- })
+      vim.keymap.set('n', '<leader>sp', '<cmd>lua require("spectre").open_file_search({select_word=true})<CR>', {
+          desc = "Search on current file"
+      })
     end,
   },
   {
