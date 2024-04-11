@@ -70,7 +70,6 @@
     rustc
     tmux
     tmuxinator
-    tree
     unzip
     vault
     which
