@@ -33,7 +33,6 @@
 
   virtualisation.docker.enable = true;
 
-  # services.automatic-timezoned.enable = true;
   time.timeZone = lib.mkDefault "Europe/Warsaw";
 
   system.stateVersion = "23.11";
