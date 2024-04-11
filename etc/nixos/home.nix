@@ -118,6 +118,7 @@
       pro = "tmuxinator start $(tmuxinator list --newline | fzf)";
       sync-repos = "node ~/ghq/github.com/michalmatoga/dotfiles/scripts/sync-repos.mjs";
       update = "sudo nixos-rebuild switch";
+      czg = "npx -y czg";
     };
     # setup some environment variables
     initExtra = ''
