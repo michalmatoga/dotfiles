@@ -443,7 +443,8 @@ require('lazy').setup({
       vim.keymap.set('n', '<leader>op', function()
         require('telescope').extensions.tmuxinator.projects{}
       end, { desc = '[O]pen [P]roject' })
-
+      -- Disable folding in Telescope's result window.
+      vim.api.nvim_create_autocmd("FileType", { pattern = "TelescopeResults", command = [[setlocal nofoldenable]] })
     end,
   },
   { -- LSP Configuration & Plugins
