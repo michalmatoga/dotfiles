@@ -5,6 +5,7 @@
     "gcan!"="git commit --verbose --all --no-edit --amend";
     ga="git add";
     gba="git branch --all";
+    gcb="git checkout -b";
     gco="git checkout";
     gfa="git fetch --all --prune --jobs=10";
     glgg="git log --graph";
@@ -56,7 +57,6 @@
     # 'gcans!'='git commit --verbose --all --signoff --no-edit --amend'
     # gcas='git commit --all --signoff'
     # gcasm='git commit --all --signoff --message'
-    # gcb='git checkout -b'
     # gcd='git checkout $(git_develop_branch)'
     # gcf='git config --list'
     # gcl='git clone --recurse-submodules'
