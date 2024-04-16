@@ -4,6 +4,7 @@
   programs.zsh.shellAliases = {
     "gcan!"="git commit --verbose --all --no-edit --amend";
     ga="git add";
+    gaa="git add --all";
     gba="git branch --all";
     gbd="git branch --delete";
     gcb="git checkout -b";
@@ -24,7 +25,6 @@
     # egrep='grep -E --color=auto --exclude-dir={.bzr,CVS,.git,.hg,.svn,.idea,.tox}'
     # fgrep='grep -F --color=auto --exclude-dir={.bzr,CVS,.git,.hg,.svn,.idea,.tox}'
     # g=git
-    # gaa='git add --all'
     # gam='git am'
     # gama='git am --abort'
     # gamc='git am --continue'
