@@ -60,7 +60,6 @@ vim.opt.scrolloff = 10
 vim.opt.hlsearch = true
 
 vim.opt.swapfile = false
-vim.opt.virtualedit = "all"
 
 vim.opt.colorcolumn = '120'
 
