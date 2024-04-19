@@ -115,14 +115,14 @@
       clip = "clip.exe";
       cplc = "history | tail -n 1 | cut -d' ' -f5- | clip.exe";
       cpwd = "pwd | tr -d '\n' | clip.exe";
-      # import-sort-cli = "npx -y import-sort-cli";
-      # nx = "npx -y nx";
-      # czg = "npx -y czg";
       paste = "powershell.exe get-clipboard";
       pro = "tmuxinator start $(tmuxinator list --newline | fzf)";
       sync-repos = "node ~/ghq/github.com/michalmatoga/dotfiles/scripts/sync-repos.mjs";
       update = "sudo nixos-rebuild switch";
     };
+    # import-sort-cli = "npx -y import-sort-cli";
+    # nx = "npx -y nx";
+    # czg = "npx -y czg";
     # setup some environment variables
     initExtra = ''
       export BROWSER="wsl-open"
