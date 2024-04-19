@@ -67,7 +67,10 @@ windows:
 function setupDirenv() {
   const rootDir = "~/ghq/github.schibsted.io";
   execSync(
-    `cat ${__dirname}/../secrets.json | jq -r '.npmrc_sch' | base64 -d > ${rootDir}/.npmrc`,
+    `echo 'prefix = "/home/nixos/.cache/npm/global"' > ${rootDir}/.npmrc`,
+  );
+  execSync(
+    `cat ${__dirname}/../secrets.json | jq -r '.npmrc_sch' | base64 -d >> ${rootDir}/.npmrc`,
   );
   const vars = [
     `NPM_CONFIG_USERCONFIG=${rootDir}/.npmrc`,
