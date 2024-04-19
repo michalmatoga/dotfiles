@@ -38,9 +38,9 @@
     source = ../../.config/.editorconfig;
   };
 
-  home.file.".npmrc" = {
-    source = ../../.config/.npmrc;
-  };
+  # home.file.".npmrc" = {
+  #   source = ../../.config/.npmrc;
+  # };
 
   # Packages that should be installed to the user profile.
   home.packages = with pkgs; [
