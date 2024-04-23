@@ -11,14 +11,8 @@
   };
 
   home.file.".ssh/config".text = ''
-    Host github.com-michalmatoga
-      HostName github.com
-      User git
-      IdentityFile ~/.ssh/id_rsa
-    Host github.com-michal-matoga_sch
-      HostName github.com
-      User git
-      IdentityFile ~/.ssh/michal-matoga_sch
+    Host *
+      StrictHostKeyChecking no
   '';
 
   home.file.".config/git" = {
