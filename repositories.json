@@ -1,11 +1,7 @@
 [
   {
     "provider": "github.com",
-    "fetch": [
-      "elikonas",
-      "michalmatoga/dotfiles",
-      "michal-matoga_sch/aka-workshops"
-    ]
+    "fetch": ["elikonas", "michalmatoga/dotfiles", "michalmatoga/aka-workshops"]
   },
   {
     "provider": "github.schibsted.io",
