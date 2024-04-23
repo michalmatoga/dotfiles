@@ -136,7 +136,10 @@
     vimAlias = true;
     vimdiffAlias = true;
   };
-  programs.ssh.startAgent = true;
+  programs.ssh = {
+    enable = true;
+    startAgent = true;
+  };
   programs.tmux = {
     enable = true;
     plugins = with pkgs;
