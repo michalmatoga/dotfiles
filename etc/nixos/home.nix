@@ -13,6 +13,14 @@
   home.file.".ssh/config".text = ''
     Host *
       StrictHostKeyChecking no
+    Host github.com-michalmatoga
+      HostName github.com
+      User git
+      IdentityFile ~/.ssh/id_rsa
+    Host github.com-michal-matoga_sch
+      HostName github.com
+      User git
+      IdentityFile ~/.ssh/michal-matoga_sch
   '';
 
   home.file.".config/git" = {
