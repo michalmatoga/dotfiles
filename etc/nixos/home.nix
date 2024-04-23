@@ -11,8 +11,6 @@
   };
 
   home.file.".ssh/config".text = ''
-    Host *
-      StrictHostKeyChecking no
     Host github.com-michalmatoga
       HostName github.com
       User git
