@@ -30,9 +30,9 @@
     source = ../../.config/tmuxinator;
   };
 
-  home.file.".config/lazydocker/config" = {
+  home.file.".config/lazydocker/config.yml" = {
     recursive = true;
-    source = ../../.config/lazydocker/config;
+    source = ../../.config/lazydocker/config.yml;
   };
 
   home.file.".markdownlintrc" = {
