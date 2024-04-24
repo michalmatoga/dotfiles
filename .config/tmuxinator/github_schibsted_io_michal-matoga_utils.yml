@@ -1,0 +1,8 @@
+name: github_schibsted_io_michal-matoga_utils
+root: ~/ghq/github.schibsted.io/michal-matoga/utils
+windows:
+  - editor:
+      layout: e796,238x58,0,0{179x58,0,0,1,58x58,180,0,2}
+      panes:
+        - vim
+        -

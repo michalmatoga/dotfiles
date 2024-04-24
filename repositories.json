@@ -5,7 +5,7 @@
   },
   {
     "provider": "github.schibsted.io",
-    "fetch": ["svp"]
+    "fetch": ["svp", "michal-matoga/utils"]
   },
   {
     "provider": "gitlab.com",
