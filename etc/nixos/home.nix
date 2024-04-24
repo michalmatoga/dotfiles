@@ -30,6 +30,11 @@
     source = ../../.config/tmuxinator;
   };
 
+  home.file.".config/lazydocker/config" = {
+    recursive = true;
+    source = ../../.config/lazydocker/config;
+  };
+
   home.file.".markdownlintrc" = {
     source = ../../.config/markdownlintrc.json;
   };
