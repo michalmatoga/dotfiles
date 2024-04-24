@@ -62,6 +62,7 @@
     jq # A lightweight and flexible command-line JSON processor
     k9s
     kubectl
+    lazydocker
     lua-language-server
     markdownlint-cli
     neofetch
