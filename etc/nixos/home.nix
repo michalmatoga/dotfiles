@@ -74,6 +74,7 @@
     nmap # A utility for network discovery and security auditing
     nnn # terminal file manager
     nodejs_20 # nodejs & npm
+    opentofu
     prettierd
     python3
     ripgrep # recursively searches directories for a regex pattern
