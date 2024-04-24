@@ -126,6 +126,7 @@
       pro = "tmuxinator start $(tmuxinator list --newline | fzf)";
       sync-repos = "node ~/ghq/github.com/michalmatoga/dotfiles/scripts/sync-repos.mjs";
       update = "sudo nixos-rebuild switch";
+      tf = "tofu";
     };
     # setup some environment variables
     initExtra = ''
