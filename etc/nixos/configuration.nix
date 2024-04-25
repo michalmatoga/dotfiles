@@ -7,6 +7,20 @@
 
 { config, lib, pkgs, ... }:
 
+let
+  my-kubernetes-helm = with pkgs; wrapHelm kubernetes-helm {
+    plugins = with pkgs.kubernetes-helmPlugins; [
+      helm-secrets
+      helm-diff
+      helm-s3
+      helm-git
+    ];
+  };
+
+  my-helmfile = pkgs.helmfile-wrapped.override {
+    inherit (my-kubernetes-helm) pluginsDir;
+  };
+in
 {
   wsl.enable = true;
   wsl.defaultUser = "nixos";
@@ -18,6 +32,8 @@
     curl
     wget
     (import ./win32yank.nix {inherit pkgs;})
+    my-kubernetes-helm
+    my-helmfile
   ];
 
   programs.gnupg = {
