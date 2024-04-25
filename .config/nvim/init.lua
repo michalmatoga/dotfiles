@@ -914,12 +914,6 @@ require('lazy').setup({
           end,
           opts = { buffer = true, expr = true },
         },
-        ['<leader>nn'] = {
-          action = function()
-            return require('obsidian').commands.link_new()
-          end,
-          opts = { buffer = true, expr = true },
-        },
       },
 
       -- Optional, customize how note IDs are generated given an optional title.
@@ -941,6 +935,7 @@ require('lazy').setup({
         end
         return tostring(os.date '%Y%m%d%H%M') .. '-' .. suffix
       end,
+      vim.keymap.set('v', '<leader>ln', '<Cmd>ObsidianLinkNew<CR>'),
     },
   },
   -- Highlight todo, notes, etc in comments
