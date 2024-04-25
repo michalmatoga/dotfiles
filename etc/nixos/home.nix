@@ -64,7 +64,6 @@
     gnupg
     gnused
     gnutar
-    helm
     jq # A lightweight and flexible command-line JSON processor
     k9s
     kubectl
