@@ -12,16 +12,16 @@ vim.opt.showmode = false -- Don't show the mode, since it's already in the statu
 --  See `:help 'clipboard'`
 vim.opt.clipboard = 'unnamedplus'
 vim.g.clipboard = {
-    name = "win32yank-wsl",
-    copy = {
-        ["+"] = "win32yank.exe -i --crlf",
-        ["*"] = "win32yank.exe -i --crlf",
-    },
-    paste = {
-        ["+"] = "win32yank.exe -o --lf",
-        ["*"] = "win32yank.exe -o --lf",
-    },
-    cache_enabled = true,
+  name = 'win32yank-wsl',
+  copy = {
+    ['+'] = 'win32yank.exe -i --crlf',
+    ['*'] = 'win32yank.exe -i --crlf',
+  },
+  paste = {
+    ['+'] = 'win32yank.exe -o --lf',
+    ['*'] = 'win32yank.exe -o --lf',
+  },
+  cache_enabled = true,
 }
 vim.opt.smarttab = true
 vim.opt.expandtab = true
@@ -114,12 +114,12 @@ vim.api.nvim_create_autocmd('TextYankPost', {
   end,
 })
 
-vim.api.nvim_create_user_command("CopyRelPath", "call setreg('+', expand('%'))", {})
-vim.api.nvim_create_user_command("ReviewsRequested", function()
-  vim.cmd("Octo search is:open is:pr review-requested:" .. os.getenv("GH_USER") .. " archived:false sort:created-asc")
+vim.api.nvim_create_user_command('CopyRelPath', "call setreg('+', expand('%'))", {})
+vim.api.nvim_create_user_command('ReviewsRequested', function()
+  vim.cmd('Octo search is:open is:pr review-requested:' .. os.getenv 'GH_USER' .. ' archived:false sort:created-asc')
 end, {})
-vim.api.nvim_create_user_command("IssuesAssigned", function()
-  vim.cmd("Octo search is:open is:issue assignee:" .. os.getenv("GH_USER") .. " sort:created-asc")
+vim.api.nvim_create_user_command('IssuesAssigned', function()
+  vim.cmd('Octo search is:open is:issue assignee:' .. os.getenv 'GH_USER' .. ' sort:created-asc')
 end, {})
 
 -- [[ Install `lazy.nvim` plugin manager ]]
@@ -135,17 +135,17 @@ require('lazy').setup({
   'tpope/vim-sleuth', -- Detect tabstop and shiftwidth automatically
   'github/copilot.vim',
   {
-    "CopilotC-Nvim/CopilotChat.nvim",
-    branch = "canary",
+    'CopilotC-Nvim/CopilotChat.nvim',
+    branch = 'canary',
     dependencies = {
-      { "github/copilot.vim" },
-      { "nvim-lua/plenary.nvim" }, -- for curl, log wrapper
+      { 'github/copilot.vim' },
+      { 'nvim-lua/plenary.nvim' }, -- for curl, log wrapper
     },
     opts = {
       debug = true, -- Enable debugging
       mappings = {
         reset = {
-          normal ="<leader><C-l>",
+          normal = '<leader><C-l>',
           insert = nil,
         },
       },
@@ -153,8 +153,8 @@ require('lazy').setup({
     -- See Commands section for default commands if you want to lazy load on them
   },
   {
-    "folke/flash.nvim",
-    event = "VeryLazy",
+    'folke/flash.nvim',
+    event = 'VeryLazy',
     -- @type Flash.Config
     opts = {
       label = {
@@ -171,31 +171,38 @@ require('lazy').setup({
     },
   },
   {
-    "okuuva/auto-save.nvim",
-    cmd = "ASToggle", -- optional for lazy loading on command
-    event = { "InsertLeave", "TextChanged" }, -- optional for lazy loading on trigger events
+    'okuuva/auto-save.nvim',
+    cmd = 'ASToggle', -- optional for lazy loading on command
+    event = { 'InsertLeave', 'TextChanged' }, -- optional for lazy loading on trigger events
     opts = {},
   },
   {
-    "nvim-neo-tree/neo-tree.nvim",
+    'nvim-neo-tree/neo-tree.nvim',
     dependencies = {
-      "nvim-lua/plenary.nvim",
-      "nvim-tree/nvim-web-devicons", -- not strictly required, but recommended
-      "MunifTanjim/nui.nvim",
+      'nvim-lua/plenary.nvim',
+      'nvim-tree/nvim-web-devicons', -- not strictly required, but recommended
+      'MunifTanjim/nui.nvim',
     },
-    config = function ()
+    config = function()
       require('neo-tree').setup {
         auto_clean_after_session_restore = true,
         filesystem = {
           filtered_items = { visible = true },
-          follow_current_file = { enabled = true }
+          follow_current_file = { enabled = true },
         },
         keys = {
-          { "<leader>t", mode = { "n" }, function() require("neo-tree").toggle() end, desc = "Toggle Neo[T]ree" },
+          {
+            '<leader>t',
+            mode = { 'n' },
+            function()
+              require('neo-tree').toggle()
+            end,
+            desc = 'Toggle Neo[T]ree',
+          },
         },
         window = {
           mappings = {
-            ["l"] = "open",
+            ['l'] = 'open',
           },
         },
       }
@@ -205,9 +212,9 @@ require('lazy').setup({
   -- 'rmagatti/auto-session', opts = {},
   -- },
   {
-    "olimorris/persisted.nvim",
+    'olimorris/persisted.nvim',
     lazy = false, -- make sure the plugin is always loaded at startup
-    config = function ()
+    config = function()
       require('persisted').setup {
         autoload = true,
       }
@@ -215,19 +222,19 @@ require('lazy').setup({
   },
   {
     'sindrets/diffview.nvim',
-      opts = {},
-      config = function ()
-        function _G.toggle_diffview()
-          local bufnr = vim.api.nvim_get_current_buf()
-          local buftype = vim.api.nvim_buf_get_option(bufnr, 'buftype')
-          if buftype == 'nofile' then
-            vim.cmd('DiffviewClose')
-          else
-            vim.cmd('DiffviewOpen')
-          end
+    opts = {},
+    config = function()
+      function _G.toggle_diffview()
+        local bufnr = vim.api.nvim_get_current_buf()
+        local buftype = vim.api.nvim_buf_get_option(bufnr, 'buftype')
+        if buftype == 'nofile' then
+          vim.cmd 'DiffviewClose'
+        else
+          vim.cmd 'DiffviewOpen'
         end
-        vim.keymap.set('n', '<leader>dv', '<cmd>lua toggle_diffview()<CR>', { desc = '[D]iff[V]iew toggle' })
-      end,
+      end
+      vim.keymap.set('n', '<leader>dv', '<cmd>lua toggle_diffview()<CR>', { desc = '[D]iff[V]iew toggle' })
+    end,
   },
   {
     'pwntester/octo.nvim',
@@ -236,37 +243,37 @@ require('lazy').setup({
       'nvim-telescope/telescope.nvim',
       'nvim-tree/nvim-web-devicons',
     },
-    config = function ()
-      require("octo").setup({
+    config = function()
+      require('octo').setup {
         enable_builtin = true,
-      })
+      }
       vim.treesitter.language.register('markdown', 'octo')
-    end
-  },
-  {
-    "iamcco/markdown-preview.nvim",
-    cmd = { "MarkdownPreviewToggle", "MarkdownPreview", "MarkdownPreviewStop" },
-    build = "cd app && npm install",
-    init = function()
-      vim.g.mkdp_filetypes = { "markdown" }
     end,
-    ft = { "markdown" },
   },
   {
-  "christoomey/vim-tmux-navigator",
+    'iamcco/markdown-preview.nvim',
+    cmd = { 'MarkdownPreviewToggle', 'MarkdownPreview', 'MarkdownPreviewStop' },
+    build = 'cd app && npm install',
+    init = function()
+      vim.g.mkdp_filetypes = { 'markdown' }
+    end,
+    ft = { 'markdown' },
+  },
+  {
+    'christoomey/vim-tmux-navigator',
     cmd = {
-      "TmuxNavigateLeft",
-      "TmuxNavigateDown",
-      "TmuxNavigateUp",
-      "TmuxNavigateRight",
-      "TmuxNavigatePrevious",
+      'TmuxNavigateLeft',
+      'TmuxNavigateDown',
+      'TmuxNavigateUp',
+      'TmuxNavigateRight',
+      'TmuxNavigatePrevious',
     },
     keys = {
-      { "<c-h>", "<cmd><C-U>TmuxNavigateLeft<cr>" },
-      { "<c-j>", "<cmd><C-U>TmuxNavigateDown<cr>" },
-      { "<c-k>", "<cmd><C-U>TmuxNavigateUp<cr>" },
-      { "<c-l>", "<cmd><C-U>TmuxNavigateRight<cr>" },
-      { "<c-\\>", "<cmd><C-U>TmuxNavigatePrevious<cr>" },
+      { '<c-h>', '<cmd><C-U>TmuxNavigateLeft<cr>' },
+      { '<c-j>', '<cmd><C-U>TmuxNavigateDown<cr>' },
+      { '<c-k>', '<cmd><C-U>TmuxNavigateUp<cr>' },
+      { '<c-l>', '<cmd><C-U>TmuxNavigateRight<cr>' },
+      { '<c-\\>', '<cmd><C-U>TmuxNavigatePrevious<cr>' },
     },
   },
   -- "gc" to comment visual regions/lines
@@ -276,7 +283,7 @@ require('lazy').setup({
     'lewis6991/gitsigns.nvim',
     -- opts = {},
     config = function()
-      require('gitsigns').setup{
+      require('gitsigns').setup {
         signs = {
           add = { text = '+' },
           change = { text = '~' },
@@ -290,42 +297,56 @@ require('lazy').setup({
             opts = opts or {}
             opts.buffer = bufnr
             vim.keymap.set(mode, l, r, opts)
-
           end
 
           -- Navigation
           map('n', ']c', function()
-            if vim.wo.diff then return ']c' end
-            vim.schedule(function() gs.next_hunk() end)
+            if vim.wo.diff then
+              return ']c'
+            end
+            vim.schedule(function()
+              gs.next_hunk()
+            end)
             return '<Ignore>'
-          end, {expr=true})
+          end, { expr = true })
 
           map('n', '[c', function()
-            if vim.wo.diff then return '[c' end
-            vim.schedule(function() gs.prev_hunk() end)
+            if vim.wo.diff then
+              return '[c'
+            end
+            vim.schedule(function()
+              gs.prev_hunk()
+            end)
             return '<Ignore>'
-          end, {expr=true})
+          end, { expr = true })
 
           -- Actions
           map('n', '<leader>hs', gs.stage_hunk)
           map('n', '<leader>hr', gs.reset_hunk)
 
-          map('v', '<leader>hs', function() gs.stage_hunk {vim.fn.line('.'), vim.fn.line('v')} end)
-          map('v', '<leader>hr', function() gs.reset_hunk {vim.fn.line('.'), vim.fn.line('v')} end)
+          map('v', '<leader>hs', function()
+            gs.stage_hunk { vim.fn.line '.', vim.fn.line 'v' }
+          end)
+          map('v', '<leader>hr', function()
+            gs.reset_hunk { vim.fn.line '.', vim.fn.line 'v' }
+          end)
           map('n', '<leader>hS', gs.stage_buffer)
           map('n', '<leader>hu', gs.undo_stage_hunk)
           map('n', '<leader>hR', gs.reset_buffer)
           map('n', '<leader>hp', gs.preview_hunk)
-          map('n', '<leader>hb', function() gs.blame_line{full=true} end)
+          map('n', '<leader>hb', function()
+            gs.blame_line { full = true }
+          end)
           map('n', '<leader>tb', gs.toggle_current_line_blame)
           map('n', '<leader>hd', gs.diffthis)
-          map('n', '<leader>hD', function() gs.diffthis('~') end)
+          map('n', '<leader>hD', function()
+            gs.diffthis '~'
+          end)
           map('n', '<leader>td', gs.toggle_deleted)
 
-
           -- Text object
-          map({'o', 'x'}, 'ih', ':<C-U>Gitsigns select_hunk<CR>')
-        end
+          map({ 'o', 'x' }, 'ih', ':<C-U>Gitsigns select_hunk<CR>')
+        end,
       }
     end,
   },
@@ -370,17 +391,17 @@ require('lazy').setup({
       { 'nvim-tree/nvim-web-devicons', enabled = vim.g.have_nerd_font },
     },
     config = function()
-      local actions = require('telescope.actions')
+      local actions = require 'telescope.actions'
       require('telescope').setup {
         defaults = {
           mappings = {
-            i = { ['<c-s>'] = actions.send_to_qflist + actions.open_qflist, },
+            i = { ['<c-s>'] = actions.send_to_qflist + actions.open_qflist },
           },
         },
         pickers = {
           find_files = {
-            find_command = {'rg', '--files', '--hidden', '-g', '!.git' }
-          }
+            find_command = { 'rg', '--files', '--hidden', '-g', '!.git' },
+          },
         },
         extensions = {
           ['ui-select'] = {
@@ -412,7 +433,7 @@ require('lazy').setup({
       vim.keymap.set('n', '<leader>sr', builtin.resume, { desc = '[S]earch [R]esume' })
       vim.keymap.set('n', '<leader>s.', builtin.oldfiles, { desc = '[S]earch Recent Files ("." for repeat)' })
       vim.keymap.set('n', '<leader><leader>', function()
-        builtin.buffers({ sort_mru = true, ignore_current_buffer = true })
+        builtin.buffers { sort_mru = true, ignore_current_buffer = true }
       end, { desc = '[ ] Find existing buffers' })
       vim.keymap.set('n', '<leader>e', builtin.commands, { desc = '[E]xecute Commands' })
 
@@ -440,10 +461,10 @@ require('lazy').setup({
       end, { desc = '[S]earch [N]eovim files' })
 
       vim.keymap.set('n', '<leader>op', function()
-        require('telescope').extensions.tmuxinator.projects{}
+        require('telescope').extensions.tmuxinator.projects {}
       end, { desc = '[O]pen [P]roject' })
       -- Disable folding in Telescope's result window.
-      vim.api.nvim_create_autocmd("FileType", { pattern = "TelescopeResults", command = [[setlocal nofoldenable]] })
+      vim.api.nvim_create_autocmd('FileType', { pattern = 'TelescopeResults', command = [[setlocal nofoldenable]] })
     end,
   },
   { -- LSP Configuration & Plugins
@@ -662,10 +683,10 @@ require('lazy').setup({
         --
         -- You can use a sub-list to tell conform to run *until* a formatter
         -- is found.
-        json = { { "prettierd", "prettier" } },
-        javascript = { { "prettierd", "prettier" } },
-        typescript = { { "prettierd", "prettier" } },
-        markdown = { "prettierd", "prettier" },
+        json = { { 'prettierd', 'prettier' } },
+        javascript = { { 'prettierd', 'prettier' } },
+        typescript = { { 'prettierd', 'prettier' } },
+        markdown = { 'prettierd', 'prettier' },
       },
     },
   },
@@ -676,8 +697,8 @@ require('lazy').setup({
       local lint = require 'lint'
       lint.linters_by_ft = {
         markdown = { 'markdownlint' },
-        javascript = { "eslint_d" },
-        typescript = { "eslint_d" },
+        javascript = { 'eslint_d' },
+        typescript = { 'eslint_d' },
       }
 
       -- To allow other plugins to add linters to require('lint').linters_by_ft,
@@ -841,34 +862,55 @@ require('lazy').setup({
     end,
   },
   {
-    "epwalsh/obsidian.nvim",
-    version = "*",  -- recommended, use latest release instead of latest commit
+    'epwalsh/obsidian.nvim',
+    version = '*', -- recommended, use latest release instead of latest commit
     lazy = true,
     -- ft = "markdown",
     -- Replace the above line with this if you only want to load obsidian.nvim for markdown files in your vault:
     event = {
       -- If you want to use the home shortcut '~' here you need to call 'vim.fn.expand'.
-      "BufReadPre " .. vim.fn.expand "~" .. "/ghq/gitlab.com/michalmatoga/journal/**.md"
+      'BufReadPre '
+        .. vim.fn.expand '~'
+        .. '/ghq/gitlab.com/michalmatoga/journal/**.md',
     },
     dependencies = {
-      "nvim-lua/plenary.nvim",
+      'nvim-lua/plenary.nvim',
     },
     opts = {
       workspaces = {
         {
-          name = "journal",
-          path = "~/ghq/gitlab.com/michalmatoga/journal",
+          name = 'journal',
+          path = '~/ghq/gitlab.com/michalmatoga/journal',
         },
       },
       templates = {
-          subdir = "obsidian_templates",
-          date_format = "%Y-%m-%d",
-          time_format = "%H:%M",
+        subdir = 'obsidian_templates',
+        date_format = '%Y-%m-%d',
+        time_format = '%H:%M',
       },
       daily_notes = {
-        folder = "journal",
-        template = "daily-note.md",
+        folder = 'journal',
+        template = 'daily-note.md',
       },
+      -- Optional, customize how note IDs are generated given an optional title.
+      ---@param title string|?
+      ---@return string
+      note_id_func = function(title)
+        -- Create note IDs in a Zettelkasten format with a timestamp and a suffix.
+        -- In this case a note with the title 'My new note' will be given an ID that looks
+        -- like '1657296016-my-new-note', and therefore the file name '1657296016-my-new-note.md'
+        local suffix = ''
+        if title ~= nil then
+          -- If title is given, transform it into valid file name.
+          suffix = title:gsub(' ', '-'):gsub('[^A-Za-z0-9-]', ''):lower()
+        else
+          -- If title is nil, just add 4 random uppercase letters to the suffix.
+          for _ = 1, 4 do
+            suffix = suffix .. string.char(math.random(65, 90))
+          end
+        end
+        return tostring(os.date '%Y%m%d%H%M') .. '-' .. suffix
+      end,
     },
   },
   -- Highlight todo, notes, etc in comments
@@ -941,62 +983,68 @@ require('lazy').setup({
     end,
   },
   {
-    "L3MON4D3/LuaSnip",
-    dependencies = { "rafamadriz/friendly-snippets" },
+    'L3MON4D3/LuaSnip',
+    dependencies = { 'rafamadriz/friendly-snippets' },
     -- follow latest release.
-    version = "v2.*", -- Replace <CurrentMajor> by the latest released major (first number of latest release)
+    version = 'v2.*', -- Replace <CurrentMajor> by the latest released major (first number of latest release)
     -- install jsregexp (optional!).
-    build = "make install_jsregexp",
+    build = 'make install_jsregexp',
     config = function()
-      require("luasnip/loaders/from_vscode").lazy_load()
-      local ls = require("luasnip")
+      require('luasnip/loaders/from_vscode').lazy_load()
+      local ls = require 'luasnip'
 
-      vim.keymap.set({"i"}, "<C-K>", function() ls.expand() end, {silent = true})
-      vim.keymap.set({"i", "s"}, "<C-L>", function() ls.jump( 1) end, {silent = true})
-      vim.keymap.set({"i", "s"}, "<C-J>", function() ls.jump(-1) end, {silent = true})
+      vim.keymap.set({ 'i' }, '<C-K>', function()
+        ls.expand()
+      end, { silent = true })
+      vim.keymap.set({ 'i', 's' }, '<C-L>', function()
+        ls.jump(1)
+      end, { silent = true })
+      vim.keymap.set({ 'i', 's' }, '<C-J>', function()
+        ls.jump(-1)
+      end, { silent = true })
 
-      vim.keymap.set({"i", "s"}, "<C-E>", function()
+      vim.keymap.set({ 'i', 's' }, '<C-E>', function()
         if ls.choice_active() then
           ls.change_choice(1)
         end
-      end, {silent = true})
+      end, { silent = true })
     end,
   },
   {
-    "nvim-pack/nvim-spectre",
-    dependencies = { "nvim-lua/plenary.nvim" },
+    'nvim-pack/nvim-spectre',
+    dependencies = { 'nvim-lua/plenary.nvim' },
     config = function()
       vim.keymap.set('n', '<leader>S', '<cmd>lua require("spectre").toggle()<CR>', {
-          desc = "Toggle Spectre"
+        desc = 'Toggle Spectre',
       })
       vim.keymap.set('n', '<leader>sw', '<cmd>lua require("spectre").open_visual({select_word=true})<CR>', {
-          desc = "Search current word"
+        desc = 'Search current word',
       })
       vim.keymap.set('v', '<leader>sw', '<esc><cmd>lua require("spectre").open_visual()<CR>', {
-          desc = "Search current word"
+        desc = 'Search current word',
       })
       vim.keymap.set('n', '<leader>sp', '<cmd>lua require("spectre").open_file_search({select_word=true})<CR>', {
-          desc = "Search on current file"
+        desc = 'Search on current file',
       })
     end,
   },
   {
-      "andrewferrier/wrapping.nvim",
-      config = function()
-          require("wrapping").setup({
-              softener = { markdown = true },
-          })
-      end
+    'andrewferrier/wrapping.nvim',
+    config = function()
+      require('wrapping').setup {
+        softener = { markdown = true },
+      }
+    end,
   },
   {
     'jamestthompson3/sort-import.nvim',
     config = function()
       require('sort-import').setup()
-    end
+    end,
   },
   {
-    "folke/zen-mode.nvim",
-    opts = {}
+    'folke/zen-mode.nvim',
+    opts = {},
   },
   { import = 'custom.plugins' },
 }, {
@@ -1021,9 +1069,9 @@ require('lazy').setup({
   },
 })
 
-vim.cmd([[
+vim.cmd [[
   au BufRead,BufNewFile Helmfile set filetype=yaml
-]])
+]]
 
 -- The line beneath this is called `modeline`. See `:help modeline`
 -- vim: ts=2 sts=2 sw=2 et
