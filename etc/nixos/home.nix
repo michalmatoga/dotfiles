@@ -47,6 +47,12 @@
     source = ../../.config/.npmrc;
   };
 
+  nixpkgs.config.packageOverrides = pkgs: {
+    unstable = import <nixos-unstable> {
+      config = config.nixpkgs.config;
+    };
+  };
+
   # Packages that should be installed to the user profile.
   home.packages = with pkgs; [
     bitwarden-cli
@@ -65,7 +71,8 @@
     gnused
     gnutar
     jq # A lightweight and flexible command-line JSON processor
-    k9s
+    # k9s
+    unstable.k9s
     kubectl
     lazydocker
     lua-language-server
