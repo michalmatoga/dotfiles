@@ -71,14 +71,12 @@
     gnused
     gnutar
     jq # A lightweight and flexible command-line JSON processor
-    unstable.k9s
     kubectl
     lazydocker
     lua-language-server
     markdownlint-cli
     neofetch
     nmap # A utility for network discovery and security auditing
-    nnn # terminal file manager
     nodejs_20 # nodejs & npm
     opentofu
     prettierd
@@ -87,9 +85,9 @@
     rustc
     tmux
     tmuxinator
+    unstable.k9s
     unzip
     vault
-    which
     wsl-open # WSL-specific
     xdg-utils
     yq-go # yaml processor https://github.com/mikefarah/yq
