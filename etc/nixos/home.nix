@@ -1,5 +1,8 @@
 { config, pkgs, ... }:
 
+let
+  unstable = import <nixos-unstable> { config = { allowUnfree = true; }; };
+in
 {
   imports =
     [
@@ -71,8 +74,7 @@
     gnused
     gnutar
     jq # A lightweight and flexible command-line JSON processor
-    k9s
-    # unstable.k9s
+    unstable.k9s
     kubectl
     lazydocker
     lua-language-server
