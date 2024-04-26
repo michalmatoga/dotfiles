@@ -13,8 +13,8 @@
 
   outputs = { self, nixpkgs, nixpkgs-unstable, nixos-wsl, home-manager }:
   let
-    pkgs = import nixpkgs {inherit system;}
-    unstable = import nixpkgs-unstable {inherit system;}
+    pkgs = import nixpkgs {inherit system;};
+    unstable = import nixpkgs-unstable {inherit system;};
   in
   {
    nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
