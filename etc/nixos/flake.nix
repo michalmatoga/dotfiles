@@ -15,7 +15,7 @@
      nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
        system = "x86_64-linux";
        unstable = import nixpkgs-unstable {inherit system;}
-       specialArgs = { inherit unstable; };
+       # specialArgs = { inherit unstable; };
        modules = [
         ./configuration.nix
         nixos-wsl.nixosModules.wsl
