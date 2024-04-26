@@ -79,6 +79,7 @@ in
     lazydocker
     lua-language-server
     markdownlint-cli
+    mkcert
     neofetch
     nmap # A utility for network discovery and security auditing
     nodejs_20 # nodejs & npm
