@@ -82,6 +82,7 @@ in
     neofetch
     nmap # A utility for network discovery and security auditing
     nodejs_20 # nodejs & npm
+    openssl
     opentofu
     prettierd
     python3
