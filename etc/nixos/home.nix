@@ -1,7 +1,11 @@
 { config, pkgs, ... }:
 
 let
-  unstable = import <nixos-unstable> { config = { allowUnfree = true; }; };
+  unstable = import
+    (builtins.fetchTarball https://github.com/nixos/nixpkgs/tarball/24.05-pre)
+    # reuse the current configuration
+
+    { config = config.nixpkgs.config; };
 in
 {
   imports =
