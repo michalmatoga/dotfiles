@@ -53,7 +53,10 @@
     source = ../../.config/.npmrc;
   };
 
-  # Packages that should be installed to the user profile.
+  unstablePackages = with unstable; [
+    k9s
+  ];
+
   home.packages = with pkgs; [
     bitwarden-cli
     direnv
@@ -85,7 +88,6 @@
     rustc
     tmux
     tmuxinator
-    unstable.k9s
     unzip
     vault
     wsl-open # WSL-specific
@@ -94,7 +96,7 @@
     zig
     zip
     zstd
-  ];
+  ] ++ unstablePackages;
 
   # starship - an customizable prompt for any shell
   programs.starship = {
