@@ -14,7 +14,7 @@
   outputs = { self, nixpkgs, nixpkgs-unstable, nixos-wsl, home-manager }: {
      nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
        system = "x86_64-linux";
-       unstable = import nixpkgs-unstable {inherit system;}
+       unstable = import nixpkgs-unstable { inherit system };
        # specialArgs = { inherit unstable; };
        modules = [
         ./configuration.nix
