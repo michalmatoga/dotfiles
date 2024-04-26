@@ -55,7 +55,7 @@ in
 
   time.timeZone = lib.mkDefault "Europe/Warsaw";
 
-  security.pki.certificate = [ "/home/nixos/.local/share/mkcert/rootCA.pem" ];
+  security.pki.certificates = [ "/home/nixos/.local/share/mkcert/rootCA.pem" ];
 
   system.stateVersion = "23.11";
 }
