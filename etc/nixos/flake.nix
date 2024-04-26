@@ -1,8 +1,9 @@
 {
   # description = "A very basic flake";
-  
+
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-23.11";
+    nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
     nixos-wsl.url = "github:nix-community/nixos-wsl";
     home-manager = {
       url = "github:nix-community/home-manager/release-23.11";
@@ -10,9 +11,11 @@
     };
   };
 
-  outputs = { self, nixpkgs, nixos-wsl, home-manager }: {
+  outputs = { self, nixpkgs, nixpkgs-unstable, nixos-wsl, home-manager }: {
      nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
        system = "x86_64-linux";
+       unstable = import nixpkgs-unstable {inherit system;}
+       specialArgs = { inherit unstable; };
        modules = [
         ./configuration.nix
         nixos-wsl.nixosModules.wsl
@@ -23,6 +26,7 @@
           home-manager.useGlobalPkgs = true;
           home-manager.useUserPackages = true;
           home-manager.users.nixos = import ./home.nix;
+          home-manager.extraSpecialArgs = { inherit unstable };
         }
        ];
      };
