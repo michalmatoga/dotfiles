@@ -1,5 +1,10 @@
 { config, pkgs, unstable, ... }:
 
+let
+  unstablePackages = with unstable; [
+    k9s
+  ];
+in
 {
   imports =
     [
@@ -53,53 +58,46 @@
     source = ../../.config/.npmrc;
   };
 
-
-  let
-    unstablePackages = with unstable; [
-      k9s
-    ];
-  in {
-    home.packages = with pkgs; [
-      bitwarden-cli
-      direnv
-      eslint_d
-      eza # A modern replacement for ‘ls’
-      file
-      fzf # A command-line fuzzy finder
-      gawk
-      gcc
-      gh
-      ghq
-      git-crypt
-      gnumake
-      gnupg
-      gnused
-      gnutar
-      jq # A lightweight and flexible command-line JSON processor
-      kubectl
-      lazydocker
-      lua-language-server
-      markdownlint-cli
-      neofetch
-      nmap # A utility for network discovery and security auditing
-      nodejs_20 # nodejs & npm
-      opentofu
-      prettierd
-      python3
-      ripgrep # recursively searches directories for a regex pattern
-      rustc
-      tmux
-      tmuxinator
-      unzip
-      vault
-      wsl-open # WSL-specific
-      xdg-utils
-      yq-go # yaml processor https://github.com/mikefarah/yq
-      zig
-      zip
-      zstd
-    ] ++ unstablePackages;
-  }
+  home.packages = with pkgs; [
+    bitwarden-cli
+    direnv
+    eslint_d
+    eza # A modern replacement for ‘ls’
+    file
+    fzf # A command-line fuzzy finder
+    gawk
+    gcc
+    gh
+    ghq
+    git-crypt
+    gnumake
+    gnupg
+    gnused
+    gnutar
+    jq # A lightweight and flexible command-line JSON processor
+    kubectl
+    lazydocker
+    lua-language-server
+    markdownlint-cli
+    neofetch
+    nmap # A utility for network discovery and security auditing
+    nodejs_20 # nodejs & npm
+    opentofu
+    prettierd
+    python3
+    ripgrep # recursively searches directories for a regex pattern
+    rustc
+    tmux
+    tmuxinator
+    unzip
+    vault
+    wsl-open # WSL-specific
+    xdg-utils
+    yq-go # yaml processor https://github.com/mikefarah/yq
+    zig
+    zip
+    zstd
+  ] ++ unstablePackages;
 
   # starship - an customizable prompt for any shell
   programs.starship = {
