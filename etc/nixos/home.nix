@@ -1,13 +1,4 @@
 { config, pkgs, ... }:
-
-let
-  unstable = import
-    (builtins.fetchTarball {
-      url = "https://github.com/NixOS/nixpkgs/archive/nixos-unstable.tar.gz";
-      sha256 = "1cfbkahcfj1hgh4v5nfqwivg69zks8d72n11m5513i0phkqwqcgh";
-    })
-    { config = config.nixpkgs.config; };
-in
 {
   imports =
     [
