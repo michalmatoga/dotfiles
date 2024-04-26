@@ -2,8 +2,10 @@
 
 let
   unstable = import
-    (builtins.fetchTarball https://github.com/nixos/nixpkgs/tarball/24.05-pre)
-    # reuse the current configuration
+    (builtins.fetchTarball {
+      url = "https://github.com/nixos/nixpkgs/tarball/24.05-pre";
+      sha256 = "0kj49bdl67d1yf5wvqfcrlhf13jmqgvrl33k2bscw1crinab9na9";
+    })
 
     { config = config.nixpkgs.config; };
 in
