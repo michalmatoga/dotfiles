@@ -85,6 +85,7 @@ in
     nodejs_20 # nodejs & npm
     openssl
     opentofu
+    php
     prettierd
     python3
     ripgrep # recursively searches directories for a regex pattern
