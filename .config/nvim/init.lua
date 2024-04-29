@@ -716,8 +716,8 @@ require('lazy').setup({
       local lint = require 'lint'
       lint.linters_by_ft = {
         markdown = { 'markdownlint' },
-        javascript = { 'eslint', 'eslint_d' },
-        typescript = { 'eslint', 'eslint_d' },
+        javascript = { 'eslint' },
+        typescript = { 'eslint' },
       }
 
       -- To allow other plugins to add linters to require('lint').linters_by_ft,
