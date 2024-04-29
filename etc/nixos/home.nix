@@ -145,7 +145,6 @@ in
 
       export NIX_LD=$(nix eval --impure --raw --expr 'let pkgs = import <nixpkgs> {}; NIX_LD = pkgs.lib.fileContents "${pkgs.stdenv.cc}/nix-support/dynamic-linker"; in NIX_LD')
       export PATH="$HOME/.cache/npm/global/bin:$PATH"
-      export TERM=xterm-256color
     '';
   };
   programs.neovim = {
