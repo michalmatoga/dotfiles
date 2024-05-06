@@ -64,6 +64,7 @@ in
     eslint_d
     eza # A modern replacement for ‘ls’
     file
+    fnm
     fzf # A command-line fuzzy finder
     gawk
     gcc
