@@ -63,6 +63,7 @@ in
     direnv
     eslint_d
     eza # A modern replacement for ‘ls’
+    ffmpeg_7
     file
     fzf # A command-line fuzzy finder
     gawk
