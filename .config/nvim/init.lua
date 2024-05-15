@@ -222,15 +222,16 @@ require('lazy').setup({
   },
   {
     'sindrets/diffview.nvim',
-    opts = {
-      view = {
-        merge_tool = {
-          -- Config for conflicted files in diff views during a merge or rebase.
-          layout = 'diff3_vertical',
-        },
-      },
-    },
+    opts = {},
     config = function()
+      require('siffview').setup {
+        view = {
+          merge_tool = {
+            -- Config for conflicted files in diff views during a merge or rebase.
+            layout = 'diff3_vertical',
+          },
+        },
+      }
       function _G.toggle_diffview()
         local bufnr = vim.api.nvim_get_current_buf()
         local buftype = vim.api.nvim_buf_get_option(bufnr, 'buftype')
@@ -242,6 +243,18 @@ require('lazy').setup({
       end
       vim.keymap.set('n', '<leader>dv', '<cmd>lua toggle_diffview()<CR>', { desc = '[D]iff[V]iew toggle' })
     end,
+    -- config = function()
+    --   function _G.toggle_diffview()
+    --     local bufnr = vim.api.nvim_get_current_buf()
+    --     local buftype = vim.api.nvim_buf_get_option(bufnr, 'buftype')
+    --     if buftype == 'nofile' then
+    --       vim.cmd 'DiffviewClose'
+    --     else
+    --       vim.cmd 'DiffviewOpen'
+    --     end
+    --   end
+    --   vim.keymap.set('n', '<leader>dv', '<cmd>lua toggle_diffview()<CR>', { desc = '[D]iff[V]iew toggle' })
+    -- end,
   },
   {
     'pwntester/octo.nvim',
