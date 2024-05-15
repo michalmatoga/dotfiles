@@ -224,7 +224,7 @@ require('lazy').setup({
     'sindrets/diffview.nvim',
     opts = {},
     config = function()
-      require('siffview').setup {
+      require('diffview').setup {
         view = {
           merge_tool = {
             -- Config for conflicted files in diff views during a merge or rebase.
