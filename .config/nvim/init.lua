@@ -228,7 +228,7 @@ require('lazy').setup({
         view = {
           merge_tool = {
             -- Config for conflicted files in diff views during a merge or rebase.
-            layout = 'diff3_vertical',
+            layout = 'diff3_mixed',
           },
         },
       }
