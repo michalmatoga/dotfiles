@@ -243,18 +243,6 @@ require('lazy').setup({
       end
       vim.keymap.set('n', '<leader>dv', '<cmd>lua toggle_diffview()<CR>', { desc = '[D]iff[V]iew toggle' })
     end,
-    -- config = function()
-    --   function _G.toggle_diffview()
-    --     local bufnr = vim.api.nvim_get_current_buf()
-    --     local buftype = vim.api.nvim_buf_get_option(bufnr, 'buftype')
-    --     if buftype == 'nofile' then
-    --       vim.cmd 'DiffviewClose'
-    --     else
-    --       vim.cmd 'DiffviewOpen'
-    --     end
-    --   end
-    --   vim.keymap.set('n', '<leader>dv', '<cmd>lua toggle_diffview()<CR>', { desc = '[D]iff[V]iew toggle' })
-    -- end,
   },
   {
     'pwntester/octo.nvim',
