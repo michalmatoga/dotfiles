@@ -222,7 +222,14 @@ require('lazy').setup({
   },
   {
     'sindrets/diffview.nvim',
-    opts = {},
+    opts = {
+      view = {
+        merge_tool = {
+          -- Config for conflicted files in diff views during a merge or rebase.
+          layout = 'diff3_vertical',
+        },
+      },
+    },
     config = function()
       function _G.toggle_diffview()
         local bufnr = vim.api.nvim_get_current_buf()
