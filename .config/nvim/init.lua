@@ -635,6 +635,7 @@ require('lazy').setup({
         -- tsserver = {},
         --
 
+        json_ls = {},
         lua_ls = {
           -- cmd = {...},
           -- filetypes = { ...},
