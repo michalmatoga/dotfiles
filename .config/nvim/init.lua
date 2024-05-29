@@ -492,6 +492,50 @@ require('lazy').setup({
       -- used for completion, annotations and signatures of Neovim apis
       { 'folke/neodev.nvim', opts = {} },
     },
+    opts = {
+      servers = {
+        tsserver = {
+          settings = {
+            typescript = {
+              inlayHints = {
+                includeInlayParameterNameHints = 'all', -- 'none' | 'literals' | 'all'
+
+                includeInlayParameterNameHintsWhenArgumentMatchesName = true,
+                includeInlayVariableTypeHints = true,
+
+                includeInlayFunctionParameterTypeHints = true,
+                includeInlayVariableTypeHintsWhenTypeMatchesName = true,
+                includeInlayPropertyDeclarationTypeHints = true,
+                includeInlayFunctionLikeReturnTypeHints = true,
+                includeInlayEnumMemberValueHints = true,
+              },
+            },
+            javascript = {
+              inlayHints = {
+                includeInlayParameterNameHints = 'all', -- 'none' | 'literals' | 'all'
+                includeInlayParameterNameHintsWhenArgumentMatchesName = true,
+                includeInlayVariableTypeHints = true,
+
+                includeInlayFunctionParameterTypeHints = true,
+                includeInlayVariableTypeHintsWhenTypeMatchesName = true,
+                includeInlayPropertyDeclarationTypeHints = true,
+                includeInlayFunctionLikeReturnTypeHints = true,
+                includeInlayEnumMemberValueHints = true,
+              },
+            },
+          },
+        },
+      },
+      inlay_hints = {
+        enabled = true,
+      },
+      setup = {
+        tsserver = function(_, opts)
+          require('typescript').setup { server = opts }
+          return true
+        end,
+      },
+    },
     config = function()
       -- Brief aside: **What is LSP?**
       --
@@ -641,38 +685,7 @@ require('lazy').setup({
         --    https://github.com/pmizio/typescript-tools.nvim
         --
         -- But for many setups, the LSP (`tsserver`) will work just fine
-        tsserver = {
-          {
-            settings = {
-              typescript = {
-                inlayHints = {
-                  includeInlayParameterNameHints = 'all', -- 'none' | 'literals' | 'all'
-                  includeInlayParameterNameHintsWhenArgumentMatchesName = true,
-                  includeInlayVariableTypeHints = true,
-                  includeInlayFunctionParameterTypeHints = true,
-                  includeInlayVariableTypeHintsWhenTypeMatchesName = true,
-                  includeInlayPropertyDeclarationTypeHints = true,
-                  includeInlayFunctionLikeReturnTypeHints = true,
-                  includeInlayEnumMemberValueHints = true,
-                },
-              },
-              javascript = {
-                inlayHints = {
-                  includeInlayParameterNameHints = 'all', -- 'none' | 'literals' | 'all'
-                  includeInlayParameterNameHintsWhenArgumentMatchesName = true,
-                  includeInlayVariableTypeHints = true,
-
-                  includeInlayFunctionParameterTypeHints = true,
-                  includeInlayVariableTypeHintsWhenTypeMatchesName = true,
-                  includeInlayPropertyDeclarationTypeHints = true,
-                  includeInlayFunctionLikeReturnTypeHints = true,
-                  includeInlayEnumMemberValueHints = true,
-                },
-              },
-            },
-          },
-        },
-
+        tsserver = {},
         jsonls = {},
         lua_ls = {
           -- cmd = {...},
