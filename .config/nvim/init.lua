@@ -1143,6 +1143,10 @@ require('lazy').setup({
     'folke/zen-mode.nvim',
     opts = {},
   },
+  {
+    'VidocqH/lsp-lens.nvim',
+    opts = {},
+  },
   { import = 'custom.plugins' },
 }, {
   ui = {
