@@ -480,6 +480,7 @@ require('lazy').setup({
     dependencies = {
       -- Automatically install LSPs and related tools to stdpath for Neovim
       'williamboman/mason.nvim',
+      'jose-elias-alvarez/typescript.nvim',
       'williamboman/mason-lspconfig.nvim',
       'WhoIsSethDaniel/mason-tool-installer.nvim',
 
@@ -640,8 +641,37 @@ require('lazy').setup({
         --    https://github.com/pmizio/typescript-tools.nvim
         --
         -- But for many setups, the LSP (`tsserver`) will work just fine
-        -- tsserver = {},
-        --
+        tsserver = {
+          {
+            settings = {
+              typescript = {
+                inlayHints = {
+                  includeInlayParameterNameHints = 'all', -- 'none' | 'literals' | 'all'
+                  includeInlayParameterNameHintsWhenArgumentMatchesName = true,
+                  includeInlayVariableTypeHints = true,
+                  includeInlayFunctionParameterTypeHints = true,
+                  includeInlayVariableTypeHintsWhenTypeMatchesName = true,
+                  includeInlayPropertyDeclarationTypeHints = true,
+                  includeInlayFunctionLikeReturnTypeHints = true,
+                  includeInlayEnumMemberValueHints = true,
+                },
+              },
+              javascript = {
+                inlayHints = {
+                  includeInlayParameterNameHints = 'all', -- 'none' | 'literals' | 'all'
+                  includeInlayParameterNameHintsWhenArgumentMatchesName = true,
+                  includeInlayVariableTypeHints = true,
+
+                  includeInlayFunctionParameterTypeHints = true,
+                  includeInlayVariableTypeHintsWhenTypeMatchesName = true,
+                  includeInlayPropertyDeclarationTypeHints = true,
+                  includeInlayFunctionLikeReturnTypeHints = true,
+                  includeInlayEnumMemberValueHints = true,
+                },
+              },
+            },
+          },
+        },
 
         jsonls = {},
         lua_ls = {
