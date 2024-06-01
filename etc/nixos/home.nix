@@ -60,6 +60,7 @@ in
 
   home.packages = with pkgs; [
     bitwarden-cli
+    corepack_20
     direnv
     eslint_d
     eza # A modern replacement for ‘ls’
