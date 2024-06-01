@@ -9,6 +9,6 @@
   },
   {
     "provider": "gitlab.com",
-    "fetch": ["habify", "michalmatoga/journal"]
+    "fetch": ["habify", "michalmatoga/journal", "michalmatoga/mlt"]
   }
 ]
