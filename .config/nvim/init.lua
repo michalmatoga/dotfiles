@@ -258,7 +258,6 @@ require('lazy').setup({
       vim.treesitter.language.register('markdown', 'octo')
     end,
   },
-  { 'mzlogin/vim-markdown-toc', opts = {} },
   {
     'iamcco/markdown-preview.nvim',
     cmd = { 'MarkdownPreviewToggle', 'MarkdownPreview', 'MarkdownPreviewStop' },
