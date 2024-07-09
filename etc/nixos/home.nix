@@ -89,6 +89,7 @@ in
     opentofu
     php
     prettierd
+    pulumi
     python3
     ripgrep # recursively searches directories for a regex pattern
     rustc
