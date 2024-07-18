@@ -58,6 +58,8 @@ in
     source = ../../.config/.npmrc;
   };
 
+  pkgs.config.allowUnfreePackages = [ pkgs.vault ];
+
   home.packages = with pkgs; [
     bitwarden-cli
     corepack_20
