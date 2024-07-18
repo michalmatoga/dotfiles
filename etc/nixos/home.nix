@@ -1,4 +1,4 @@
-{ config, pkgs, unstable, lib, ... }:
+{ config, pkgs, unstable, ... }:
 
 let
   unstablePackages = with unstable; [
@@ -57,13 +57,6 @@ in
   home.file.".npmrc" = {
     source = ../../.config/.npmrc;
   };
-
-
-  nixpkgs.config.allowUnfreePredicate = pkg:
-    builtins.elem (lib.getName pkg) [
-      # Add additional package names here
-      "vault"
-  ];
 
   home.packages = with pkgs; [
     bitwarden-cli
