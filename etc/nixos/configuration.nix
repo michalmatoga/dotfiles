@@ -7,12 +7,6 @@
 
 { config, lib, pkgs, ... }:
 
-nixpkgs.config.allowUnfreePredicate = pkg:
-  builtins.elem (lib.getName pkg) [
-    # Add additional package names here
-    "vault"
-];
-
 let
   my-kubernetes-helm = with pkgs; wrapHelm kubernetes-helm {
     plugins = with pkgs.kubernetes-helmPlugins; [
@@ -31,6 +25,14 @@ in
   wsl.enable = true;
   wsl.defaultUser = "nixos";
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
+
+
+  nixpkgs.config.allowUnfreePredicate = pkg:
+    builtins.elem (lib.getName pkg) [
+      # Add additional package names here
+      "vault"
+  ];
+
   environment.systemPackages = with pkgs; [
     docker
     git
