@@ -1,4 +1,4 @@
-{ config, pkgs, unstable, ... }:
+{ config, pkgs, unstable, lib, ... }:
 
 let
   unstablePackages = with unstable; [
