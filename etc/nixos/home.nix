@@ -58,6 +58,13 @@ in
     source = ../../.config/.npmrc;
   };
 
+
+  nixpkgs.config.allowUnfreePredicate = pkg:
+    builtins.elem (lib.getName pkg) [
+      # Add additional package names here
+      "vault"
+  ];
+
   home.packages = with pkgs; [
     bitwarden-cli
     corepack_20
