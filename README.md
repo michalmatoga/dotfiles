@@ -33,3 +33,24 @@ To edit alacritty config:
 ```sh
 vim /mnt/c/Users/micmat/AppData/Roaming/alacritty/alacritty.toml
 ```
+
+## Komorebi windows tiling manager
+
+- [CLI reference - Komorebi](https://lgug2z.github.io/komorebi/cli/quickstart.html)
+
+```powershell
+komorebic start --whkd
+komorebic stop --whkd
+
+Stop-Process -Name:whkd
+```
+
+```sh
+
+# komorebi config
+vim /mnt/c/Users/micmat/komorebi.json
+
+# hotkeys config
+vim /mnt/c/Users/micmat/.config/whkdrc
+
+```
