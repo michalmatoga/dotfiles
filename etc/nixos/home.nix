@@ -66,6 +66,7 @@ in
     eza # A modern replacement for ‘ls’
     ffmpeg
     file
+    flyctl
     fzf # A command-line fuzzy finder
     gawk
     gcc
