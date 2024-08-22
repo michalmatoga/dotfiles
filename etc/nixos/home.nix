@@ -140,7 +140,7 @@ in
       paste = "powershell.exe get-clipboard";
       pro = "tmuxinator start $(tmuxinator list --newline | fzf)";
       sync-repos = "node ~/ghq/github.com/michalmatoga/dotfiles/scripts/sync-repos.mjs";
-      update = "sudo nixos-rebuild switch && ~/ghq/github.com/michalmatoga/dotfiles/scripts/hard-copy.sh";
+      update = "sudo nixos-rebuild switch && ~/ghq/github.com/michalmatoga/dotfiles/scripts/post-update.sh";
       tf = "tofu";
     };
     # setup some environment variables
