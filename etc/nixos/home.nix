@@ -58,6 +58,14 @@ in
     source = ../../.config/.npmrc;
   };
 
+  home.file."/mnt/c/Users/micmat/komorebi.json" = {
+    source = ../../.config/komorebi.json;
+  };
+
+  home.file."/mnt/c/Users/micmat/.config/whkdrc" = {
+    source = ../../.config/whkdrc;
+  };
+
   home.packages = with pkgs; [
     bitwarden-cli
     corepack_20
