@@ -31,7 +31,7 @@ to fix Lua LSP.
 To edit alacritty config:
 
 ```sh
-vim /mnt/c/Users/micmat/AppData/Roaming/alacritty/alacritty.toml
+./.config/alacritty.toml
 ```
 
 ## Komorebi windows tiling manager
@@ -48,9 +48,9 @@ Stop-Process -Name:whkd
 ```sh
 
 # komorebi config
-vim /mnt/c/Users/micmat/komorebi.json
+./.config/komorebi.json
 
 # hotkeys config
-vim /mnt/c/Users/micmat/.config/whkdrc
+./.config/whkdrc
 
 ```
