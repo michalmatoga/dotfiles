@@ -58,13 +58,17 @@ in
     source = ../../.config/.npmrc;
   };
 
-  home.file."/mnt/c/Users/micmat/komorebi.json" = {
-    source = ../../.config/komorebi.json;
-  };
+  # home.file."/mnt/c/Users/micmat/komorebi.json" = {
+  #   source = ../../.config/komorebi.json;
+  # };
+  #
+  # home.file."/mnt/c/Users/micmat/.config/whkdrc" = {
+  #   source = ../../.config/whkdrc;
+  # };
 
-  home.file."/mnt/c/Users/micmat/.config/whkdrc" = {
-    source = ../../.config/whkdrc;
-  };
+  home.activation.whkdrc = lib.hm.dag.entryAfter ["writeBoundary"] ''
+    ${config.lib.file.mkOutOfStoreSymlink "../../.config/whkdrc" "/mnt/c/Users/michmat/.config/whkdrc"}
+  '';
 
   home.packages = with pkgs; [
     bitwarden-cli
