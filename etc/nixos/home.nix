@@ -58,18 +58,6 @@ in
     source = ../../.config/.npmrc;
   };
 
-  # home.file."/mnt/c/Users/micmat/komorebi.json" = {
-  #   source = ../../.config/komorebi.json;
-  # };
-  #
-  # home.file."/mnt/c/Users/micmat/.config/whkdrc" = {
-  #   source = ../../.config/whkdrc;
-  # };
-
-  home.activation.whkdrc = lib.hm.dag.entryAfter ["writeBoundary"] ''
-    ${config.lib.file.mkOutOfStoreSymlink "../../.config/whkdrc" "/mnt/c/Users/michmat/.config/whkdrc"}
-  '';
-
   home.packages = with pkgs; [
     bitwarden-cli
     corepack_20
@@ -152,7 +140,7 @@ in
       paste = "powershell.exe get-clipboard";
       pro = "tmuxinator start $(tmuxinator list --newline | fzf)";
       sync-repos = "node ~/ghq/github.com/michalmatoga/dotfiles/scripts/sync-repos.mjs";
-      update = "sudo nixos-rebuild switch";
+      update = "sudo nixos-rebuild switch && ./ghq/github.com/michalmatoga/dotfiles/scripts/hard-copy.sh";
       tf = "tofu";
     };
     # setup some environment variables
