@@ -60,6 +60,9 @@ in
   users.users.nixos.extraGroups = [ "docker" ];
 
   virtualisation.docker.enable = true;
+  virtualisation.docker.daemon.settings = {
+    insecure-registries = [ "172.232.146.142" ];
+  };
 
   time.timeZone = lib.mkDefault "Europe/Warsaw";
 
