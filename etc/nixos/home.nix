@@ -80,6 +80,7 @@ in
     jq # A lightweight and flexible command-line JSON processor
     kubectl
     lazydocker
+    linode-cli
     lua-language-server
     markdownlint-cli
     mkcert
