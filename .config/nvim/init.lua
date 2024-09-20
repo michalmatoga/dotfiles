@@ -1154,6 +1154,7 @@ require('lazy').setup({
     'VidocqH/lsp-lens.nvim',
     opts = {},
   },
+  { 'towolf/vim-helm', ft = 'helm' },
   { import = 'custom.plugins' },
 }, {
   ui = {
