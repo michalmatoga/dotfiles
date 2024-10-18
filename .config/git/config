@@ -17,4 +17,6 @@
   path = ~/.config/git/personal.cfg
 [includeIf "gitdir:~/ghq/github.com/"]
   path = ~/.config/git/personal.cfg
+[log]
+  date = iso
 
