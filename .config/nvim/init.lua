@@ -257,6 +257,23 @@ require('lazy').setup({
       }
       vim.treesitter.language.register('markdown', 'octo')
     end,
+    keys = {
+      { '<leader>a', false, ft = 'octo' },
+      { '<leader>c', false, ft = 'octo' },
+      { '<leader>l', false, ft = 'octo' },
+      { '<leader>i', false, ft = 'octo' },
+      { '<leader>r', false, ft = 'octo' },
+      { '<leader>p', false, ft = 'octo' },
+      { '<leader>v', false, ft = 'octo' },
+      { '<localleader>a', '', desc = 'assignee (Octo)', ft = 'octo' },
+      { '<localleader>c', '', desc = 'comment/code (Octo)', ft = 'octo' },
+
+      { '<localleader>l', '', desc = 'label (Octo)', ft = 'octo' },
+      { '<localleader>i', '', desc = 'issue (Octo)', ft = 'octo' },
+      { '<localleader>r', '', desc = 'react (Octo)', ft = 'octo' },
+      { '<localleader>p', '', desc = 'pr (Octo)', ft = 'octo' },
+      { '<localleader>v', '', desc = 'review (Octo)', ft = 'octo' },
+    },
   },
   {
     'tadmccorkle/markdown.nvim',
