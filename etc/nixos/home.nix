@@ -89,6 +89,7 @@ in
     nodejs_20 # nodejs & npm
     openssl
     opentofu
+    pgadmin4
     php
     prettierd
     pulumi
