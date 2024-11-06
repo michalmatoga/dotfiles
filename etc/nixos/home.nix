@@ -177,6 +177,7 @@ in
     extraConfig = ''
       set-window-option -g mode-keys vi
       set-option -s escape-time 0
+      set-option -g default-terminal "xterm-256color"
       set -ag terminal-overrides ",xterm-256color:RGB"
       set -g @catppuccin_flavour "frappe"
       set -g base-index 1
