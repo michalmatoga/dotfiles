@@ -1,9 +1,7 @@
 { config, pkgs, unstable, ... }:
 
 let
-  unstablePackages = with unstable; [
-
-  ];
+  unstablePackages = with unstable; [];
 in
 {
   imports =
