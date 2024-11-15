@@ -5,6 +5,7 @@
     "gcan!"="git commit --verbose --all --no-edit --amend";
     ga="git add";
     gaa="git add --all";
+    gb="git branch";
     gba="git branch --all";
     gbd="git branch --delete";
     gcb="git checkout -b";
@@ -35,7 +36,6 @@
     # gapt='git apply --3way'
     # gau='git add --update'
     # gav='git add --verbose'
-    # gb='git branch'
     # gbD='git branch --delete --force'
     # gbda='git branch --no-color --merged | command grep -vE "^([+*]|\s*($(git_main_branch)|$(git_develop_branch))\s*$)" | command xargs git branch --delete 2>/dev/null'
     # gbg='git branch -vv | grep ": gone\]"'
