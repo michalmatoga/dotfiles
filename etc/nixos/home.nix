@@ -156,9 +156,7 @@ in
   };
   programs.k9s = {
     enable = true;
-    ui = {
-      skin = "catppuccin-frappe";
-    };
+    settings = ../../.config/k9s/config.yaml;
   };
   programs.neovim = {
     enable = true;
