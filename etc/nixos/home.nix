@@ -37,9 +37,9 @@ in
     source = ../../.config/lazydocker/config.yml;
   };
 
-  # home.file.".config/k9s/config.yaml" = {
-  #   source = ../../.config/k9s/config.yaml;
-  # };
+  home.file.".config/k9s/skins/catppuccin-frappe.yaml" = {
+    source = ../../.config/k9s/skins/catppuccin-frappe.yaml;
+  };
   #
   # home.file.".config/k9s/aliases.yaml" = {
   #   source = ../../.config/k9s/aliases.yaml;
@@ -164,9 +164,9 @@ in
         };
       };
     };
-    skins = {
-      "catppuccin-frappe" = ../../.config/k9s/skins/catppuccin-frappe.yaml;
-    };
+    # skins = {
+    #   "catppuccin-frappe" = ../../.config/k9s/skins/catppuccin-frappe.yaml;
+    # };
   };
   programs.neovim = {
     enable = true;
