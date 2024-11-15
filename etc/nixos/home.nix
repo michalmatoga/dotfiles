@@ -40,7 +40,7 @@ in
   };
 
   home.file.".config/k9s/config.yaml" = {
-    source = ../../.config/k9s/config.yaml;
+    source = ../../.config/k9s/onfig.yaml;
   };
 
   home.file.".config/k9s/aliases.yaml" = {
