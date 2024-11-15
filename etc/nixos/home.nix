@@ -160,13 +160,11 @@ in
       k9s = {
         ui = {
           logoless = true;
+          noIcons = true;
           skin = "catppuccin-frappe";
         };
       };
     };
-    # skins = {
-    #   "catppuccin-frappe" = ../../.config/k9s/skins/catppuccin-frappe.yaml;
-    # };
   };
   programs.neovim = {
     enable = true;
