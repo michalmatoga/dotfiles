@@ -156,10 +156,8 @@ in
   };
   programs.k9s = {
     enable = true;
-    settings = {
-      ui = {
-        skin = "catppuccin-frappe";
-      };
+    ui = {
+      skin = "catppuccin-frappe";
     };
   };
   programs.neovim = {
