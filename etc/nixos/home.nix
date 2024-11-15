@@ -158,9 +158,10 @@ in
     enable = true;
     settings = {
       k9s = {
-        ui = {
-          skin = "catppuccin-frappe";
-        };
+        refreshRate = 2;
+        # ui = {
+        #   skin = "catppuccin-frappe";
+        # };
       };
     };
   };
