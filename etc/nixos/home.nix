@@ -2,7 +2,7 @@
 
 let
   unstablePackages = with unstable; [
-    k9s
+
   ];
 in
 {
