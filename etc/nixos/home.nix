@@ -156,6 +156,11 @@ in
   };
   programs.k9s = {
     enable = true;
+    settings = {
+      ui = {
+        skin = "catppuccin-frappe";
+      };
+    };
   };
   programs.neovim = {
     enable = true;
