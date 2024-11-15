@@ -20,9 +20,9 @@ ssh-keygen -y -f ~/.ssh/id_rsa > ~/.ssh/id_rsa.pub
 node scripts/sync-repos.mjs
 cd ~
 
-OUT="${XDG_CONFIG_HOME:-$HOME/.config}/k9s/skins"
-mkdir -p "$OUT"
-curl -L https://github.com/catppuccin/k9s/archive/main.tar.gz | tar xz -C "$OUT" --strip-components=2 k9s-main/dist
+# OUT="${XDG_CONFIG_HOME:-$HOME/.config}/k9s/skins"
+# mkdir -p "$OUT"
+# curl -L https://github.com/catppuccin/k9s/archive/main.tar.gz | tar xz -C "$OUT" --strip-components=2 k9s-main/dist
 
 mkdir -p ~/.kube
 secrets.json | jq -r '.kubeconfig_work' | base64 -d > ~/.kube/config

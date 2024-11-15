@@ -40,10 +40,6 @@ in
   home.file.".config/k9s/skins/catppuccin-frappe.yaml" = {
     source = ../../.config/k9s/skins/catppuccin-frappe.yaml;
   };
-  #
-  # home.file.".config/k9s/aliases.yaml" = {
-  #   source = ../../.config/k9s/aliases.yaml;
-  # };
 
   home.file.".markdownlintrc" = {
     source = ../../.config/markdownlintrc.json;
