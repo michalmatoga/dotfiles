@@ -39,12 +39,12 @@ in
     source = ../../.config/lazydocker/config.yml;
   };
 
-  home.file.".config/k9s/config.yaml" = {
-    source = ../../.config/k9s/config.yaml;
-  };
-  home.file.".config/k9s/aliases.yaml" = {
-    source = ../../.config/k9s/aliases.yaml;
-  };
+  # home.file.".config/k9s/config.yaml" = {
+  #   source = ../../.config/k9s/config.yaml;
+  # };
+  # home.file.".config/k9s/aliases.yaml" = {
+  #   source = ../../.config/k9s/aliases.yaml;
+  # };
 
   home.file.".markdownlintrc" = {
     source = ../../.config/markdownlintrc.json;
