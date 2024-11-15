@@ -158,14 +158,13 @@ in
     enable = true;
     settings = {
       k9s = {
-        refreshRate = 2;
-        # ui = {
-        #   skin = "catppuccin-frappe";
-        # };
+        ui = {
+          skin = "catppuccin-frappe";
+        };
       };
     };
     skins = {
-      frappe = ../../.config/k9s/skins/catppuccin-frappe.yaml;
+      "catppuccin-frappe" = ../../.config/k9s/skins/catppuccin-frappe.yaml;
     };
   };
   programs.neovim = {
