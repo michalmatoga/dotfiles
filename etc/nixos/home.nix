@@ -164,6 +164,9 @@ in
         # };
       };
     };
+    skins = {
+      frappe = ../../.config/k9s/skins/catppuccin-frappe.yaml;
+    };
   };
   programs.neovim = {
     enable = true;
