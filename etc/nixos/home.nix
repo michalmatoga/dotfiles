@@ -159,6 +159,7 @@ in
     settings = {
       k9s = {
         ui = {
+          headless = true;
           logoless = true;
           noIcons = true;
           skin = "catppuccin-frappe";
