@@ -59,7 +59,7 @@ in
     direnv
     eslint_d
     eza # A modern replacement for ‘ls’
-    ffmpeg_6-full
+    ffmpeg-full
     file
     flyctl
     fzf # A command-line fuzzy finder
