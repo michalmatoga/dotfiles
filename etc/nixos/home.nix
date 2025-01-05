@@ -86,7 +86,7 @@ in
     opentofu
     pgadmin4
     php
-    postgresql_16
+    postgresql_17
     prettierd
     pulumi
     pulumiPackages.pulumi-language-nodejs
