@@ -88,8 +88,8 @@ in
     php
     postgresql_17
     prettierd
-    pulumi
-    pulumiPackages.pulumi-language-nodejs
+    # pulumi
+    # pulumiPackages.pulumi-language-nodejs
     python3
     ripgrep # recursively searches directories for a regex pattern
     rustc
