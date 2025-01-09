@@ -62,7 +62,7 @@ in
     ffmpeg_7-full
     file
     flyctl
-    fzf # A command-line fuzzy finder
+    # fzf # A command-line fuzzy finder
     gawk
     gcc
     gh
