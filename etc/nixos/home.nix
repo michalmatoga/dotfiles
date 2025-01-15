@@ -1,7 +1,9 @@
 { config, pkgs, unstable, ... }:
 
 let
-  unstablePackages = with unstable; [];
+  unstablePackages = with unstable; [
+    pulumi
+  ];
 in
 {
   imports =
@@ -88,7 +90,6 @@ in
     php
     postgresql_17
     prettierd
-    pulumi
     # pulumiPackages.pulumi-language-nodejs
     python3
     ripgrep # recursively searches directories for a regex pattern
