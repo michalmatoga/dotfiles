@@ -80,6 +80,7 @@ in
     linode-cli
     lua-language-server
     markdownlint-cli
+    mariadb
     mkcert
     neofetch
     nmap # A utility for network discovery and security auditing
