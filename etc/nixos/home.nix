@@ -3,6 +3,7 @@
 let
   unstablePackages = with unstable; [
     pulumi
+    pulumiPackages.pulumi-language-nodejs
   ];
 in
 {
@@ -91,7 +92,6 @@ in
     php
     postgresql_17
     prettierd
-    # pulumiPackages.pulumi-language-nodejs
     python3
     ripgrep # recursively searches directories for a regex pattern
     rustc
