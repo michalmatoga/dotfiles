@@ -85,7 +85,7 @@ in
     mkcert
     neofetch
     nmap # A utility for network discovery and security auditing
-    nodejs_20 # nodejs & npm
+    nodejs_22 # nodejs & npm
     openssl
     opentofu
     pgadmin4
