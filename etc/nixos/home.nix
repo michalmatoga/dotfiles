@@ -153,6 +153,9 @@ in
       export PATH="$HOME/.cache/npm/global/bin:$PATH"
     '';
   };
+  home.sessionVariables = {
+    SSL_CERT_FILE="/etc/ssl/certs/ca-certificates.crt";
+  };
   programs.k9s = {
     enable = true;
     settings = {
