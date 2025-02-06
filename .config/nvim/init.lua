@@ -739,10 +739,7 @@ require('lazy').setup({
         builtin.buffers { sort_mru = true, ignore_current_buffer = true }
       end, { desc = '[ ] Find existing buffers' })
       vim.keymap.set('n', '<leader>e', builtin.commands, { desc = '[E]xecute Commands' })
-
-      vim.keymap.set('n', '<leader>gs', function()
-        require('telescope.builtin').git_status()
-      end, { desc = '[G]it [S]tatus' })
+      vim.keymap.set('n', '<leader>sc', builtin.git_status, { desc = '[S]earch [C]hanged Files' })
 
       -- Slightly advanced example of overriding default behavior and theme
       vim.keymap.set('n', '<leader>/', function()
