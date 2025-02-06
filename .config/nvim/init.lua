@@ -728,7 +728,7 @@ require('lazy').setup({
         },
       }
 
-      -- Enable Telescope extensions if they are installed a
+      -- Enable Telescope extensions if they are installed
       pcall(require('telescope').load_extension, 'fzf')
       pcall(require('telescope').load_extension, 'ui-select')
       pcall(require('telescope').load_extension, 'tmuxinator')
@@ -736,7 +736,7 @@ require('lazy').setup({
       -- See `:help telescope.builtin`
       local builtin = require 'telescope.builtin'
       vim.keymap.set('n', '<leader>sc', builtin.command_history, { desc = '[S]earch [C]ommands History' })
-      vim.keymap.set('n', '<leader>sg', builtin.git_status, { desc = '[S]earch [C]hanged Files' })
+      vim.keymap.set('n', '<leader>sgs', builtin.git_status, { desc = '[S]earch [C]hanged Files' })
       vim.keymap.set('n', '<leader>sh', builtin.help_tags, { desc = '[S]earch [H]elp' })
       vim.keymap.set('n', '<leader>sk', builtin.keymaps, { desc = '[S]earch [K]eymaps' })
       vim.keymap.set('n', '<leader>sf', builtin.find_files, { desc = '[S]earch [F]iles' })
