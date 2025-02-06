@@ -41,8 +41,6 @@ To edit alacritty config:
 ```powershell
 komorebic start --whkd
 komorebic stop --whkd
-
-Stop-Process -Name:whkd
 ```
 
 ```sh
