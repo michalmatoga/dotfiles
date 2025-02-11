@@ -1454,6 +1454,11 @@ require('lazy').setup({
     opts = {},
   },
   { 'towolf/vim-helm', ft = 'helm' },
+  {
+    'pmizio/typescript-tools.nvim',
+    dependencies = { 'nvim-lua/plenary.nvim', 'neovim/nvim-lspconfig' },
+    opts = {},
+  },
   { import = 'custom.plugins' },
 }, {
   ui = {
