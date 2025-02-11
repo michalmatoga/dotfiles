@@ -799,48 +799,11 @@ require('lazy').setup({
       { 'folke/neodev.nvim', opts = {} },
     },
     opts = {
-      servers = {
-        -- tsserver = {
-        --   settings = {
-        --     typescript = {
-        --       inlayHints = {
-        --         includeInlayParameterNameHints = 'all', -- 'none' | 'literals' | 'all'
-        --
-        --         includeInlayParameterNameHintsWhenArgumentMatchesName = true,
-        --         includeInlayVariableTypeHints = true,
-        --
-        --         includeInlayFunctionParameterTypeHints = true,
-        --         includeInlayVariableTypeHintsWhenTypeMatchesName = true,
-        --         includeInlayPropertyDeclarationTypeHints = true,
-        --         includeInlayFunctionLikeReturnTypeHints = true,
-        --         includeInlayEnumMemberValueHints = true,
-        --       },
-        --     },
-        --     javascript = {
-        --       inlayHints = {
-        --         includeInlayParameterNameHints = 'all', -- 'none' | 'literals' | 'all'
-        --         includeInlayParameterNameHintsWhenArgumentMatchesName = true,
-        --         includeInlayVariableTypeHints = true,
-        --
-        --         includeInlayFunctionParameterTypeHints = true,
-        --         includeInlayVariableTypeHintsWhenTypeMatchesName = true,
-        --         includeInlayPropertyDeclarationTypeHints = true,
-        --         includeInlayFunctionLikeReturnTypeHints = true,
-        --         includeInlayEnumMemberValueHints = true,
-        --       },
-        --     },
-        --   },
-        -- },
-      },
+      servers = {},
       inlay_hints = {
         enabled = true,
       },
-      setup = {
-        -- tsserver = function(_, opts)
-        --   require('typescript').setup { server = opts }
-        --   return true
-        -- end,
-      },
+      setup = {},
     },
     config = function()
       -- Brief aside: **What is LSP?**
@@ -1338,7 +1301,7 @@ require('lazy').setup({
       -- - sd'   - [S]urround [D]elete [']quotes
       -- - sr)'  - [S]urround [R]eplace [)] [']
       --
-      require('mini.surround').setup()
+      -- require('mini.surround').setup()
 
       -- Simple and easy statusline.
       --  You could remove this setup call if you don't like it,
