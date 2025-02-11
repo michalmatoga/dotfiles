@@ -175,9 +175,6 @@ in
     viAlias = true;
     vimAlias = true;
     vimdiffAlias = true;
-    extraPackages = with pkgs; [
-      typescript-language-server
-    ];
   };
   programs.tmux = {
     enable = true;
