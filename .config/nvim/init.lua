@@ -800,46 +800,46 @@ require('lazy').setup({
     },
     opts = {
       servers = {
-        tsserver = {
-          settings = {
-            typescript = {
-              inlayHints = {
-                includeInlayParameterNameHints = 'all', -- 'none' | 'literals' | 'all'
-
-                includeInlayParameterNameHintsWhenArgumentMatchesName = true,
-                includeInlayVariableTypeHints = true,
-
-                includeInlayFunctionParameterTypeHints = true,
-                includeInlayVariableTypeHintsWhenTypeMatchesName = true,
-                includeInlayPropertyDeclarationTypeHints = true,
-                includeInlayFunctionLikeReturnTypeHints = true,
-                includeInlayEnumMemberValueHints = true,
-              },
-            },
-            javascript = {
-              inlayHints = {
-                includeInlayParameterNameHints = 'all', -- 'none' | 'literals' | 'all'
-                includeInlayParameterNameHintsWhenArgumentMatchesName = true,
-                includeInlayVariableTypeHints = true,
-
-                includeInlayFunctionParameterTypeHints = true,
-                includeInlayVariableTypeHintsWhenTypeMatchesName = true,
-                includeInlayPropertyDeclarationTypeHints = true,
-                includeInlayFunctionLikeReturnTypeHints = true,
-                includeInlayEnumMemberValueHints = true,
-              },
-            },
-          },
-        },
+        -- tsserver = {
+        --   settings = {
+        --     typescript = {
+        --       inlayHints = {
+        --         includeInlayParameterNameHints = 'all', -- 'none' | 'literals' | 'all'
+        --
+        --         includeInlayParameterNameHintsWhenArgumentMatchesName = true,
+        --         includeInlayVariableTypeHints = true,
+        --
+        --         includeInlayFunctionParameterTypeHints = true,
+        --         includeInlayVariableTypeHintsWhenTypeMatchesName = true,
+        --         includeInlayPropertyDeclarationTypeHints = true,
+        --         includeInlayFunctionLikeReturnTypeHints = true,
+        --         includeInlayEnumMemberValueHints = true,
+        --       },
+        --     },
+        --     javascript = {
+        --       inlayHints = {
+        --         includeInlayParameterNameHints = 'all', -- 'none' | 'literals' | 'all'
+        --         includeInlayParameterNameHintsWhenArgumentMatchesName = true,
+        --         includeInlayVariableTypeHints = true,
+        --
+        --         includeInlayFunctionParameterTypeHints = true,
+        --         includeInlayVariableTypeHintsWhenTypeMatchesName = true,
+        --         includeInlayPropertyDeclarationTypeHints = true,
+        --         includeInlayFunctionLikeReturnTypeHints = true,
+        --         includeInlayEnumMemberValueHints = true,
+        --       },
+        --     },
+        --   },
+        -- },
       },
       inlay_hints = {
         enabled = true,
       },
       setup = {
-        tsserver = function(_, opts)
-          require('typescript').setup { server = opts }
-          return true
-        end,
+        -- tsserver = function(_, opts)
+        --   require('typescript').setup { server = opts }
+        --   return true
+        -- end,
       },
     },
     config = function()
@@ -991,7 +991,7 @@ require('lazy').setup({
         --    https://github.com/pmizio/typescript-tools.nvim
         --
         -- But for many setups, the LSP (`tsserver`) will work just fine
-        tsserver = {},
+        -- tsserver = {},
         jsonls = {},
         lua_ls = {
           -- cmd = {...},
