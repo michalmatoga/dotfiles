@@ -4,7 +4,7 @@
   program = "wsl.exe"
   args = ["-d NixOs", "--cd ~"]
 [font]
-  size = 10
+  size = 9
 [font.normal]
   family = "JetBrainsMono Nerd Font"
 [font.bold]
