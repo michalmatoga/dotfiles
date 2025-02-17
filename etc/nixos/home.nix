@@ -83,6 +83,7 @@ in
     markdownlint-cli
     mariadb
     mkcert
+    mongodb-tools
     neofetch
     nmap # A utility for network discovery and security auditing
     nodejs_22 # nodejs & npm
