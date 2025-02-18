@@ -96,6 +96,7 @@ in
     prettierd
     python3
     python3Packages.boto3
+    python3Packages.pip
     ripgrep # recursively searches directories for a regex pattern
     rustc
     tmux
