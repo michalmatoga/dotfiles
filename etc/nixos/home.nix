@@ -94,8 +94,8 @@ in
     php
     postgresql_17
     prettierd
-    python3
-    python3Packages.boto3
+    # python3
+    # python3Packages.boto3
     (python3.withPackages (ps: with ps; [ boto3 linode-cli ]))
     ripgrep # recursively searches directories for a regex pattern
     rustc
