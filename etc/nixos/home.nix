@@ -145,6 +145,7 @@ in
       update = "sudo nixos-rebuild switch && ~/ghq/github.com/michalmatoga/dotfiles/scripts/post-update.sh";
       tf = "tofu";
       dffmpeg = "bash /home/nixos/ghq/github.schibsted.io/svp/node-ffmpeg/ffmpeg.sh";
+      pi = "pulumi";
     };
     # setup some environment variables
     initExtra = ''
