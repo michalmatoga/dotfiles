@@ -95,8 +95,7 @@ in
     postgresql_17
     prettierd
     python3
-    python3Packages.pip
-    # python3Packages.boto3
+    restic
     ripgrep # recursively searches directories for a regex pattern
     rustc
     tmux
