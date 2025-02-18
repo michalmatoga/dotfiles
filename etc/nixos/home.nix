@@ -97,8 +97,6 @@ in
     python3
     python3Packages.pip
     # python3Packages.boto3
-    linode-cli
-    (python3.withPackages (ps: with ps; [ boto3 linode-cli ]))
     ripgrep # recursively searches directories for a regex pattern
     rustc
     tmux
