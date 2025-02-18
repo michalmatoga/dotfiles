@@ -57,6 +57,7 @@ in
   };
 
   home.packages = with pkgs; [
+    awscli2
     bitwarden-cli
     corepack_20
     direnv
