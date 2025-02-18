@@ -79,7 +79,7 @@ in
     jq # A lightweight and flexible command-line JSON processor
     kubectl
     lazydocker
-    # linode-cli
+    linode-cli
     lua-language-server
     markdownlint-cli
     mariadb
@@ -94,7 +94,8 @@ in
     php
     postgresql_17
     prettierd
-    # python3
+    python3
+    python3Packages.pip
     # python3Packages.boto3
     linode-cli
     (python3.withPackages (ps: with ps; [ boto3 linode-cli ]))
