@@ -164,6 +164,16 @@ in
     enable = true;
     settings = {
       k9s = {
+        namespace = {
+          active = "development";
+          lockFavorites = true;
+          favorites = [
+            "all"
+            "development"
+            "staging"
+            "production"
+          ];
+        };
         ui = {
           headless = true;
           logoless = true;
