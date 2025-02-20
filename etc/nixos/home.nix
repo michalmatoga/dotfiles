@@ -2,6 +2,7 @@
 
 let
   unstablePackages = with unstable; [
+    k9s
     pulumi
     pulumiPackages.pulumi-language-nodejs
   ];
