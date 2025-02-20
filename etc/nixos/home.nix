@@ -2,7 +2,6 @@
 
 let
   unstablePackages = with unstable; [
-    k9s
     pulumi
     pulumiPackages.pulumi-language-nodejs
   ];
@@ -165,16 +164,6 @@ in
     enable = true;
     settings = {
       k9s = {
-        namespace = {
-          active = "development";
-          lockFavorites = true;
-          favorites = [
-            "all"
-            "development"
-            "staging"
-            "production"
-          ];
-        };
         ui = {
           headless = true;
           logoless = true;
