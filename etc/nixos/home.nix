@@ -141,7 +141,9 @@ in
         { name = "ptavares/zsh-direnv"; }
       ];
     };
-    shellAliases = {
+    shellAliases = let
+      pulumiCwd = builtins.getEnv "PULUMI_CWD";
+    in {
       cplc = "history | tail -n 1 | cut -d' ' -f4- | clip.exe";
       cpwd = "pwd | tr -d '\n' | clip.exe";
       copy = "clip.exe";
@@ -151,6 +153,7 @@ in
       update = "sudo nixos-rebuild switch && ~/ghq/github.com/michalmatoga/dotfiles/scripts/post-update.sh";
       tf = "tofu";
       dffmpeg = "bash /home/nixos/ghq/github.schibsted.io/svp/node-ffmpeg/ffmpeg.sh";
+      pulumi = "bash ~/ghq/github.com/michalmatoga/dotfiles/scripts/pulumi.sh";
       pi = "pulumi";
     };
     # setup some environment variables
