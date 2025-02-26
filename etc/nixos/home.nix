@@ -142,9 +142,9 @@ in
       ];
     };
     shellAliases = {
-      clip = "clip.exe";
       cplc = "history | tail -n 1 | cut -d' ' -f5- | clip.exe";
       cpwd = "pwd | tr -d '\n' | clip.exe";
+      copy = "clip.exe";
       paste = "powershell.exe get-clipboard";
       pro = "tmuxinator start $(tmuxinator list --newline | fzf)";
       sync-repos = "node ~/ghq/github.com/michalmatoga/dotfiles/scripts/sync-repos.mjs";
