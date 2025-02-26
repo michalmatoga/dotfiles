@@ -142,7 +142,7 @@ in
       ];
     };
     shellAliases = {
-      cplc = "history | tail -n 1 | cut -d' ' -f5- | clip.exe";
+      cplc = "history | tail -n 1 | cut -d' ' -f4- | clip.exe";
       cpwd = "pwd | tr -d '\n' | clip.exe";
       copy = "clip.exe";
       paste = "powershell.exe get-clipboard";
