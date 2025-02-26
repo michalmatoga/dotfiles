@@ -62,6 +62,10 @@ vim.opt.hlsearch = true
 vim.opt.swapfile = false
 
 vim.opt.colorcolumn = '120'
+--
+-- Enable spell checking
+vim.opt.spell = true
+vim.opt.spelllang = { 'en_us' }
 
 -- Conceal certain characters in the editor - used in obsidian.nvim for example
 -- vim.opt.conceallevel = 2
