@@ -1292,7 +1292,7 @@ require('lazy').setup({
       search = {
         command = 'rg',
         args = {
-          '-hidden',
+          '--hidden',
           '--color=never',
           '--no-heading',
           '--with-filename',
