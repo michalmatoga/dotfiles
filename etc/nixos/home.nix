@@ -56,6 +56,11 @@ in
     source = ../../.config/.npmrc;
   };
 
+  home.file.".config/direnv" = {
+    recursive = true;
+    source = ../../.config/direnv;
+  };
+
   home.packages = with pkgs; [
     awscli2
     bitwarden-cli
