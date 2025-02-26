@@ -358,7 +358,7 @@ require('lazy').setup({
       require('neo-tree').setup {
         auto_clean_after_session_restore = true,
         filesystem = {
-          filtered_items = { visible = true, hide_gitignored = true },
+          filtered_items = { visible = true, hide_gitignored = true, hide_dotfiles = false },
           follow_current_file = { enabled = true },
         },
         keys = {
