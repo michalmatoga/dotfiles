@@ -26,9 +26,7 @@ After first running nvim and installing plugins with Lazy, run:
 ln -s `which lua-language-server` ~/.local/share/nvim/mason/bin/lua-language-server
 ```
 
-to fix Lua LSP.
-
-To edit alacritty config:
+To fix Lua LSP. To edit alacritty config:
 
 ```sh
 ./.config/alacritty.toml
@@ -55,4 +53,10 @@ komorebic stop --whkd
 
 ## Updating NixOS
 
-- follow this guide: https://superuser.com/questions/1604694/how-to-update-every-package-on-nixos
+```sh
+# 1. Check the latest stable channel at https://status.nixos.org/
+sudo nix-channel --add https://channels.nixos.org/nixos-24.11 nixos
+sudo nixos-rebuild switch --upgrade
+```
+
+Reference: https://superuser.com/questions/1604694/how-to-update-every-package-on-nixos
