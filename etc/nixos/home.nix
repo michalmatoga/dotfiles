@@ -93,7 +93,6 @@ in
     neofetch
     nmap # A utility for network discovery and security auditing
     nodejs_22 # nodejs & npm
-    nodejs.pkgs.pnpm
     openssl
     opentofu
     pgadmin4
