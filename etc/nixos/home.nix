@@ -97,7 +97,6 @@ in
     opentofu
     pgadmin4
     php
-    pnpm_10
     postgresql_17
     prettierd
     python3
