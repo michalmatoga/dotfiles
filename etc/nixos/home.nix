@@ -226,7 +226,6 @@ in
     '';
   };
 
-
   programs.home-manager = {
     enable = true;
   };
