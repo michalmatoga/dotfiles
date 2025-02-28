@@ -4,7 +4,6 @@ let
   unstablePackages = with unstable; [
     pulumi
     pulumiPackages.pulumi-language-nodejs
-    pnpm_10
   ];
 in
 {
@@ -94,6 +93,7 @@ in
     neofetch
     nmap # A utility for network discovery and security auditing
     nodejs_22 # nodejs & npm
+    nodejs.pkgs.pnpm
     openssl
     opentofu
     pgadmin4
