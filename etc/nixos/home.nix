@@ -4,6 +4,7 @@ let
   unstablePackages = with unstable; [
     pulumi
     pulumiPackages.pulumi-language-nodejs
+    pnpm_10
   ];
 in
 {
@@ -113,7 +114,6 @@ in
     zig
     zip
     zstd
-    pnpm_10
   ] ++ unstablePackages;
 
   # starship - an customizable prompt for any shell
