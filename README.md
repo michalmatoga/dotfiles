@@ -52,3 +52,7 @@ komorebic stop --whkd
 ./.config/whkdrc
 
 ```
+
+## Updating NixOS
+
+- follow this guide: https://superuser.com/questions/1604694/how-to-update-every-package-on-nixos
