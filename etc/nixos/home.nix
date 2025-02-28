@@ -62,6 +62,7 @@ in
   };
 
   home.packages = with pkgs; [
+    # fzf # A command-line fuzzy finder
     awscli2
     bitwarden-cli
     corepack_20
@@ -71,7 +72,6 @@ in
     ffmpeg_7-full
     file
     flyctl
-    # fzf # A command-line fuzzy finder
     gawk
     gcc
     gh
@@ -86,8 +86,8 @@ in
     lazydocker
     linode-cli
     lua-language-server
-    markdownlint-cli
     mariadb
+    markdownlint-cli
     mkcert
     mongodb-tools
     neofetch
