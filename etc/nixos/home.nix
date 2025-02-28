@@ -113,6 +113,7 @@ in
     zig
     zip
     zstd
+    pnpm_10
   ] ++ unstablePackages;
 
   # starship - an customizable prompt for any shell
