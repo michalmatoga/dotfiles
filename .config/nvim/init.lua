@@ -1456,6 +1456,7 @@ require('lazy').setup({
     'rest-nvim/rest.nvim',
     dependencies = {
       'nvim-treesitter/nvim-treesitter',
+      'nvim-neotest/nvim-nio',
       { 'j-hui/fidget.nvim', opts = {} },
       opts = function(_, opts)
         opts.ensure_installed = opts.ensure_installed or {}
