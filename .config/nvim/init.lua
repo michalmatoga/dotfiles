@@ -1452,6 +1452,16 @@ require('lazy').setup({
     dependencies = { 'nvim-lua/plenary.nvim', 'neovim/nvim-lspconfig' },
     opts = {},
   },
+  {
+    'rest-nvim/rest.nvim',
+    dependencies = {
+      'nvim-treesitter/nvim-treesitter',
+      opts = function(_, opts)
+        opts.ensure_installed = opts.ensure_installed or {}
+        table.insert(opts.ensure_installed, 'http')
+      end,
+    },
+  },
   { import = 'custom.plugins' },
 }, {
   ui = {
