@@ -60,3 +60,18 @@ sudo nixos-rebuild switch --upgrade
 ```
 
 Reference: https://superuser.com/questions/1604694/how-to-update-every-package-on-nixos
+
+## Populating `.env` file
+
+To persist `.env` file in `secrets.json`, run the following command:
+
+```sh
+jq --arg env "$(base64 -w 0 < .env)" '. + {".env": $env}' secrets.json > secrets.tmp && mv secrets.tmp secrets.json
+```
+
+To populate `.env` file from `secrets.json`, run the following command:
+
+```sh
+jq -r '.[".env"] | @base64d' secrets.json > .env
+
+```
