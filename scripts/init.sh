@@ -25,6 +25,6 @@ cd ~
 # curl -L https://github.com/catppuccin/k9s/archive/main.tar.gz | tar xz -C "$OUT" --strip-components=2 k9s-main/dist
 
 mkdir -p ~/.kube
-secrets.json | jq -r '.kubeconfig_work' | base64 -d > ~/.kube/config
+cat secrets.json | jq -r '.kubeconfig_work' | base64 -d > ~/.kube/config
 
 mkdir -p ~/.cache/npm/global

@@ -10,6 +10,7 @@ in
   imports =
     [
       ./aliases/git.nix
+      ./environment.nix
     ];
 
   home.file."repositories.json" = {

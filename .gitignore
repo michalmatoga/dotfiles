@@ -1,2 +1,3 @@
 node_modules
 repolist.txt
+etc/nixos/environment.nix
