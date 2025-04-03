@@ -170,7 +170,7 @@ require('lazy').setup({
       { 'nvim-lua/plenary.nvim' }, -- for curl, log wrapper
     },
     opts = {
-      model = 'gpt-4o-2024-11-20',
+      -- model = 'gpt-4o-2024-11-20',
       question_header = '## User ',
       answer_header = '## Copilot ',
       error_header = '## Error ',
