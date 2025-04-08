@@ -161,7 +161,14 @@ local prompts = {
 require('lazy').setup({
   -- NOTE: Plugins can be added with a link (or for a github repo: 'owner/repo' link).
   'tpope/vim-sleuth', -- Detect tabstop and shiftwidth automatically
-  'zbirenbaum/copilot.lua', -- for providers='copilot'
+  {
+    'zbirenbaum/copilot.lua',
+    cmd = 'Copilot',
+    event = 'InsertEnter',
+    config = function()
+      require('copilot').setup {}
+    end,
+  },
   {
     'yetone/avante.nvim',
     event = 'VeryLazy',
