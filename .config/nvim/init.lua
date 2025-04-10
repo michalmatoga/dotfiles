@@ -3,7 +3,6 @@
 vim.g.mapleader = ';'
 vim.g.maplocalleader = ';'
 vim.g.have_nerd_font = true
-vim.g.copilot_auth_provider_url = 'https://schibsted.ghe.com'
 vim.opt.number = true
 vim.opt.relativenumber = true
 vim.opt.mouse = 'a'
@@ -166,7 +165,9 @@ require('lazy').setup({
     cmd = 'Copilot',
     event = 'InsertEnter',
     config = function()
-      require('copilot').setup {}
+      require('copilot').setup {
+        auth_provider_url = 'https://schibsted.ghe.com',
+      }
     end,
   },
   {
