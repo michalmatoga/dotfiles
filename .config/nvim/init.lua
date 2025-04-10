@@ -591,9 +591,6 @@ require('lazy').setup({
     'folke/which-key.nvim',
     event = 'VeryLazy',
     opts = {},
-    keys = {
-      { '<leader>c', group = '[C]ode' },
-    },
   },
   { -- Fuzzy Finder (files, lsp, etc)
     'nvim-telescope/telescope.nvim',
