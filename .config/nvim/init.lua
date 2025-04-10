@@ -167,6 +167,17 @@ require('lazy').setup({
     config = function()
       require('copilot').setup {
         auth_provider_url = 'https://schibsted.ghe.com',
+        suggestion = {
+          auto_trigger = true,
+          keymap = {
+            accept = '<M-l>',
+            accept_word = false,
+            accept_line = false,
+            next = '<M-]>',
+            prev = '<M-[>',
+            dismiss = '<C-]>',
+          },
+        },
       }
     end,
   },
@@ -184,7 +195,6 @@ require('lazy').setup({
         timeout = 30000, -- Timeout in milliseconds, increase this for reasoning models
         temperature = 0,
         max_tokens = 8192, -- Increase this to include reasoning tokens (for reasoning models)
-
         --reasoning_effort = "medium", -- low|medium|high, only used for reasoning models
       },
     },
