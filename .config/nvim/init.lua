@@ -169,7 +169,7 @@ require('lazy').setup({
         auth_provider_url = 'https://schibsted.ghe.com',
         copilot_model = 'gpt-4o-copilot',
         suggestion = {
-          auto_trigger = true,
+          auto_trigger = false,
           keymap = {
             accept = '<M-a>',
             accept_word = false,
