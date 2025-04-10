@@ -170,12 +170,12 @@ require('lazy').setup({
         suggestion = {
           auto_trigger = true,
           keymap = {
-            accept = '<M-l>',
+            accept = '<M-a>',
             accept_word = false,
             accept_line = false,
-            next = '<M-]>',
-            prev = '<M-[>',
-            dismiss = '<C-]>',
+            next = '<M-.>',
+            prev = '<M-,>',
+            dismiss = '<M-d>',
           },
         },
       }
