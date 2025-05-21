@@ -6,8 +6,10 @@
   editor = nvim
   pager = less
   excludesfile = ~/.config/git/gitignore-global
+[log]
+  date=iso-local
 [pull]
-	rebase = true
+  rebase = true
 [pager]
   diff = false
   branch = false
