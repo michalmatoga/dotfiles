@@ -38,6 +38,7 @@ in
     git
     neovim
     curl
+    icu
     wget
     (import ./win32yank.nix {inherit pkgs;})
     my-kubernetes-helm
