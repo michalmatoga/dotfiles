@@ -81,6 +81,7 @@ in
     gnupg
     gnused
     gnutar
+    icu
     jq # A lightweight and flexible command-line JSON processor
     kubectl
     lazydocker
