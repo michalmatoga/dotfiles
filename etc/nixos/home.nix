@@ -155,6 +155,7 @@ in
       dffmpeg = "bash /home/nixos/ghq/github.schibsted.io/svp/node-ffmpeg/ffmpeg.sh";
       pulumi = "bash ~/ghq/github.com/michalmatoga/dotfiles/scripts/pulumi.sh";
       pi = "pulumi";
+      nag = "bash ~/ghq/github.com/michalmatoga/dotfiles/scripts/nag.sh";
     };
     # setup some environment variables
     initExtra = ''
