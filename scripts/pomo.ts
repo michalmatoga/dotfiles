@@ -21,7 +21,10 @@ const pomoInterval = setInterval(() => {
     const seconds = Math.floor((remainingTime % (60 * 1000)) / 1000);
     console.clear();
     console.log(
-      `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`,
+      `FOCUS ${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`.padStart(
+        70,
+        " ",
+      ),
     );
   }
 }, 1000);
