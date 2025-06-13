@@ -14,14 +14,14 @@ const pomoInterval = setInterval(() => {
 
   if (remainingTime <= 0) {
     clearInterval(pomoInterval);
-    execSync(`bash ${process.cwd()}/scripts/nag.sh`, { stdio: "inherit" });
+    execSync(`bash ${__dirname}/nag.sh`, { stdio: "inherit" });
     rl.close();
   } else {
     const minutes = Math.floor(remainingTime / (60 * 1000));
     const seconds = Math.floor((remainingTime % (60 * 1000)) / 1000);
     console.clear();
     console.log(
-      `FOCUS ${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`.padStart(
+      `\x1b[32mFOCUS ${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`.padStart(
         70,
         " ",
       ),
