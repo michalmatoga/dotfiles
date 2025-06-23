@@ -212,11 +212,12 @@ in
       set-option -g prefix C-f
 
       bind-key -Tcopy-mode-vi 'v' send -X begin-selection
+      bind-key r resize-pane -x 100
 
       set -g @thumbs-command 'echo -n {} | clip.exe && tmux display-message \"Copied {}\"'
       set -g @thumbs-upcase-command 'wsl-open {}'
 
-      set -g @continuum-restore 'on'
+      aet -g @continuum-restore 'on'
       set -g @continuum-save-interval '10'
       set -g @resurrect-capture-pane-contents 'on'
       set -g @resurrect-strategy-nvim 'session'

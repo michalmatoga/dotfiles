@@ -22,10 +22,6 @@ return {
       picker = {
         hidden = true,
       },
-      explorer = {
-        hidden = true, -- show .* files
-        -- exclude = { ".git", "node_modules" }, -- keep these hidden if needed
-      },
     },
   },
 }
