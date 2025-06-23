@@ -28,7 +28,8 @@ in
 
   home.file.".config/nvim" = {
     recursive = true;
-    source = ../../.config/nvim;
+    # source = ../../.config/nvim;
+    source = ../../.config/lazyvim;
   };
 
   home.file.".config/tmuxinator" = {
