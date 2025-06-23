@@ -230,3 +230,7 @@ in
 
   home.stateVersion = "23.11";
 }
+# TODO: configure telescope search hidden
+# TODO: make todos search through hidden files
+# TODO: configure catppuccin theme
+# TODO: configure ai plugins
