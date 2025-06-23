@@ -232,5 +232,9 @@ in
 }
 # TODO: configure telescope search hidden
 # TODO: make todos search through hidden files
-# TODO: configure catppuccin theme
 # TODO: configure ai plugins
+# TODO: make it work with prettierd
+# TODO: configure lazygit
+# TODO: configure octo
+# TODO: configure obsidian
+# TODO: configure https://github.com/git-time-metric/gtm
