@@ -16,7 +16,7 @@ alt + q                 : komorebic close
 alt + m                 : komorebic minimize
 
 # Focus windows
-alt + h                 : komorebic focus left
+# alt + h                 : komorebic focus left
 alt + j                 : komorebic focus down
 alt + k                 : komorebic focus up
 alt + l                 : komorebic focus right
