@@ -1,8 +1,0 @@
-name: github_schibsted_io_svp_zf2-api-auth
-root: ~/ghq/github.schibsted.io/svp/zf2-api-auth
-windows:
-  - editor:
-      layout: e796,238x58,0,0{179x58,0,0,1,58x58,180,0,2}
-      panes:
-        - vim
-        -
