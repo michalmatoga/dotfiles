@@ -1,14 +1,32 @@
 [
   {
     "provider": "github.com",
-    "fetch": ["elikonas", "michalmatoga/dotfiles", "michalmatoga/aka-workshops"]
+    "fetch": [
+      "elikonas",
+      "michalmatoga/dotfiles",
+      "michalmatoga/aka-workshops"
+    ]
+  },
+  {
+    "provider": "schibsted.ghe.com",
+    "fetch": [
+      "svp",
+      "michal-matoga/utils"
+    ]
   },
   {
     "provider": "github.schibsted.io",
-    "fetch": ["svp", "michal-matoga/utils"]
+    "fetch": [
+      "svp",
+      "michal-matoga/utils"
+    ]
   },
   {
     "provider": "gitlab.com",
-    "fetch": ["habify", "michalmatoga/journal", "michalmatoga/mlt"]
+    "fetch": [
+      "habify",
+      "michalmatoga/journal",
+      "michalmatoga/mlt"
+    ]
   }
 ]

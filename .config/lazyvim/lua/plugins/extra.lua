@@ -16,4 +16,15 @@ return {
       { "<c-\\>", "<cmd><C-U>TmuxNavigatePrevious<cr>" },
     },
   },
+  {
+    "folke/snacks.nvim",
+    opts = {
+      explorer = {
+        hidden = true,
+        -- your explorer configuration comes here
+        -- or leave it empty to use the default settings
+        -- refer to the configuration section below
+      },
+    },
+  },
 }

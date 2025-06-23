@@ -19,10 +19,16 @@ const providerApiMap = {
     headers: { Authorization: `token ${secrets.gh_pat_personal}` },
     fullNameKey: "full_name",
   },
-  "schibsted.ghe.com": {
+  "github.schibsted.io": {
     urlTemplate:
       "https://github.schibsted.io/api/v3/orgs/ORG_ID/repos?per_page=100",
     headers: { Authorization: `token ${secrets.gh_pat_sch}` },
+    fullNameKey: "full_name",
+  },
+  "schibsted.ghe.com": {
+    urlTemplate:
+      "https://api.schibsted.ghe.com/orgs/ORG_ID/repos?per_page=100",
+    headers: { Authorization: `token ${secrets.ghec_pat_sch}` },
     fullNameKey: "full_name",
   },
   "gitlab.com": {
