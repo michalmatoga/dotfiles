@@ -13,4 +13,4 @@ vim.api.nvim_create_autocmd({ "InsertLeave", "TextChanged" }, {
   nested = true,
 })
 
-vim.api.nvim_create_user_command("Cpwd", "call setreg('+', expand('%'))", {})
+-- vim.api.nvim_create_user_command("Cpwd", "call setreg('+', expand('%'))", {})
