@@ -20,14 +20,37 @@ return {
     "folke/snacks.nvim",
     opts = {
       picker = {
-        sources = {
-          explorer = {
-            files = {
-              hidden = true,
-            },
-          },
-        },
+        hidden = true,
+      },
+      explorer = {
+        hidden = true, -- show .* files
+        -- exclude = { ".git", "node_modules" }, -- keep these hidden if needed
       },
     },
   },
 }
+
+-- config = function()
+--   local actions = require 'telescope.actions'
+--   require('telescope').setup {
+--     defaults = {
+--       mappings = {
+--         i = { ['<c-s>'] = actions.send_to_qflist + actions.open_qflist },
+--       },
+--     },
+--     pickers = {
+--       find_files = {
+--         find_command = { 'rg', '--files', '--hidden', '-g', '!.git' },
+--       },
+--     },
+--     extensions = {
+--       ['ui-select'] = {
+--         require('telescope.themes').get_dropdown(),
+--       },
+--       tmuxinator = {
+--         select_action = 'switch', -- | 'stop' | 'kill'
+--         stop_action = 'stop', -- | 'kill'
+--         disable_icons = false,
+--       },
+--     },
+--   }
