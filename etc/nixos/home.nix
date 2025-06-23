@@ -230,8 +230,6 @@ in
 
   home.stateVersion = "23.11";
 }
-# TODO: configure telescope search hidden
-# TODO: make todos search through hidden files
 # TODO: configure ai plugins
 # TODO: make it work with prettierd
 # TODO: configure lazygit
