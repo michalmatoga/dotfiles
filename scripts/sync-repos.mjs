@@ -19,7 +19,7 @@ const providerApiMap = {
     headers: { Authorization: `token ${secrets.gh_pat_personal}` },
     fullNameKey: "full_name",
   },
-  "github.schibsted.io": {
+  "schibsted.ghe.com": {
     urlTemplate:
       "https://github.schibsted.io/api/v3/orgs/ORG_ID/repos?per_page=100",
     headers: { Authorization: `token ${secrets.gh_pat_sch}` },
@@ -45,24 +45,6 @@ async function fetchAllOrgRepos(provider, org) {
   return await response.json();
 }
 
-function createTmuxinatorConfigs(repos) {
-  execSync(`rm -f ${__dirname}/../.config/tmuxinator/*.yml`);
-  for (const repo of repos) {
-    const projectName = repo.replaceAll("/", "_").replaceAll(".", "_");
-    const templateYml = `name: ${projectName}
-root: ~/ghq/${repo}
-windows:
-  - editor:
-      layout: e796,238x58,0,0{179x58,0,0,1,58x58,180,0,2}
-      panes:
-        - vim
-        -`;
-    writeFileSync(
-      path.join(__dirname, `../.config/tmuxinator/${projectName}.yml`),
-      templateYml,
-    );
-  }
-}
 
 function setupDirenv() {
   const rootDir = "~/ghq/github.schibsted.io";
@@ -101,7 +83,6 @@ function setupDirenv() {
     }
     repos.push(...providerRepos);
   }
-  createTmuxinatorConfigs(repos);
   writeFileSync("repolist.txt", repos.join("\n"));
 
   const result = spawnSync(

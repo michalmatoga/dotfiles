@@ -32,11 +32,6 @@ in
     source = ../../.config/lazyvim;
   };
 
-  home.file.".config/tmuxinator" = {
-    recursive = true;
-    source = ../../.config/tmuxinator;
-  };
-
   home.file.".config/lazydocker/config.yml" = {
     source = ../../.config/lazydocker/config.yml;
   };
@@ -106,7 +101,6 @@ in
     ripgrep # recursively searches directories for a regex pattern
     rustc
     tmux
-    tmuxinator
     unzip
     vault
     wsl-open # WSL-specific
@@ -150,7 +144,6 @@ in
       cpwd = "pwd | tr -d '\n' | clip.exe";
       copy = "clip.exe";
       paste = "powershell.exe get-clipboard";
-      pro = "tmuxinator start $(tmuxinator list --newline | fzf)";
       sync-repos = "node ~/ghq/github.com/michalmatoga/dotfiles/scripts/sync-repos.mjs";
       update = "sudo nixos-rebuild switch && ~/ghq/github.com/michalmatoga/dotfiles/scripts/post-update.sh";
       tf = "tofu";

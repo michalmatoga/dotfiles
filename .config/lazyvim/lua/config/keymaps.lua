@@ -4,4 +4,5 @@
 --
 local map = vim.keymap.set
 
+map("i", "jj", "<Esc>")
 map("t", "<C-\\>", "<cmd>close<cr>", { desc = "Hide Terminal" })
