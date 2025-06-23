@@ -72,6 +72,7 @@ in
     eza # A modern replacement for ‘ls’
     ffmpeg_7-full
     file
+    fd
     flyctl
     gawk
     gcc
