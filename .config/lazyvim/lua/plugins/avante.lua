@@ -9,8 +9,7 @@ return {
     ---@module 'avante'
     ---@type avante.Config
     opts = {
-      -- add any opts here
-      -- for example
+      auto_suggestions_provider = "openai",
       provider = "openai",
       providers = {
         claude = {
@@ -31,14 +30,6 @@ return {
             max_tokens = 8192, -- Increase this to include reasoning tokens (for reasoning models)
             --reasoning_effort = "medium", -- low|medium|high, only used for reasoning models
           },
-        },
-      },
-      mappings = {
-        suggestion = {
-          accept = "<Tab>",
-          next = "<M-S-]>",
-          prev = "<M-[>",
-          dismiss = "<C-]>",
         },
       },
     },
