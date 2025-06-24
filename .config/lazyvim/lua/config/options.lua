@@ -5,3 +5,5 @@ local opt = vim.opt
 
 opt.swapfile = false
 opt.wrap = true
+
+vim.g.mapleader = ";"
