@@ -83,6 +83,7 @@ in
     lazydocker
     linode-cli
     lua-language-server
+    lua51Packages.luarocks
     mariadb
     markdownlint-cli
     mkcert
