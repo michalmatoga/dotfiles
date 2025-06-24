@@ -5,6 +5,3 @@
 local map = vim.keymap.set
 
 map("i", "jj", "<Esc>")
-map("n", "<leader>fT", function()
-  Snacks.terminal(nil, { win = { position = "right" } })
-end, { desc = "Terminal left" })
