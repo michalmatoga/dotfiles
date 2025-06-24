@@ -33,6 +33,14 @@ return {
           },
         },
       },
+      mappings = {
+        suggestion = {
+          accept = "<Tab>",
+          next = "<M-S-]>",
+          prev = "<M-[>",
+          dismiss = "<C-]>",
+        },
+      },
     },
     dependencies = {
       "nvim-treesitter/nvim-treesitter",
