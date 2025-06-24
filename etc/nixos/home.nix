@@ -231,7 +231,6 @@ in
 
   home.stateVersion = "23.11";
 }
-# TODO: configure ai plugins
 # TODO: make it work with prettierd
 # TODO: configure lazygit
 # TODO: configure octo
