@@ -146,6 +146,7 @@ in
       cpwd = "pwd | tr -d '\n' | clip.exe";
       dffmpeg = "bash /home/nixos/ghq/github.schibsted.io/svp/node-ffmpeg/ffmpeg.sh";
       nag = "bash ~/ghq/github.com/michalmatoga/dotfiles/scripts/nag.sh";
+      timebox = "npx tsx ~/ghq/github.com/michalmatoga/dotfiles/scripts/timebox.ts";
       paste = "powershell.exe get-clipboard";
       pi = "pulumi";
       pulumi = "bash ~/ghq/github.com/michalmatoga/dotfiles/scripts/pulumi.sh";
