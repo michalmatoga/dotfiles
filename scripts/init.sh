@@ -30,3 +30,4 @@ mkdir -p ~/.cache/npm/global
 
 # Install git-time-metric
 curl -L https://github.com/git-time-metric/gtm/releases/download/v1.3.5/gtm.v1.3.5.linux.tar.gz | tar xz && sudo mv gtm /usr/bin/ # TODO: remove after gitm is present in nixos packages
+curl -L https://github.com/git-time-metric/gtm-terminal-plugin/archive/refs/tags/v1.0.1.tar.gz | tar xz && mv gtm-terminal-plugin-1.0.1 dist/gtm-terminal-plugin
