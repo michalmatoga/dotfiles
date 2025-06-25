@@ -149,7 +149,6 @@ in
       paste = "powershell.exe get-clipboard";
       pi = "pulumi";
       pulumi = "bash ~/ghq/github.com/michalmatoga/dotfiles/scripts/pulumi.sh";
-      PWD = "pwd";
       sync-repos = "node ~/ghq/github.com/michalmatoga/dotfiles/scripts/sync-repos.mjs";
       tf = "tofu";
       update = "sudo nixos-rebuild switch && ~/ghq/github.com/michalmatoga/dotfiles/scripts/post-update.sh";
@@ -162,6 +161,8 @@ in
       export NIX_LD=$(nix eval --impure --raw --expr 'let pkgs = import <nixpkgs> {}; NIX_LD = pkgs.lib.fileContents "${pkgs.stdenv.cc}/nix-support/dynamic-linker"; in NIX_LD')
       export PATH="$HOME/.cache/npm/global/bin:$PATH"
       source ~/ghq/github.com/michalmatoga/dotfiles/.env
+
+      alias PWD='pwd'
       source ~/ghq/github.com/michalmatoga/dotfiles/dist/gtm-terminal-plugin/gtm-plugin.sh
     '';
   };
