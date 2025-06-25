@@ -141,17 +141,18 @@ in
     shellAliases = let
       pulumiCwd = builtins.getEnv "PULUMI_CWD";
     in {
+      copy = "clip.exe";
       cplc = "history | tail -n 1 | cut -d' ' -f4- | clip.exe";
       cpwd = "pwd | tr -d '\n' | clip.exe";
-      copy = "clip.exe";
-      paste = "powershell.exe get-clipboard";
-      sync-repos = "node ~/ghq/github.com/michalmatoga/dotfiles/scripts/sync-repos.mjs";
-      update = "sudo nixos-rebuild switch && ~/ghq/github.com/michalmatoga/dotfiles/scripts/post-update.sh";
-      tf = "tofu";
       dffmpeg = "bash /home/nixos/ghq/github.schibsted.io/svp/node-ffmpeg/ffmpeg.sh";
-      pulumi = "bash ~/ghq/github.com/michalmatoga/dotfiles/scripts/pulumi.sh";
-      pi = "pulumi";
       nag = "bash ~/ghq/github.com/michalmatoga/dotfiles/scripts/nag.sh";
+      paste = "powershell.exe get-clipboard";
+      pi = "pulumi";
+      pulumi = "bash ~/ghq/github.com/michalmatoga/dotfiles/scripts/pulumi.sh";
+      PWD = "pwd";
+      sync-repos = "node ~/ghq/github.com/michalmatoga/dotfiles/scripts/sync-repos.mjs";
+      tf = "tofu";
+      update = "sudo nixos-rebuild switch && ~/ghq/github.com/michalmatoga/dotfiles/scripts/post-update.sh";
     };
     # setup some environment variables
     initExtra = ''
