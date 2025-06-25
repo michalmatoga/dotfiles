@@ -85,7 +85,7 @@ in
     lua-language-server
     lua51Packages.luarocks
     mariadb
-    markdownlint-cli
+    markdownlint-cli2
     mkcert
     mongodb-tools
     neofetch
