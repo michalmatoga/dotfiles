@@ -233,8 +233,5 @@ in
 
   home.stateVersion = "23.11";
 }
-# TODO: make it work with prettierd
-# TODO: configure lazygit
-# TODO: configure octo
 # TODO: configure obsidian
 # TODO: configure https://github.com/git-time-metric/gtm
