@@ -162,7 +162,7 @@ in
       export PATH="$HOME/.cache/npm/global/bin:$PATH"
       source ~/ghq/github.com/michalmatoga/dotfiles/.env
 
-      alias PWD='pwd'
+      alias PWD='pwd' # necessary for compatibility with sourced script below
       source ~/ghq/github.com/michalmatoga/dotfiles/dist/gtm-terminal-plugin/gtm-plugin.sh
     '';
   };
