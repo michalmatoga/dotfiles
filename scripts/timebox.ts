@@ -6,7 +6,6 @@ import { join } from "path";
 
 // Load Trello API credentials from secrets.json
 const secretsPath = join(__dirname, "../secrets.json");
-console.log({ secretsPath });
 const secrets = JSON.parse(readFileSync(secretsPath, "utf-8"));
 
 const TRELLO_API_KEY = secrets.trello_api_key;
@@ -21,7 +20,7 @@ const BOARD_ID = secrets.trello_board_id;
 
 async function tick() {
   const statusTime = execSync(`gtm status -tags ${tagsFilter} | tail -n 2 | head -n 1`).toString().split(" ").filter((e: string) => e.match(/\d(h|m|s)$/));
-  const reportTime = execSync(`gtm report -tags ${tagsFilter} | tail -n 3 | head -n 1`, {
+  const reportTime = execSync(`gtm report -today -format summary -tags ${tagsFilter} | tail -n 2 | head -n 1`, {
     stdio: ["inherit"]
   }).toString().split(" ").filter((e: string) => e.match(/\d(h|m|s)$/))
 
