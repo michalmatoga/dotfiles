@@ -152,7 +152,6 @@ in
       pulumi = "bash ~/ghq/github.com/michalmatoga/dotfiles/scripts/pulumi.sh";
       pi = "pulumi";
       nag = "bash ~/ghq/github.com/michalmatoga/dotfiles/scripts/nag.sh";
-      pomo = "npx tsx ~/ghq/github.com/michalmatoga/dotfiles/scripts/pomo.ts";
     };
     # setup some environment variables
     initExtra = ''
@@ -233,5 +232,3 @@ in
 
   home.stateVersion = "23.11";
 }
-# TODO: configure obsidian
-# TODO: configure https://github.com/git-time-metric/gtm

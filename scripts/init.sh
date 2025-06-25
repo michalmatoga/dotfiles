@@ -14,9 +14,9 @@ git-crypt unlock
 cat secrets.json | jq -r '.gpg_work' | base64 -d | gpg --import
 eval $(ssh-agent)
 mkdir ~/.ssh
-jq -r '.id_rsa' secrets.json | base64 -d > ~/.ssh/id_rsa
+jq -r '.id_rsa' secrets.json | base64 -d >~/.ssh/id_rsa
 chmod 600 ~/.ssh/id_rsa
-ssh-keygen -y -f ~/.ssh/id_rsa > ~/.ssh/id_rsa.pub
+ssh-keygen -y -f ~/.ssh/id_rsa >~/.ssh/id_rsa.pub
 node scripts/sync-repos.mjs
 cd ~
 
@@ -25,6 +25,8 @@ cd ~
 # curl -L https://github.com/catppuccin/k9s/archive/main.tar.gz | tar xz -C "$OUT" --strip-components=2 k9s-main/dist
 
 mkdir -p ~/.kube
-cat secrets.json | jq -r '.kubeconfig_work' | base64 -d > ~/.kube/config
-
+cat secrets.json | jq -r '.kubeconfig_work' | base64 -d >~/.kube/config
 mkdir -p ~/.cache/npm/global
+
+# Install git-time-metric
+curl -L https://github.com/git-time-metric/gtm/releases/download/v1.3.5/gtm.v1.3.5.linux.tar.gz | tar xz && sudo mv gtm /usr/bin/ # TODO: remove after gitm is present in nixos packages
