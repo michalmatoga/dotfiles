@@ -153,6 +153,8 @@ in
       sync-repos = "node ~/ghq/github.com/michalmatoga/dotfiles/scripts/sync-repos.mjs";
       tf = "tofu";
       update = "sudo nixos-rebuild switch && ~/ghq/github.com/michalmatoga/dotfiles/scripts/post-update.sh";
+      dk = "docker";
+      ldk = "lazydocker";
     };
     # setup some environment variables
     initExtra = ''

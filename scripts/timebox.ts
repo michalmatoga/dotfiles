@@ -1,12 +1,10 @@
+import { readFileSync } from "fs";
 import { execSync } from "node:child_process";
+
 const tagsFilter = process.argv[2] || "";
 const limitHours = Number(process.argv[3] || "2");
-import { readFileSync } from "fs";
-import { join } from "path";
 
-// Load Trello API credentials from secrets.json
-const secretsPath = join(__dirname, "../secrets.json");
-const secrets = JSON.parse(readFileSync(secretsPath, "utf-8"));
+const secrets = JSON.parse(readFileSync(`${__dirname}/../secrets.json`, "utf-8"));
 
 const TRELLO_API_KEY = secrets.trello_api_key;
 const TRELLO_TOKEN = secrets.trello_token;
@@ -14,7 +12,7 @@ const BOARD_ID = secrets.trello_board_id;
 
 (async function main() {
   await tick();
-  setInterval(tick, 60000);
+  setInterval(tick, 30000);
 })();
 
 
@@ -25,19 +23,11 @@ async function tick() {
   }).toString().split(" ").filter((e: string) => e.match(/\d(h|m|s)$/))
 
   const totalDuration = addDurations(statusTime, reportTime);
-  const remainingTime = calculateRemainingTime(limitHours, totalDuration);
 
   const percentageUsed = calculatePercentageUsed(totalDuration, limitHours);
 
-  // console.log({ statusTime: formatTime(statusTime) });
-  // console.log({ reportTime: formatTime(reportTime) });
-  // console.log({ totalDuration: addDurations(statusTime, reportTime) });
-  // console.log({ limitHours });
-  // console.log({ remainingTime });
-  // console.log({ percentageUsed: `${percentageUsed.toFixed(0)}%` });
-
-  console.log(await getFirstCardInDoingList());
-  console.log(`📊 ${formatTime(reportTime)} | ▶️ ${formatTime(statusTime)} | ⌛ ${totalDuration} / ${limitHours}h (${percentageUsed.toFixed(0)}%)`);
+  console.log(`📝 ${await getFirstCardInDoingList()}`);
+  console.log(`📊 ${formatTime(reportTime)} | ▶️ ${formatTime(statusTime)} | ⌛ ${totalDuration} / ${limitHours}h(${percentageUsed.toFixed(0)} %)`);
   // TODO: run nagging script if 100%
   // TODO: log into march csv at 100%
 }
@@ -109,20 +99,6 @@ function addDurations(timeArray1: string[], timeArray2: string[]): string {
 
   return `${String(totalHours).padStart(2, '0')}:${String(totalMinutes).padStart(2, '0')}:${String(totalSeconds).padStart(2, '0')}`;
 }
-
-function calculateRemainingTime(limitHours: number, totalDuration: string): string {
-  const [totalHours, totalMinutes, totalSeconds] = totalDuration.split(':').map(Number);
-  const totalDurationInSeconds = totalHours * 3600 + totalMinutes * 60 + totalSeconds;
-  const limitInSeconds = limitHours * 3600;
-  const remainingSeconds = limitInSeconds - totalDurationInSeconds;
-
-  const remainingHours = Math.floor(remainingSeconds / 3600);
-  const remainingMinutes = Math.floor((remainingSeconds % 3600) / 60);
-  const remainingSecs = remainingSeconds % 60;
-
-  return `${String(remainingHours).padStart(2, '0')}:${String(remainingMinutes).padStart(2, '0')}:${String(remainingSecs).padStart(2, '0')}`;
-}
-
 
 function calculatePercentageUsed(totalDuration: string, limitHours: number): number {
   const [totalHours, totalMinutes, totalSeconds] = totalDuration.split(':').map(Number);
