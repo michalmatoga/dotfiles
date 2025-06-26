@@ -147,6 +147,8 @@ in
       dffmpeg = "bash /home/nixos/ghq/github.schibsted.io/svp/node-ffmpeg/ffmpeg.sh";
       nag = "bash ~/ghq/github.com/michalmatoga/dotfiles/scripts/nag.sh";
       timebox = "npx tsx ~/ghq/github.com/michalmatoga/dotfiles/scripts/timebox.ts";
+      startup-ritual = "npx tsx ~/ghq/github.com/michalmatoga/dotfiles/scripts/startup.ts";
+      shutdown-ritual = "npx tsx ~/ghq/github.com/michalmatoga/dotfiles/scripts/shutdown.ts";
       paste = "powershell.exe get-clipboard";
       pi = "pulumi";
       pulumi = "bash ~/ghq/github.com/michalmatoga/dotfiles/scripts/pulumi.sh";
