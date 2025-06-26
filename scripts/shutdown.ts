@@ -1,20 +1,29 @@
 import { execSync } from "node:child_process";
 import readline from "readline/promises";
 
-(async function main() {
-  console.log("Work Shutdown Ritual");
+const csvPath = "/mnt/g/My\\ Drive/march.csv";
+const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+(async function main() {
+  console.log("Work Shutdown Ritual\n");
 
   const rating = await rl.question("How do you feel about today (-2:+2)?\n");
   const notes = await rl.question("Any notes?\n");
   rl.close();
-  const entry = `${new Date().toISOString().split("T")[0]};${reportForTag("dwp")};${reportForTag("dww")};${rating};"${notes}"`
+  const dateToday = new Date().toISOString().split("T")[0];
 
-  const csvPath = "/mnt/g/My\\ Drive/march.csv";
-  const content = execSync(`cat ${csvPath} | grep -v "$(date +%Y-%m-%d)"`).toString().trim().split("\n");
-  console.log([entry, ...content].join("\n"));
-  execSync(`echo "${[entry, ...content].join("\n")}" > ${csvPath}`);
+
+  const content = execSync(`cat ${csvPath}`).toString().trim().split("\n");
+  const todaysEntry = content.find((e: string) => e.startsWith(dateToday));
+  const contentWithoutTodaysEntry = content.filter((e: string) => !e.startsWith(dateToday));
+  if (!todaysEntry) {
+    console.error("No entry for today found. Did you forget to run startup script?");
+    process.exit(1);
+  }
+
+  const updatedTodaysEntry = `${todaysEntry.split(";").slice(0, 3).join(";")};${reportForTag("dwp")};${reportForTag("dww")};${rating};"${notes}"`
+  console.log(updatedTodaysEntry);
+  execSync(`echo "${[updatedTodaysEntry, ...contentWithoutTodaysEntry].join("\n")}" > ${csvPath}`);
 })();
 
 
@@ -48,8 +57,7 @@ function addDurations(reportTime: string[]): string {
 }
 
 function reportForTag(tag: string) {
-  // TODO: add -today
-  const reportTime = execSync(`gtm report -format summary -tags ${tag} | tail -n 2 | head -n 1`, {
+  const reportTime = execSync(`gtm report -today -format summary -tags ${tag} | tail -n 2 | head -n 1`, {
     stdio: ["inherit"]
   }).toString().split(" ").filter((e: string) => e.match(/\d(h|m|s)$/));
   return addDurations(reportTime);
