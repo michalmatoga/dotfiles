@@ -145,18 +145,19 @@ in
       cplc = "history | tail -n 1 | cut -d' ' -f4- | clip.exe";
       cpwd = "pwd | tr -d '\n' | clip.exe";
       dffmpeg = "bash /home/nixos/ghq/github.schibsted.io/svp/node-ffmpeg/ffmpeg.sh";
+      dk = "docker";
+      ldk = "lazydocker";
       nag = "bash ~/ghq/github.com/michalmatoga/dotfiles/scripts/nag.sh";
-      timebox = "npx tsx ~/ghq/github.com/michalmatoga/dotfiles/scripts/timebox.ts";
-      startup-ritual = "npx tsx ~/ghq/github.com/michalmatoga/dotfiles/scripts/startup.ts";
-      shutdown-ritual = "npx tsx ~/ghq/github.com/michalmatoga/dotfiles/scripts/shutdown.ts";
       paste = "powershell.exe get-clipboard";
       pi = "pulumi";
       pulumi = "bash ~/ghq/github.com/michalmatoga/dotfiles/scripts/pulumi.sh";
+      shutdown-ritual = "npx tsx ~/ghq/github.com/michalmatoga/dotfiles/scripts/shutdown.ts";
+      startup-ritual = "npx tsx ~/ghq/github.com/michalmatoga/dotfiles/scripts/startup.ts";
+      sync-ghec = "npx tsx ~/ghq/github.com/michalmatoga/dotfiles/scripts/sync-ghec.ts";
       sync-repos = "node ~/ghq/github.com/michalmatoga/dotfiles/scripts/sync-repos.mjs";
       tf = "tofu";
+      timebox = "npx tsx ~/ghq/github.com/michalmatoga/dotfiles/scripts/timebox.ts";
       update = "sudo nixos-rebuild switch && ~/ghq/github.com/michalmatoga/dotfiles/scripts/post-update.sh";
-      dk = "docker";
-      ldk = "lazydocker";
     };
     # setup some environment variables
     initExtra = ''
