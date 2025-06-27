@@ -27,7 +27,7 @@ async function tick() {
   const percentageUsed = calculatePercentageUsed(totalDuration, limitHours);
 
 
-  const message = `📝 ${await getFirstCardInDoingList()}\n📊 ${formatTime(reportTime)} | ▶️ ${formatTime(statusTime)} | ⌛ ${totalDuration} / ${limitHours}h (${percentageUsed.toFixed(0)}%)`;
+  const message = `📝 ${tagsFilter.toUpperCase()}: ${await getFirstCardInDoingList()}\n📊 ${formatTime(reportTime)} | ▶️ ${formatTime(statusTime)} | ⌛ ${totalDuration} / ${limitHours}h (${percentageUsed.toFixed(0)}%)`;
   console.clear();
   if (percentageUsed > 100) {
     console.log(`\x1b[31mOVERCOMMITTING ON ${tagsFilter.toUpperCase()} (${percentageUsed.toFixed(0)}%)\x1b[0m`);
@@ -53,7 +53,17 @@ async function getFirstCardInDoingList() {
     const cards = await cardsResponse.json();
 
     if (cards.length > 0) {
-      return `${cards[0].name}`;
+      const cardName = cards[0].name;
+
+      const checklistsResponse = await fetch(`https://api.trello.com/1/cards/${cards[0].id}/checklists?key=${TRELLO_API_KEY}&token=${TRELLO_TOKEN}`);
+      const checklists = await checklistsResponse.json();
+
+      if (checklists.length > 0 && checklists[0].checkItems.length > 0) {
+        const firstChecklistItem = checklists[0].checkItems.sort((a: any, b: any) => a.pos - b.pos)[0].name;
+        return `${cardName}\n   ▶️ ${firstChecklistItem}`;
+      } else {
+        return `${cardName}`;
+      }
     } else {
       return 'No cards in the "Doing" list.';
     }
