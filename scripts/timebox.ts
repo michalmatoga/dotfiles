@@ -28,6 +28,11 @@ async function tick() {
 
   console.log(`📝 ${await getFirstCardInDoingList()}`);
   console.log(`📊 ${formatTime(reportTime)} | ▶️ ${formatTime(statusTime)} | ⌛ ${totalDuration} / ${limitHours}h (${percentageUsed.toFixed(0)}%)`);
+  if (percentageUsed > 100) {
+    console.clear();
+    console.log(`\x1b[31mOVERCOMMITTING ON ${tagsFilter.toUpperCase()} (${percentageUsed.toFixed(0)}%)\x1b[0m`);
+    execSync(`bash ${process.cwd()}/scripts/nag.sh`);
+  }
 }
 
 
