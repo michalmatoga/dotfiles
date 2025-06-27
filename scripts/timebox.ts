@@ -2,7 +2,7 @@ import { readFileSync } from "fs";
 import { execSync } from "node:child_process";
 
 const tagsFilter = process.argv[2] || "";
-const limitHours = Number(process.argv[3] || "2");
+const limitHours = Number(process.argv[3] || readLimitHoursFromCsv(tagsFilter) || "2");
 
 const secrets = JSON.parse(readFileSync(`${__dirname}/../secrets.json`, "utf-8"));
 
@@ -59,7 +59,7 @@ async function getFirstCardInDoingList() {
       const checklists = await checklistsResponse.json();
 
       if (checklists.length > 0 && checklists[0].checkItems.length > 0) {
-        const firstChecklistItem = checklists[0].checkItems.sort((a: any, b: any) => a.pos - b.pos)[0].name;
+        const firstChecklistItem = checklists[0].checkItems.filter(({ state }) => state === 'incomplete').sort((a: any, b: any) => a.pos - b.pos)[0].name;
         return `${cardName}\n   ▶️ ${firstChecklistItem}`;
       } else {
         return `${cardName}`;
@@ -122,4 +122,15 @@ function calculatePercentageUsed(totalDuration: string, limitHours: number): num
   const limitInSeconds = limitHours * 3600;
 
   return (totalDurationInSeconds / limitInSeconds) * 100;
+}
+
+function readLimitHoursFromCsv(tagsFilter: string) {
+  if (!tagsFilter) {
+    return;
+  }
+
+  const csvPath = "/mnt/g/My\\ Drive/march.csv";
+  const index = (tagsFilter === 'dwp') ? 1 : 2;
+  const content = execSync(`head -n 1 ${csvPath}`).toString().split(";");
+  return content[index][1]
 }
