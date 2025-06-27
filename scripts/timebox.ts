@@ -27,8 +27,7 @@ async function tick() {
   const percentageUsed = calculatePercentageUsed(totalDuration, limitHours);
 
   console.log(`📝 ${await getFirstCardInDoingList()}`);
-  console.log(`📊 ${formatTime(reportTime)} | ▶️ ${formatTime(statusTime)} | ⌛ ${totalDuration} / ${limitHours}h(${percentageUsed.toFixed(0)} %)`);
-  // TODO: run nagging script if 100%
+  console.log(`📊 ${formatTime(reportTime)} | ▶️ ${formatTime(statusTime)} | ⌛ ${totalDuration} / ${limitHours}h (${percentageUsed.toFixed(0)}%)`);
 }
 
 
