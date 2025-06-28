@@ -7,6 +7,10 @@ const TRELLO_TOKEN = secrets.trello_token;
 const BOARD_ID = secrets.trello_board_id;
 
 
+// This enables creating gtm reports based on Refs
+// e.g.
+// git log --grep https://trello.com/c/0giWia2p --pretty=%H | gtm report -format summary
+
 (async function main() {
   const gitRemote = execSync('git remote -v | head -n 1', { encoding: "utf-8" });
 
