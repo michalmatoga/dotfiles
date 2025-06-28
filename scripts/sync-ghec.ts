@@ -16,7 +16,7 @@ const BOARD_ID = secrets.trello_board_id;
 
   const labelIds = (await fetchTrelloLabelIds(BOARD_ID, ['Praca w Schibsted']));
   for (const issue of newIssues) {
-    await addTrelloCard(issue.title, `${issue.url}\n\n${issue.body}`, labelIds);
+    await addTrelloCard(issue.title, `Refs: ${issue.url}\n\n${issue.body}`, labelIds);
   }
 })();
 

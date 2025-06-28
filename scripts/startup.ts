@@ -15,7 +15,7 @@ const csvContent = execSync(`cat ${csvPath}`).toString().trim().split("\n").map(
 
   const remainingWorkdays = calculateRemainingWorkdays();
 
-  const dwpToDate = sumHours(csvContent, 3);
+  const dwpToDate = Number(sumHours(csvContent, 3).toFixed(2));
   const dailyDwpTarget = Number(((dwpTarget - dwpToDate) / remainingWorkdays).toFixed(2));
   console.log({ dwpToDate, dwpTarget, dailyDwpTarget });
 
@@ -23,7 +23,7 @@ const csvContent = execSync(`cat ${csvPath}`).toString().trim().split("\n").map(
 
 
   console.log("\nDWW\n\n");
-  const dwwToDate = sumHours(csvContent, 4);
+  const dwwToDate = Number(sumHours(csvContent, 4).toFixed(2));
   const dailyDwwTarget = Number(((dwwTarget - dwwToDate) / remainingWorkdays).toFixed(2));
   console.log({ dwwToDate, dwwTarget, dailyDwwTarget });
 
