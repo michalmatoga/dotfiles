@@ -7,6 +7,13 @@ const rl = readline.createInterface({ input: process.stdin, output: process.stdo
 (async function main() {
   console.log("Work Shutdown Ritual\n");
 
+  console.log(`Here's the summary of your Deep Work for today:\n\n${' '.repeat(48)}DWP\n\n`);
+  execSync("gtm report -today -format timeline-hours -tags dwp", { stdio: "inherit" });
+  execSync("gtm report -format summary -today -tags dwp | tac | sed '2d' | head -n -2", { stdio: "inherit" });
+  console.log(`\n\n${' '.repeat(48)}DWW\n\n`);
+  execSync("gtm report -today -format timeline-hours -tags dww", { stdio: "inherit" });
+  execSync("gtm report -format summary -today -tags dww | tac | sed '2d' | head -n -2", { stdio: "inherit" });
+
   const rating = await rl.question("How do you feel about today (-2:+2)?\n");
   const notes = await rl.question("Any notes?\n");
   rl.close();
