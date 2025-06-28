@@ -57,7 +57,7 @@ async function getFirstCardInDoingList() {
       const a = getTimeInvested(cards[0].shortLink);
       const b = await getTrelloAppetite(cards[0].shortLink);
       if (b) {
-        appetiteSummary = `[🍴 ${a}/${b}h (${(a / b * 100).toFixed(0)}%)]`;
+        appetiteSummary = `[🍴 ${a.toPrecision(2)}/${b}h (${(a / b * 100).toPrecision(2)}%)]`;
       }
       const cardName = [appetiteSummary, cards[0].name].join(" ");
 
