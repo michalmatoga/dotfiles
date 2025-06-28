@@ -53,7 +53,13 @@ async function getFirstCardInDoingList() {
     const cards = await cardsResponse.json();
 
     if (cards.length > 0) {
-      const cardName = cards[0].name;
+      let appetiteSummary = "";
+      const a = getTimeInvested(cards[0].shortLink);
+      const b = await getTrelloAppetite(cards[0].shortLink);
+      if (b) {
+        appetiteSummary = `[🍴 ${a}/${b}h (${(a / b * 100).toFixed(0)}%)]`;
+      }
+      const cardName = [appetiteSummary, cards[0].name].join(" ");
 
       const checklistsResponse = await fetch(`https://api.trello.com/1/cards/${cards[0].id}/checklists?key=${TRELLO_API_KEY}&token=${TRELLO_TOKEN}`);
       const checklists = await checklistsResponse.json();
@@ -133,4 +139,28 @@ function readLimitHoursFromCsv(tagsFilter: string) {
   const index = (tagsFilter === 'dwp') ? 1 : 2;
   const content = execSync(`head -n 1 ${csvPath}`).toString().split(";");
   return content[index][1]
+}
+
+async function getTrelloAppetite(cardId: string): Promise<number | null> {
+  const appetiteFieldId = '685ce60b9f2be1fd2c204094';
+  const url = `https://api.trello.com/1/cards/${cardId}/customFieldItems?key=${TRELLO_API_KEY}&token=${TRELLO_TOKEN}`;
+
+  try {
+    const response = await fetch(url);
+    const data = await response.json();
+    const appetiteField = data.find((field: any) => field.idCustomField === appetiteFieldId);
+    return appetiteField ? Number(appetiteField.value.number) : null;
+  } catch (error) {
+    console.error('Error fetching Trello custom field:', error);
+    return null;
+  }
+}
+
+function getTimeInvested(cardId: string) {
+  // TODO: make this work for GHEC as well
+  return timeToHrs(execSync(`git log --grep https://trello.com/c/${cardId} --pretty=%H | gtm report -format summary`, { encoding: "utf-8" }).trim().split("\n").at(-1).trim());
+}
+
+function timeToHrs(time: string): number {
+  return time.trim().split(" ").filter((entry: string) => entry.length).map((entry: string) => (entry.endsWith("h")) ? Number(entry.slice(0, -1)) : (entry.endsWith("m")) ? Number(entry.slice(0, -1)) / 60 : Number(entry.slice(0, -1)) / 3600).reduce((p: number, c: number) => p += c, 0);
 }
