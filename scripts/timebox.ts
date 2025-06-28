@@ -57,7 +57,7 @@ async function getFirstCardInDoingList() {
       const a = getTimeInvested(cards[0].shortLink);
       const b = await getTrelloAppetite(cards[0].shortLink);
       if (b) {
-        appetiteSummary = `[🍴 ${a.toPrecision(2)}/${b}h (${(a / b * 100).toPrecision(2)}%)]`;
+        appetiteSummary = `[🍴 ${a.toPrecision(2)}/${b}h (${(a / b * 100).toFixed(0)}%)]`;
       }
       const cardName = [appetiteSummary, cards[0].name].join(" ");
 
@@ -65,11 +65,12 @@ async function getFirstCardInDoingList() {
       const checklists = await checklistsResponse.json();
 
       if (checklists.length > 0 && checklists[0].checkItems.length > 0) {
-        const firstChecklistItem = checklists[0].checkItems.filter(({ state }) => state === 'incomplete').sort((a: any, b: any) => a.pos - b.pos)[0].name;
-        return `${cardName}\n   ▶️ ${firstChecklistItem}`;
-      } else {
-        return `${cardName}`;
+        const filteredChecklistItems = checklists[0].checkItems.filter(({ state }) => state === 'incomplete').sort((a: any, b: any) => a.pos - b.pos);
+        if (filteredChecklistItems.length) {
+          return `${cardName}\n   - ${filteredChecklistItems[0].name}`;
+        }
       }
+      return `${cardName}`;
     } else {
       return 'No cards in the "Doing" list.';
     }
