@@ -163,6 +163,7 @@ in
     initExtra = ''
       export BROWSER="wsl-open"
       export GH_USER="michalmatoga"
+      export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=true
 
       export NIX_LD=$(nix eval --impure --raw --expr 'let pkgs = import <nixpkgs> {}; NIX_LD = pkgs.lib.fileContents "${pkgs.stdenv.cc}/nix-support/dynamic-linker"; in NIX_LD')
       export PATH="$HOME/.cache/npm/global/bin:$PATH"
