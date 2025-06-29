@@ -23,6 +23,12 @@ return {
         path = "~/ghq/gitlab.com/michalmatoga/journal",
       },
     },
+    completion = {
+      -- Set to false to disable completion.
+      nvim_cmp = true,
+      -- Trigger completion at 2 chars.
+      min_chars = 2,
+    },
     -- see below for full list of options 👇
     -- https://github.com/epwalsh/obsidian.nvim?tab=readme-ov-file#configuration-options
   },
