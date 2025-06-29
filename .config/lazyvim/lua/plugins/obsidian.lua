@@ -29,6 +29,9 @@ return {
       -- Trigger completion at 2 chars.
       min_chars = 2,
     },
+    note_id_func = function(title)
+      return title
+    end,
     -- see below for full list of options 👇
     -- https://github.com/epwalsh/obsidian.nvim?tab=readme-ov-file#configuration-options
   },
