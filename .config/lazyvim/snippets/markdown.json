@@ -2,7 +2,7 @@
   "d-entry": {
     "prefix": "d-",
     "body": [
-      "- [[${CURRENT_YEAR}-${CURRENT_MONTH}-${CURRENT_DATE}#${CURRENT_HOUR}:${CURRENT_MINUTE}]],[[d-${1}]],${0}"
+      "[[${CURRENT_YEAR}-${CURRENT_MONTH}-${CURRENT_DATE}#${CURRENT_HOUR}:${CURRENT_MINUTE}]],[[d-${1}]],${0}"
     ],
     "description": "Add hourglass data entry"
   }
