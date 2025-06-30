@@ -171,7 +171,7 @@ in
 
       alias PWD='pwd' # necessary for compatibility with sourced script below
       source ~/ghq/github.com/michalmatoga/dotfiles/dist/gtm-terminal-plugin/gtm-plugin.sh
-      bindkey -s ^p "zsh ~/ghq/github.com/michalmatoga/dotfiles/scripts/tmux-sessionizer.sh\n"
+      bindkey -s ^o "zsh ~/ghq/github.com/michalmatoga/dotfiles/scripts/tmux-sessionizer.sh\n"
 
     '';
   };

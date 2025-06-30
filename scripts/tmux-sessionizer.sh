@@ -3,7 +3,10 @@
 if [[ $# -eq 1 ]]; then
   selected=$1
 else
-  selected=$(find ~/ghq -mindepth 3 -maxdepth 3 -type d | fzf)
+  existing_sessions=$(tmux list-sessions -F "#S" 2>/dev/null | sed 's/^/> /')
+  directories=$(find ~/ghq -mindepth 3 -maxdepth 3 -type d)
+  combined_list=$(printf "%s\n%s" "$existing_sessions" "$directories" | fzf)
+  selected=$combined_list
 fi
 
 if [[ -z $selected ]]; then
