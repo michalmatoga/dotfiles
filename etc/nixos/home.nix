@@ -40,7 +40,7 @@ in
     source = ../../.config/k9s/skins/catppuccin-frappe.yaml;
   };
 
-  home.file.".markdownlintrc" = {
+  home.file.".markdownlint.json" = {
     source = ../../.config/markdownlintrc.json;
   };
 
