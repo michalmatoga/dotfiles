@@ -4,7 +4,7 @@ import { gtmReportTime, gtmStatusTime } from "./lib/gtm";
 import { hmsToHours, hoursToHms } from "./lib/time";
 import { getFirstCardInDoingList } from "./lib/trello";
 
-const yearlyTargets = { dwp: 360, dww: 200 };
+const yearlyTargets = { dwp: 300, dww: 450 };
 let trelloCardData: string | undefined = "";
 
 const dailyTargetOverride = process.argv[2];
@@ -37,7 +37,9 @@ function render() {
   console.log(tick);
   console.log(`📝 ${trelloCardData}`);
   if (timeLeft < 0) {
-    execSync(`bash ${process.cwd()}/scripts/nag.sh`);
+    execSync(
+      `bash /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/nag.sh `,
+    );
   }
 }
 
