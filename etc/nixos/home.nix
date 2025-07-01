@@ -146,6 +146,7 @@ in
       cpwd = "pwd | tr -d '\n' | clip.exe";
       dffmpeg = "bash /home/nixos/ghq/github.schibsted.io/svp/node-ffmpeg/ffmpeg.sh";
       dk = "docker";
+      gtm-clean-all = "npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/gtm-clean-all.ts";
       ldk = "lazydocker";
       nag = "bash ~/ghq/github.com/michalmatoga/dotfiles/scripts/nag.sh";
       paste = "powershell.exe get-clipboard";

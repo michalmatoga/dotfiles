@@ -21,17 +21,17 @@ const rl = readline.createInterface({
   if (!["y", ""].includes(answer.toLowerCase())) {
     return;
   }
-  const projectNames = [...projectsToClean.matchAll(/\s(\w+)\s\[/gm)].map(
+  const projectNames = [...projectsToClean.matchAll(/\s([^\s]+)\s\[/gm)].map(
     (m) => m[1],
   );
 
   const projectPaths = execSync(
-    `find ~/ghq -maxdepth 3 -mindepth 3 -type d \\( ${projectNames.map((p) => "-name " + p).join(" -o ")} \\)`,
+    `find ~/ghq -maxdepth 3 -mindepth 3 -type d \\( ${projectNames.map((p) => `-name "${p}"`).join(" -o ")} \\)`,
     { encoding: "utf8" },
   )
     .trim()
     .split("\n");
   for (const path of projectPaths) {
-    execSync(`cd ${path} && pwd && gtm status`, { stdio: "inherit" });
+    execSync(`cd ${path} && pwd && gtm clean -yes`, { stdio: "inherit" });
   }
 })();
