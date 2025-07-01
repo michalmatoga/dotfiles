@@ -1,5 +1,6 @@
 import { execSync } from "node:child_process";
 import { gtmReportTime } from "./lib/gtm";
+import { writeFileSync } from "node:fs";
 import { hoursToHms } from "./lib/time";
 const journalDir = "/home/nixos/ghq/gitlab.com/michalmatoga/journal";
 
@@ -13,7 +14,13 @@ const date = process.argv[2] ?? new Date().toISOString().split("T")[0];
   const combinedData = [...dataSubtracted, ...journal, ...gtm]
     .filter((line) => line.trim() !== "")
     .sort();
-  console.log(combinedData);
+  writeFileSync(
+    "/mnt/g/My\ Drive/hourglass.csv",
+    combinedData.join("\n") + "\n",
+    {
+      encoding: "utf8",
+    },
+  );
 })();
 
 function collectJournal() {
@@ -24,10 +31,13 @@ function collectJournal() {
 }
 
 function collectGtm() {
+  const time = process.argv[2]
+    ? "23:59"
+    : new Date().toTimeString().slice(0, 5);
   return ["dwp", "dww"]
     .map(
       (area) =>
-        `${date} 00:00,[[d-${area}]],${hoursToHms(gtmReportTime(area, date))}`,
+        `${date} ${time},[[d-${area}]],${hoursToHms(gtmReportTime(area, date))}`,
     )
     .join("\n");
 }
