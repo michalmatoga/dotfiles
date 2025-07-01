@@ -7,7 +7,11 @@ else
     tmux list-sessions -F "#{pane_current_path}" 2>/dev/null
   )
   existing_sessions_decorated=$(echo "$existing_sessions" | sed 's/^/> /')
-  directories=$(find ~/ghq -mindepth 3 -maxdepth 3 -type d | grep -v -F -f <(echo "$existing_sessions"))
+  if [[ -n "$existing_sessions" ]]; then
+    directories=$(find ~/ghq -mindepth 3 -maxdepth 3 -type d | grep -v -F -f <(echo "$existing_sessions"))
+  else
+    directories=$(find ~/ghq -mindepth 3 -maxdepth 3 -type d)
+  fi
   combined_list=$(printf "%s\n%s" "$existing_sessions_decorated" "$directories" | fzf)
   selected=$combined_list
 fi
@@ -33,7 +37,7 @@ if ! tmux has-session -t=$selected_name 2>/dev/null; then
   tmux resize-pane -t $selected_name -x 70
   tmux split-window -v -t $selected_name -c $selected
   tmux resize-pane -t $selected_name -y 56
-  tmux send-keys -t $selected_name.2 'gtm status' C-m
+  tmux send-keys -t $selected_name.2 'hg' C-m
 fi
 
 if [[ -z $TMUX ]]; then
