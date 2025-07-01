@@ -2,8 +2,8 @@ import { execSync } from "node:child_process";
 import { gtmReportTime } from "./lib/gtm";
 import { writeFileSync } from "node:fs";
 import { hoursToHms } from "./lib/time";
-const journalDir = "/home/nixos/ghq/gitlab.com/michalmatoga/journal";
 
+const journalDir = "/home/nixos/ghq/gitlab.com/michalmatoga/journal";
 const dataFile = "/mnt/g/My\\ Drive/hourglass.csv";
 const date = process.argv[2] ?? new Date().toISOString().split("T")[0];
 
