@@ -35,7 +35,7 @@ function render() {
 
   console.clear();
   console.log(tick);
-  console.log(`📝 ${trelloCardData}`);
+  console.log(trelloCardData);
   if (timeLeft < 0) {
     execSync(
       `bash /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/nag.sh `,
