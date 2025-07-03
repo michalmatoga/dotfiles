@@ -147,6 +147,8 @@ in
       dffmpeg = "bash /home/nixos/ghq/github.schibsted.io/svp/node-ffmpeg/ffmpeg.sh";
       dk = "docker";
       gtm-clean-all = "npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/gtm-clean-all.ts";
+      hg = "npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/hg/hg.ts";
+      hgs = "npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/hg/hgs.ts";
       ldk = "lazydocker";
       nag = "bash ~/ghq/github.com/michalmatoga/dotfiles/scripts/nag.sh";
       paste = "powershell.exe get-clipboard";
@@ -157,9 +159,8 @@ in
       sync-ghec = "npx tsx ~/ghq/github.com/michalmatoga/dotfiles/scripts/sync-ghec.ts";
       sync-repos = "node ~/ghq/github.com/michalmatoga/dotfiles/scripts/sync-repos.mjs";
       tf = "tofu";
-      hg = "npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/hg/hg.ts";
-      hgs = "npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/hg/hgs.ts";
       update = "sudo nixos-rebuild switch && ~/ghq/github.com/michalmatoga/dotfiles/scripts/post-update.sh";
+      update-npm-deps = "npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/update-npm-deps.ts";
     };
     # setup some environment variables
     initExtra = ''
