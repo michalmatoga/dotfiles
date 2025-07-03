@@ -32,7 +32,7 @@ function bumpVersion(
 }
 
 function updateDependencies(testCommand: string) {
-  const pkgPath = path.resolve(__dirname, "../package.json");
+  const pkgPath = path.resolve(`${process.cwd()}/package.json`);
   const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
 
   const sections: Array<"dependencies" | "devDependencies"> = [
