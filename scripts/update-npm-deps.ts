@@ -5,7 +5,7 @@ import semver from "semver";
 
 function runTest(testCommand: string): boolean {
   try {
-    execSync(testCommand, { stdio: "inherit" });
+    execSync(testCommand, { stdio: "ignore" });
     return true;
   } catch {
     return false;
@@ -62,12 +62,12 @@ function updateDependencies(testCommand: string) {
         fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
 
         try {
-          execSync("npm install", { stdio: "inherit" });
+          execSync("npm install", { stdio: "ignore" });
         } catch {
           console.error("npm install failed, reverting");
           pkg[section][name] = original;
           fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
-          execSync("npm install", { stdio: "inherit" });
+          execSync("npm install", { stdio: "ignore" });
           break;
         }
 
@@ -78,7 +78,7 @@ function updateDependencies(testCommand: string) {
           console.error(`Tests failed for ${name}@${nextVer}, reverting`);
           pkg[section][name] = original;
           fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
-          execSync("npm install", { stdio: "inherit" });
+          execSync("npm install", { stdio: "ignore" });
         }
       }
     }
