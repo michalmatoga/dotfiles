@@ -239,7 +239,7 @@ in
       set -g @resurrect-capture-pane-contents 'on'
       set -g @resurrect-strategy-nvim 'session'
 
-      set -g status-right "#{status-right} #(zsh -ic 'hg')";
+      set -g status-right "#(zsh -ic 'hg')";
     '';
   };
 
