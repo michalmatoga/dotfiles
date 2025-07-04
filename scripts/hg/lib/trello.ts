@@ -40,7 +40,7 @@ export async function getFirstCardInDoingList() {
           .filter(({ state }) => state === "incomplete")
           .sort((a: any, b: any) => a.pos - b.pos);
         if (filteredChecklistItems.length) {
-          return `${cardName}\n - ${filteredChecklistItems[0].name}`;
+          return `- [ ] ${filteredChecklistItems[0].name}`;
         }
       }
       return `📝 ${cardName}`;

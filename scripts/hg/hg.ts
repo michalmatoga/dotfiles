@@ -31,11 +31,10 @@ async function syncTrelloCardData() {
 function render() {
   const dailyTarget = Number(dailyTargetOverride ?? calculateDailyTarget(tag));
   const timeLeft = dailyTarget - gtmReportTime(tag) - gtmStatusTime();
-  const tick = `${tag} | 🚫 ${hoursToHms(dailyTarget)} | ${colorize(`⏳ ${hoursToHms(timeLeft)}`, timeLeft > 0 ? "green" : "red")}`;
+  const tick = `${tag} | ${trelloCardData} | 🚫 ${hoursToHms(dailyTarget)} | ${colorize(`⏳ ${hoursToHms(timeLeft)}`, timeLeft > 0 ? "green" : "red")}`;
 
   console.clear();
   console.log(tick);
-  console.log(trelloCardData);
   if (timeLeft < 0) {
     execSync(
       `bash /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/nag.sh `,
