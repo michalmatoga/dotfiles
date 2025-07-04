@@ -11,7 +11,7 @@ return {
     opts = {
       auto_suggestions_provider = "openai",
       provider = "openai",
-      mode = "legacy",
+      mode = "agentic",
       providers = {
         claude = {
           endpoint = "https://api.anthropic.com",
