@@ -31,7 +31,7 @@ function bumpVersion(
   return null;
 }
 
-function updateDependencies(testCommand: string) {
+function updateDependencies(testCommand: string, bumpTypes: semver.ReleaseType[]) {
   const pkgPath = path.resolve(`${process.cwd()}/package.json`);
   const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
 
@@ -52,7 +52,7 @@ function updateDependencies(testCommand: string) {
       console.log(`\nProcessing ${section} ${name}@${original}`);
       const versions = getAvailableVersions(name);
 
-      for (const bump of ["patch", "minor", "major"] as semver.ReleaseType[]) {
+      for (const bump of bumpTypes) {
         const candidate = bumpVersion(cleanVer, versions, bump);
         if (!candidate) continue;
 
@@ -86,9 +86,25 @@ function updateDependencies(testCommand: string) {
 }
 
 const args = process.argv.slice(2);
-if (args.length !== 2 || args[0] !== "--test") {
-  console.error('Usage: update-dependencies.ts --test "<test command>"');
+const usage = 'Usage: update-dependencies.ts --test "<test command>" [--bump "<types>"]';
+let testCommand = "";
+let bumpTypes: semver.ReleaseType[] = ["patch", "minor", "major"];
+for (let i = 0; i < args.length; i++) {
+  if (args[i] === "--test" && args[i + 1]) {
+    testCommand = args[i + 1];
+    i++;
+  } else if (args[i] === "--bump" && args[i + 1]) {
+    bumpTypes = args[i + 1].split(",").map((b) => b.trim()) as semver.ReleaseType[];
+    i++;
+  } else {
+    console.error(usage);
+    process.exit(1);
+  }
+}
+
+if (!testCommand) {
+  console.error(usage);
   process.exit(1);
 }
 
-updateDependencies(args[1]);
+updateDependencies(testCommand, bumpTypes);
