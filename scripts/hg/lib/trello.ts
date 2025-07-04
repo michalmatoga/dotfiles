@@ -9,6 +9,8 @@ const TRELLO_TOKEN = secrets.trello_token;
 const BOARD_ID = secrets.trello_board_id;
 
 export async function getFirstCardInDoingList() {
+  let tag = "";
+  let card = "";
   try {
     const response = await fetch(
       `https://api.trello.com/1/boards/${BOARD_ID}/lists?key=${TRELLO_API_KEY}&token=${TRELLO_TOKEN}`,
@@ -19,7 +21,7 @@ export async function getFirstCardInDoingList() {
       (list: any) => list.name.toLowerCase() === "doing",
     );
     if (!doingList) {
-      return 'No "Doing" list found.';
+      return { tag, card };
     }
 
     const cardsResponse = await fetch(
@@ -28,8 +30,11 @@ export async function getFirstCardInDoingList() {
     const cards = await cardsResponse.json();
 
     if (cards.length > 0) {
-      const cardName = cards[0].name;
-
+      tag = "dwp";
+      card = cards[0].name;
+      if (cards[0].labels.find(({ name }) => name.includes("Schibsted"))) {
+        tag = "dww";
+      }
       const checklistsResponse = await fetch(
         `https://api.trello.com/1/cards/${cards[0].id}/checklists?key=${TRELLO_API_KEY}&token=${TRELLO_TOKEN}`,
       );
@@ -40,16 +45,13 @@ export async function getFirstCardInDoingList() {
           .filter(({ state }) => state === "incomplete")
           .sort((a: any, b: any) => a.pos - b.pos);
         if (filteredChecklistItems.length) {
-          return `- [ ] ${filteredChecklistItems[0].name}`;
+          card = `- [ ] ${filteredChecklistItems[0].name}`;
         }
       }
-      return `📝 ${cardName}`;
     } else {
-      // red: "#[fg=red]",
-      // green: "#[fg=green]",
-      // reset: "#[fg=default]",
-      return "#[fg=red]⚠️ no task#[fg=default]";
+      card = "#[fg=red]⚠️ no task#[fg=default]";
     }
+    return { tag, card };
   } catch (error) {
     console.error("Error fetching Trello data:", error);
   }

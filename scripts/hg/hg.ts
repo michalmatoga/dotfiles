@@ -5,19 +5,22 @@ import { hmsToHours, hoursToHms } from "./lib/time";
 import { getFirstCardInDoingList } from "./lib/trello";
 
 const yearlyTargets = { dwp: 300, dww: 450 };
-let trelloCardData: string | undefined = "";
+let trelloCardData: { tag: string; card: string } | undefined;
 
 const dailyTargetOverride = process.argv[2];
-const tag = process.cwd().includes("schibsted") ? "dww" : "dwp";
 
 (async function main() {
-  renderPreamble();
   await syncTrelloCardData();
+  renderPreamble();
   setInterval(render, 10000);
   setInterval(syncTrelloCardData, 60000);
 })();
 
 function renderPreamble() {
+  const { tag = "" } = trelloCardData ?? {};
+  if (!tag) {
+    return;
+  }
   const suggestedTarget = hoursToHms(calculateDailyTarget(tag));
   const timeSpent = hoursToHms(gtmReportTime(tag) + gtmStatusTime());
 
@@ -29,9 +32,16 @@ async function syncTrelloCardData() {
 }
 
 function render() {
-  const dailyTarget = Number(dailyTargetOverride ?? calculateDailyTarget(tag));
-  const timeLeft = dailyTarget - gtmReportTime(tag) - gtmStatusTime();
-  const tick = `${tag} | ${trelloCardData} | 🚫 ${hoursToHms(dailyTarget)} | ${colorize(`⏳ ${hoursToHms(timeLeft)}`, timeLeft > 0 ? "green" : "red")}`;
+  const { tag = "", card = "" } = trelloCardData ?? {};
+  let tick = colorize("⚠️ no task in progress", "red");
+  let timeLeft = 0;
+  if (tag) {
+    const dailyTarget = Number(
+      dailyTargetOverride ?? calculateDailyTarget(tag),
+    );
+    timeLeft = dailyTarget - gtmReportTime(tag) - gtmStatusTime();
+    tick = `${tag} | ${card} | 🚫 ${hoursToHms(dailyTarget)} | ${colorize(`⏳ ${hoursToHms(timeLeft)}`, timeLeft > 0 ? "green" : "red")}`;
+  }
 
   console.clear();
   console.log(tick);
