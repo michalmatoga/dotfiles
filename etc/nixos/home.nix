@@ -81,6 +81,7 @@ in
     jq # A lightweight and flexible command-line JSON processor
     kubectl
     lazydocker
+    lazygit
     linode-cli
     lua-language-server
     lua51Packages.luarocks
