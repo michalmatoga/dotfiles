@@ -3,17 +3,7 @@
 if [[ $# -eq 1 ]]; then
   selected=$1
 else
-  existing_sessions=$(
-    tmux list-sessions -F "#{pane_current_path}" 2>/dev/null
-  )
-  existing_sessions_decorated=$(echo "$existing_sessions" | sed 's/^/> /')
-  if [[ -n "$existing_sessions" ]]; then
-    directories=$(find ~/ghq -mindepth 3 -maxdepth 3 -type d | grep -v -F -f <(echo "$existing_sessions"))
-  else
-    directories=$(find ~/ghq -mindepth 3 -maxdepth 3 -type d)
-  fi
-  combined_list=$(printf "%s\n%s" "$existing_sessions_decorated" "$directories" | fzf)
-  selected=$combined_list
+  selected=$(find ~/ghq -mindepth 3 -maxdepth 3 -type d | fzf)
 fi
 
 if [[ -z $selected ]]; then
