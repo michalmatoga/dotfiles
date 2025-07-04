@@ -238,8 +238,6 @@ in
       set -g @continuum-save-interval '10'
       set -g @resurrect-capture-pane-contents 'on'
       set -g @resurrect-strategy-nvim 'session'
-
-      set -g status-right "#(zsh -ic 'hg')";
     '';
   };
 

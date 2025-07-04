@@ -54,9 +54,9 @@ function render() {
 
 function colorize(input: string, color: string): string {
   const colors: { [key: string]: string } = {
-    red: "#[fg=red]",
-    green: "#[fg=green]",
-    reset: "#[fg=default]",
+    red: "\x1b[31m",
+    green: "\x1b[32m",
+    reset: "\x1b[0m",
   };
 
   return `${colors[color] || colors.reset}${input}${colors.reset}`;
