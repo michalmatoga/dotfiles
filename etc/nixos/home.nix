@@ -174,7 +174,6 @@ in
 
       alias PWD='pwd' # necessary for compatibility with sourced script below
       source ~/ghq/github.com/michalmatoga/dotfiles/dist/gtm-terminal-plugin/gtm-plugin.sh
-      bindkey -s ^o "zsh ~/ghq/github.com/michalmatoga/dotfiles/scripts/tmux-sessionizer.sh\n"
 
     '';
   };
@@ -239,7 +238,8 @@ in
       set -g @continuum-save-interval '10'
       set -g @resurrect-capture-pane-contents 'on'
       set -g @resurrect-strategy-nvim 'session'
-    '';
+
+      set -g status-right "#{status-right} #(zsh -ic 'hg')" '';
   };
 
   programs.home-manager = {
