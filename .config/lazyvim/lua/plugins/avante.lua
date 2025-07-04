@@ -11,7 +11,7 @@ return {
     opts = {
       auto_suggestions_provider = "openai",
       provider = "openai",
-      mode = "agentic",
+      mode = "legacy",
       providers = {
         openai = {
           endpoint = "https://api.openai.com/v1",
