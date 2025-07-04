@@ -238,7 +238,8 @@ in
       set -g @continuum-save-interval '10'
       set -g @resurrect-capture-pane-contents 'on'
       set -g @resurrect-strategy-nvim 'session'
-      set -g window-status-current-format '#I: #W'
+      set -g window-status-current-format '#[bg=black,fg=green,bold] #I: #W #[bg=default,fg=default]'
+      set -g window-status-format '#[fg=grey] #I: #W #[fg=default]'
     '';
   };
 
