@@ -25,11 +25,5 @@ export function gtmStatusTime() {
     encoding: "utf8",
   });
 
-  // const delta = execSync(
-  //   `gtm status -tags ${tag} | rg '${tag}[,\\]]' | wc -l`,
-  //   {
-  //     encoding: "utf8",
-  //   },
-  // ).trim();
   return toHours(gtmStatusTime);
 }
