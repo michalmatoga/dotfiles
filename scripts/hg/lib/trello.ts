@@ -45,7 +45,10 @@ export async function getFirstCardInDoingList() {
       }
       return `📝 ${cardName}`;
     } else {
-      return '\x1b[31mNo cards in the "Doing" list.\x1b[0m';
+      // red: "#[fg=red]",
+      // green: "#[fg=green]",
+      // reset: "#[fg=default]",
+      return "#[fg=red]⚠️ no task#[fg=default]";
     }
   } catch (error) {
     console.error("Error fetching Trello data:", error);
