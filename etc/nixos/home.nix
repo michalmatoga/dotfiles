@@ -82,7 +82,7 @@ in
     kubectl
     lazydocker
     lazygit
-    linode
+    linode-cli
     lua-language-server
     lua51Packages.luarocks
     mariadb
