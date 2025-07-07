@@ -4,13 +4,14 @@ if [[ $# -eq 1 ]]; then
   selected=$1
 else
   sessions=$(tmux list-sessions -F "#{session_name}" 2>/dev/null)
-  existing_entries=$(find ~/ghq -mindepth 3 -maxdepth 3 -type d | while read -r dir; do
+  all_entries=$(find ~/ghq -mindepth 3 -maxdepth 3 -type d)
+  existing_entries=$(echo "$all_entries" | while read -r dir; do
     name=$(basename "$dir" | tr . _)
     if echo "$sessions" | grep -Fxq "$name"; then
       printf "\033[32m* %s\033[0m\n" "$dir"
     fi
   done)
-  other_entries=$(find ~/ghq -mindepth 3 -maxdepth 3 -type d | while read -r dir; do
+  other_entries=$(echo "$all_entries" | while read -r dir; do
     name=$(basename "$dir" | tr . _)
     if ! echo "$sessions" | grep -Fxq "$name"; then
       printf "  %s\n" "$dir"
