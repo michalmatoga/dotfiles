@@ -4,7 +4,9 @@ if [[ $# -eq 1 ]]; then
   selected=$1
 else
   sessions=$(tmux list-sessions -F "#{session_name}" 2>/dev/null)
-  all_entries=$(find ~/ghq -mindepth 3 -maxdepth 3 -type d)
+  all_entries=$(
+    fd -d 3 -t d . ~/ghq
+  )
   existing_entries=$(echo "$all_entries" | while read -r dir; do
     name=$(basename "$dir" | tr . _)
     if echo "$sessions" | grep -Fxq "$name"; then
