@@ -23,6 +23,9 @@ return {
         path = "~/ghq/gitlab.com/michalmatoga/journal",
       },
     },
+    ui = {
+      enable = false,
+    },
     templates = {
       folder = "obsidian_templates",
       date_format = "%Y-%m-%d",
