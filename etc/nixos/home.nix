@@ -228,10 +228,7 @@ in
       set-option -g prefix C-f
 
       bind-key -Tcopy-mode-vi 'v' send -X begin-selection
-      bind-key r resize-pane -x 70
       bind-key -r o run-shell "tmux neww ~/ghq/github.com/michalmatoga/dotfiles/scripts/tmux-sessionizer.sh"
-      bind-key ! break-pane -d -n _hidden_pane
-      bind-key @ join-pane -s $.1
 
       set -g @thumbs-command 'echo -n {} | clip.exe && tmux display-message \"Copied {}\"'
       set -g @thumbs-upcase-command 'wsl-open {}'

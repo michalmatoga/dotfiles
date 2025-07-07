@@ -8,3 +8,4 @@ opt.swapfile = false
 opt.wrap = true
 
 g.mapleader = ";"
+opt.conceallevel = 0
