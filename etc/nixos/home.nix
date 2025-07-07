@@ -162,6 +162,7 @@ in
       tf = "tofu";
       update = "sudo nixos-rebuild switch && ~/ghq/github.com/michalmatoga/dotfiles/scripts/post-update.sh";
       update-npm-deps = "npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/update-npm-deps.ts";
+      gr = "bash /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/gr.sh";
     };
     # setup some environment variables
     initExtra = ''
