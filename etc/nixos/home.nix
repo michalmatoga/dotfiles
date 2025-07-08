@@ -163,6 +163,7 @@ in
       update = "sudo nixos-rebuild switch && ~/ghq/github.com/michalmatoga/dotfiles/scripts/post-update.sh";
       update-npm-deps = "npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/update-npm-deps.ts";
       gr = "bash /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/gr.sh";
+      oc = "bash /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/oc.sh";
     };
     # setup some environment variables
     initExtra = ''
