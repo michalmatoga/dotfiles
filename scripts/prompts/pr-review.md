@@ -10,3 +10,5 @@ Consider:
 3. Performance optimizations
 4. Readability and maintainability
 5. Any security concerns
+
+Save the resulting review to .git/review.md
