@@ -143,7 +143,7 @@ in
       pulumiCwd = builtins.getEnv "PULUMI_CWD";
     in {
       copy = "clip.exe";
-      cplc = "history | tail -n 1 | cut -d' ' -f4- | clip.exe";
+      cplc = "fc -ln -1 | clip.exe";
       cpwd = "pwd | tr -d '\n' | clip.exe";
       dffmpeg = "bash /home/nixos/ghq/github.schibsted.io/svp/node-ffmpeg/ffmpeg.sh";
       dk = "docker";

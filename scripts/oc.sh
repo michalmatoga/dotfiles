@@ -1,3 +1,7 @@
 #!/usr/bin/env bash
 
-opencode run "$(ls scripts/prompts | fzf)"
+set -e
+
+DIR=$(dirname "$0")
+PROMPT=$(fd -t f . "$DIR/prompts" | fzf --header 'Prompt to use' --tmux)
+opencode run "$(cat $PROMPT)"
