@@ -11,4 +11,4 @@ Consider:
 4. Readability and maintainability
 5. Any security concerns
 
-Save the resulting review to .git/review.md
+Save the resulting review to .git/review.md with the main header set to current branch name
