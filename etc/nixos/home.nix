@@ -62,6 +62,7 @@ in
     awscli2
     bitwarden-cli
     corepack_20
+    csvkit
     direnv
     eslint_d
     eza # A modern replacement for ‘ls’
