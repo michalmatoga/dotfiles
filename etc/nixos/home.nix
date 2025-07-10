@@ -147,11 +147,14 @@ in
       cpwd = "pwd | tr -d '\n' | clip.exe";
       dffmpeg = "bash /home/nixos/ghq/github.schibsted.io/svp/node-ffmpeg/ffmpeg.sh";
       dk = "docker";
+      gr = "bash /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/gr.sh";
       gtm-clean-all = "npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/gtm-clean-all.ts";
       hg = "npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/hg/hg.ts";
       hgs = "npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/hg/hgs.ts";
       ldk = "lazydocker";
       nag = "bash ~/ghq/github.com/michalmatoga/dotfiles/scripts/nag.sh";
+      oc = "bash /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/oc.sh";
+      ody = "npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/hg/ody.ts";
       paste = "powershell.exe get-clipboard";
       pi = "pulumi";
       pulumi = "bash ~/ghq/github.com/michalmatoga/dotfiles/scripts/pulumi.sh";
@@ -162,8 +165,6 @@ in
       tf = "tofu";
       update = "sudo nixos-rebuild switch && ~/ghq/github.com/michalmatoga/dotfiles/scripts/post-update.sh";
       update-npm-deps = "npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/update-npm-deps.ts";
-      gr = "bash /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/gr.sh";
-      oc = "bash /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/oc.sh";
     };
     # setup some environment variables
     initExtra = ''
@@ -241,6 +242,8 @@ in
       set -g @resurrect-strategy-nvim 'session'
       set -g window-status-current-format '#[bg=black,fg=green,bold] #I: #W #[bg=default,fg=default]'
       set -g window-status-format '#[fg=grey] #I: #W #[fg=default]'
+
+      set -ag status-right "#[fg=red,dim,bg=default]#(cat ~/.ody)"
     '';
   };
 
