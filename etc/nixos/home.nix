@@ -70,6 +70,7 @@ in
     fd
     flyctl
     gawk
+    gcalcli
     gcc
     gh
     ghq
