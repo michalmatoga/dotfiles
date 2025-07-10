@@ -6,6 +6,7 @@ import { execSync } from "node:child_process";
 let agendaStatus = "⏸️ ";
 let gtmStatus = { dww: "00:00:00", dwp: "00:00:00" };
 let status = "";
+
 (async function main() {
   runWithInterval(gtm, 60000);
   runWithInterval(agenda, 60000);

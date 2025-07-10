@@ -147,6 +147,7 @@ in
       copy = "clip.exe";
       cplc = "fc -ln -1 | clip.exe";
       cpwd = "pwd | tr -d '\n' | clip.exe";
+      cq = "npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/cq.ts";
       dffmpeg = "bash /home/nixos/ghq/github.schibsted.io/svp/node-ffmpeg/ffmpeg.sh";
       dk = "docker";
       gr = "bash /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/gr.sh";
