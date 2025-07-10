@@ -243,7 +243,8 @@ in
       set -g window-status-current-format '#[bg=black,fg=green,bold] #I: #W #[bg=default,fg=default]'
       set -g window-status-format '#[fg=grey] #I: #W #[fg=default]'
 
-      set -ag status-right "#[fg=red,dim,bg=default]#(cat ~/.ody)"
+      set -g status-interval 1
+      set -ag status-right "#[bg=blue] 🎯 #[bg=default] #[fg=white]#(cat ~/.ody)"
     '';
   };
 

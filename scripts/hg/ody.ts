@@ -1,26 +1,32 @@
 import { writeFileSync } from "node:fs";
+import { gtmReportTime } from "./lib/gtm";
+import { hoursToHms } from "./lib/time";
 
 let status = "";
 (async function main() {
+  gtm();
   setInterval(renderStatus, 1000);
-  setInterval(() => {
-    status = new Date().toISOString();
-    console.log({ status });
-  }, 1000);
+  setInterval(gtm, 60000);
 })();
+
+function gtm() {
+  const dww = hoursToHms(gtmReportTime("dww"));
+  const dwp = hoursToHms(gtmReportTime("dwp"));
+  status = `W${dww}|P${dwp}`;
+}
 
 function renderStatus() {
   return writeFileSync(`${process.env.HOME}/.ody`, status);
 }
 
 process.on("SIGINT", () => {
-  status = "STOPPED";
+  status = "#[fg=red]STOPPED";
   renderStatus();
   process.exit();
 });
 
 process.on("SIGTERM", () => {
-  status = "STOPPED";
+  status = "#[fg=red]STOPPED";
   renderStatus();
   process.exit();
 });
