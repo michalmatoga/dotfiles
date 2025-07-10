@@ -22,6 +22,8 @@ function agenda() {
   if (res.length) {
     const e = res[0];
     agendaStatus = `${e.title} to ${e.end_time.split(":").slice(1, 3).join(":")}`;
+  } else {
+    agendaStatus = "⏸️ ";
   }
 }
 
