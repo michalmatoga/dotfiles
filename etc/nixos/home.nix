@@ -157,6 +157,7 @@ in
       ldk = "lazydocker";
       nag = "bash ~/ghq/github.com/michalmatoga/dotfiles/scripts/nag.sh";
       oc = "bash /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/oc.sh";
+      meetings = "bash /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/meetings.sh";
       ody = "npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/hg/ody.ts";
       paste = "powershell.exe get-clipboard";
       pi = "pulumi";
