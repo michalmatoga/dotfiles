@@ -19,7 +19,7 @@ else
       printf "  %s\n" "$dir"
     fi
   done)
-  selected_entry=$(printf "%s\n%s" "$existing_entries" "$other_entries" | fzf --ansi)
+  selected_entry=$(printf "%s\n%s" "$existing_entries" "$other_entries" | fzf --ansi --tmux)
   selected="${selected_entry:2}"
 fi
 
@@ -42,8 +42,6 @@ if ! tmux has-session -t=$selected_name 2>/dev/null; then
   tmux send-keys -t $selected_name 'vim' C-m
   tmux split-window -h -t $selected_name -c $selected
   tmux resize-pane -t $selected_name -x 70
-  tmux split-window -v -t $selected_name -c $selected
-  tmux resize-pane -t $selected_name -y 57
 fi
 
 if [[ -z $TMUX ]]; then
