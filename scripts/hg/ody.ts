@@ -22,7 +22,20 @@ function agenda() {
   );
   if (res.length) {
     const e = res[0];
-    agendaStatus = `${e.title} to ${e.end_time.split(":").slice(1, 3).join(":")}`;
+    const endTime = e.end_time.split(":").slice(1, 3);
+    const now = new Date();
+    const endDateTime = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      endTime[0],
+      endTime[1],
+    );
+    const remainingHours =
+      (Date.parse(endDateTime.toISOString()) - Date.parse(now.toISOString())) /
+      3600000;
+
+    agendaStatus = `${e.title} ▶️ ${endTime.join(":")} ⌛ ${hoursToHms(remainingHours)}`;
   } else {
     agendaStatus = "⏸️ ";
   }
@@ -36,7 +49,7 @@ function gtm() {
 
 function renderStatus() {
   const { dww, dwp } = gtmStatus;
-  status = `${agendaStatus}|W${dww}|P${dwp}`;
+  status = `${agendaStatus} | W${dww} | P${dwp}`;
   return writeFileSync(`${process.env.HOME}/.ody`, status);
 }
 
