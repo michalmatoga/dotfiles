@@ -19,7 +19,7 @@ export function hoursToHms(hrs: number): string {
   const hours = Math.abs(hrs);
   const h = Math.floor(hours);
   const m = Math.floor((hours - h) * 60);
-  const s = 0;
+  const s = Math.round((hours - h - m / 60) * 3600);
 
   const hh = String(h).padStart(2, "0");
   const mm = String(m).padStart(2, "0");
