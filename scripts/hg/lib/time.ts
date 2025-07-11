@@ -17,9 +17,17 @@ export function hoursToHms(hrs: number): string {
     sign = "-";
   }
   const hours = Math.abs(hrs);
-  const h = Math.floor(hours);
-  const m = Math.floor((hours - h) * 60);
-  const s = Math.round((hours - h - m / 60) * 3600);
+  let h = Math.floor(hours);
+  let m = Math.floor((hours - h) * 60);
+  let s = Math.round((hours - h - m / 60) * 3600);
+  if (s === 60) {
+    s = 0;
+    m += 1;
+  }
+  if (m === 60) {
+    m = 0;
+    h += 1;
+  }
 
   const hh = String(h).padStart(2, "0");
   const mm = String(m).padStart(2, "0");

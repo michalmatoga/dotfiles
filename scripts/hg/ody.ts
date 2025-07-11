@@ -12,10 +12,7 @@ let agendaStatus:
       description: string;
     }
   | undefined = undefined;
-let gtmStatus: { dww: Record<string, any>; dwp: Record<string, any> } = {
-  dww: {},
-  dwp: {},
-};
+let gtmStatus = "";
 let status = "";
 
 (async function main() {
@@ -47,6 +44,21 @@ function gtm() {
   let dwwCurrent = 0;
 
   if (agendaStatus) {
+    const labelMatch = agendaStatus.description.match(/label:([^>]+)/);
+    if (labelMatch) {
+      console.log({ labelMatch });
+      console.log(
+        dateFromTime(agendaStatus.start_time),
+        dateFromTime(agendaStatus.end_time),
+      );
+      const report = execSync(
+        `npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/gtm-report-range.ts --start "${dateFromTime(agendaStatus.start_time)}" --end "${dateFromTime(agendaStatus.end_time)}"`,
+        { encoding: "utf8" },
+      );
+      console.log({ report });
+    }
+    // npx tsx scripts/gtm-report-range.ts --start "$(date -d "today 0" +"%Y-%m-%dT%H:%M")"
+
     dwpCurrent = gtmReportTimeRange(
       "dwp",
       dateFromTime(agendaStatus.start_time),
@@ -58,26 +70,22 @@ function gtm() {
       dateFromTime(agendaStatus.end_time),
     );
   }
-  gtmStatus = {
-    dww: { total: dwwTotal, current: dwwCurrent },
-    dwp: { total: dwpTotal, current: dwpCurrent },
-  };
+  gtmStatus = "";
 }
 
 function renderStatus() {
   let agenda = "";
-  const { dww, dwp } = gtmStatus;
-  let gtm = `W:${hoursToHm(dww.total)} P:${hoursToHm(dwp.total)}`; // TODO: calculate total utilisation per bucket
   if (agendaStatus) {
     agenda = `${agendaStatus.title} ⌛ ${remainingHms(agendaStatus).slice(0, -3)} / ${hoursToHm(agendaStatus.duration)}`;
     const labelMatch = agendaStatus.description.match(/label:([^>]+)/);
-    if (labelMatch) {
-      const utilisation =
-        (gtmStatus[labelMatch[1]].current / agendaStatus.duration) * 100;
-      gtm = `⚙️  ${hoursToHm(gtmStatus[labelMatch[1]].current)} (${utilisation.toPrecision(2)}%)`;
-    }
+    // if (labelMatch) {
+    //   console.log({ labelMatch });
+    //   const utilisation =
+    //     (gtmStatus[labelMatch[1]].current / agendaStatus.duration) * 100;
+    //   gtm = `⚙️  ${hoursToHm(gtmStatus[labelMatch[1]].current)} (${utilisation.toPrecision(2)}%)`;
+    // }
   }
-  status = [agenda, gtm].filter((e) => e.length).join(" | ");
+  status = [agenda, gtmStatus].filter((e) => e.length).join(" | ");
   return writeFileSync(`${process.env.HOME}/.ody`, status);
 }
 
