@@ -28,10 +28,26 @@ export function hoursToHms(hrs: number): string {
   return `${sign}${hh}:${mm}:${ss}`;
 }
 
+export function hoursToHm(hrs: number): string {
+  return hoursToHms(hrs).slice(0, -3);
+}
+
 export function hmsToHours(hms: string): number {
   if (!hms) {
     return 0;
   }
   const [hours, minutes, seconds = 0] = hms.split(":").map(Number);
   return hours + minutes / 60 + seconds / 3600;
+}
+
+export function dateFromTime(time: string) {
+  const now = new Date();
+  const timeSplit = time.split(":").map((e) => Number(e));
+  return new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+    timeSplit[0],
+    timeSplit[1],
+  );
 }

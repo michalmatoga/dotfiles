@@ -1,17 +1,26 @@
 import { execSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
-import { gtmReportTime } from "./lib/gtm";
-import { hoursToHms } from "./lib/time";
+import { gtmReportTime, gtmReportTimeRange } from "./lib/gtm";
+import { dateFromTime, hoursToHm, hoursToHms } from "./lib/time";
 
 let agendaStatus:
-  | { title: string; end_time: string; duration: number; description: string }
+  | {
+      title: string;
+      start_time: string;
+      end_time: string;
+      duration: number;
+      description: string;
+    }
   | undefined = undefined;
-let gtmStatus = { dww: "0", dwp: "0" };
+let gtmStatus: { dww: Record<string, any>; dwp: Record<string, any> } = {
+  dww: {},
+  dwp: {},
+};
 let status = "";
 
 (async function main() {
-  runWithInterval(gtm, 60000);
   runWithInterval(agenda, 60000);
+  runWithInterval(gtm, 60000);
   runWithInterval(renderStatus, 1000);
   // TODO: count only gtm events aligned with trello card - ALIGNMENT
   // git log --grep https://trello.com/c/OeVPp5NG --pretty=%H | gtm report -format summary
@@ -32,20 +41,38 @@ function agenda() {
 }
 
 function gtm() {
-  const dww = hoursToHms(gtmReportTime("dww")).slice(0, -3);
-  const dwp = hoursToHms(gtmReportTime("dwp")).slice(0, -3);
-  gtmStatus = { dww, dwp };
+  const dwwTotal = gtmReportTime("dww");
+  const dwpTotal = gtmReportTime("dwp");
+  let dwpCurrent = 0;
+  let dwwCurrent = 0;
+
+  if (agendaStatus) {
+    dwpCurrent = gtmReportTimeRange(
+      "dwp",
+      dateFromTime(agendaStatus.start_time),
+      dateFromTime(agendaStatus.end_time),
+    );
+    dwwCurrent = gtmReportTimeRange(
+      "dww",
+      dateFromTime(agendaStatus.start_time),
+      dateFromTime(agendaStatus.end_time),
+    );
+  }
+  gtmStatus = {
+    dww: { total: dwwTotal, current: dwwCurrent },
+    dwp: { total: dwpTotal, current: dwpCurrent },
+  };
 }
 
 function renderStatus() {
   let agenda = "";
   const { dww, dwp } = gtmStatus;
-  let gtm = `W:${dww} P:${dwp}`;
+  let gtm = `W:${hoursToHm(dww.total)} P:${hoursToHm(dwp.total)}`;
   if (agendaStatus) {
-    agenda = `${agendaStatus.title} ⌛ ${remainingHms(agendaStatus).slice(0, -3)} / ${hoursToHms(agendaStatus.duration).slice(0, -3)}`;
+    agenda = `${agendaStatus.title} ⌛ ${remainingHms(agendaStatus).slice(0, -3)} / ${hoursToHm(agendaStatus.duration)}`;
     const labelMatch = agendaStatus.description.match(/label:([^>]+)/);
     if (labelMatch) {
-      gtm = gtmStatus[labelMatch[1]];
+      gtm = hoursToHm(gtmStatus[labelMatch[1]].current);
     }
   }
   status = [agenda, gtm].filter((e) => e.length).join(" | ");
@@ -86,6 +113,7 @@ process.on("SIGTERM", () => {
 });
 
 process.on("unhandledRejection", (error) => {
+  console.error(error);
   status = `ERROR: ${error}`;
   writeFileSync(`${process.env.HOME}/.ody`, status);
   process.exit();
