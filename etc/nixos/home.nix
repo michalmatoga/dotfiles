@@ -155,10 +155,11 @@ in
       hg = "npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/hg/hg.ts";
       hgs = "npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/hg/hgs.ts";
       ldk = "lazydocker";
+      meetings = "bash /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/meetings.sh";
       nag = "bash ~/ghq/github.com/michalmatoga/dotfiles/scripts/nag.sh";
       oc = "bash /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/oc.sh";
-      meetings = "bash /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/meetings.sh";
       ody = "npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/hg/ody.ts";
+      odyr = "pkill -f ody.ts && tmux send-keys -t ody:1 'ody' C-m";
       paste = "powershell.exe get-clipboard";
       pi = "pulumi";
       pulumi = "bash ~/ghq/github.com/michalmatoga/dotfiles/scripts/pulumi.sh";
