@@ -67,12 +67,14 @@ function gtm() {
 function renderStatus() {
   let agenda = "";
   const { dww, dwp } = gtmStatus;
-  let gtm = `W:${hoursToHm(dww.total)} P:${hoursToHm(dwp.total)}`;
+  let gtm = `W:${hoursToHm(dww.total)} P:${hoursToHm(dwp.total)}`; // TODO: calculate total utilisation per bucket
   if (agendaStatus) {
     agenda = `${agendaStatus.title} ⌛ ${remainingHms(agendaStatus).slice(0, -3)} / ${hoursToHm(agendaStatus.duration)}`;
     const labelMatch = agendaStatus.description.match(/label:([^>]+)/);
     if (labelMatch) {
-      gtm = hoursToHm(gtmStatus[labelMatch[1]].current);
+      const utilisation =
+        (gtmStatus[labelMatch[1]].current / agendaStatus.duration) * 100;
+      gtm = `⚙️  ${hoursToHm(gtmStatus[labelMatch[1]].current)} (${utilisation.toPrecision(2)}%)`;
     }
   }
   status = [agenda, gtm].filter((e) => e.length).join(" | ");
