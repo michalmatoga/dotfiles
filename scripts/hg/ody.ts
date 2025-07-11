@@ -53,7 +53,7 @@ function gtm() {
           { encoding: "utf8" },
         ),
       );
-      gtmStatus = `📅 ${decodeURI(label)} \u2699 ${currentTimeBlockCommittedTime.totalDuration} (${(hmsToHours(currentTimeBlockCommittedTime.totalDuration) / agendaStatus.duration) * 100}%) \u23F1  ${cycleTime.totalDuration}`;
+      gtmStatus = `📅 ${decodeURI(label)} \u2699  ${currentTimeBlockCommittedTime.totalDuration} (${((hmsToHours(currentTimeBlockCommittedTime.totalDuration) / agendaStatus.duration) * 100).toPrecision(2)}%) \u23F1  ${cycleTime.totalDuration}`;
     }
   }
 }
