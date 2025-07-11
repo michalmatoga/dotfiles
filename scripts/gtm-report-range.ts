@@ -1,5 +1,5 @@
 import { execSync } from "node:child_process";
-import { hoursToHms, toHours } from "./hg/lib/time";
+import { hoursToHm, toHours } from "./hg/lib/time";
 
 (async function main() {
   const { start, end, positionals } = parseArgs();
@@ -41,11 +41,11 @@ import { hoursToHms, toHours } from "./hg/lib/time";
       totalDuration += totalRepoDuration;
       console.log(report);
       console.log(
-        JSON.stringify({ totalRepoDuration: hoursToHms(totalRepoDuration) }),
+        JSON.stringify({ totalRepoDuration: hoursToHm(totalRepoDuration) }),
       );
     }
   }
-  console.log(JSON.stringify({ totalDuration: hoursToHms(totalDuration) }));
+  console.log(JSON.stringify({ totalDuration: hoursToHm(totalDuration) }));
 })();
 
 function parseArgs() {

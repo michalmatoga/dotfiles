@@ -56,3 +56,31 @@ export async function getFirstCardInDoingList() {
     console.error("Error fetching Trello data:", error);
   }
 }
+
+export async function getLabelsFromFirstCardInDoingList() {
+  try {
+    const response = await fetch(
+      `https://api.trello.com/1/boards/${BOARD_ID}/lists?key=${TRELLO_API_KEY}&token=${TRELLO_TOKEN}`,
+    );
+    const lists = await response.json();
+
+    const doingList = lists.find(
+      (list: any) => list.name.toLowerCase() === "doing",
+    );
+    if (!doingList) {
+      return [];
+    }
+
+    const cardsResponse = await fetch(
+      `https://api.trello.com/1/lists/${doingList.id}/cards?key=${TRELLO_API_KEY}&token=${TRELLO_TOKEN}`,
+    );
+    const cards = await cardsResponse.json();
+
+    if (cards.length > 0) {
+      return cards[0].labels;
+    }
+  } catch (error) {
+    console.error("Error fetching Trello data:", error);
+  }
+  return [];
+}

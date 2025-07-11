@@ -19,11 +19,10 @@ let status = "";
   runWithInterval(agenda, 60000);
   runWithInterval(gtm, 60000);
   runWithInterval(renderStatus, 1000);
-  // TODO: count only gtm events aligned with trello card - ALIGNMENT
-  // git log --grep https://trello.com/c/OeVPp5NG --pretty=%H | gtm report -format summary
 })();
 
 function agenda() {
+  // TODO: run gtm-clean-all et the beginning
   const res = JSON.parse(
     execSync(
       `gcalcli --calendar LSS agenda "$(date '+%Y-%m-%d %H:%M')" "$(date -d '+10 minutes' '+%Y-%m-%d %H:%M')" --tsv --details "description" | npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/cq.ts | jq`,
@@ -38,52 +37,32 @@ function agenda() {
 }
 
 function gtm() {
-  const dwwTotal = gtmReportTime("dww");
-  const dwpTotal = gtmReportTime("dwp");
-  let dwpCurrent = 0;
-  let dwwCurrent = 0;
-
+  gtmStatus = "";
   if (agendaStatus) {
     const labelMatch = agendaStatus.description.match(/label:([^>]+)/);
     if (labelMatch) {
-      console.log({ labelMatch });
-      console.log(
-        dateFromTime(agendaStatus.start_time),
-        dateFromTime(agendaStatus.end_time),
+      const label = labelMatch[1];
+      const currentTimeBlockCommittedTime = JSON.parse(
+        execSync(
+          `npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/gtm-report-range.ts --start "${dateFromTime(agendaStatus.start_time)}" --end "${dateFromTime(agendaStatus.end_time)}" "trello-label: ${label}" | tail -n 1 | jq`,
+          { encoding: "utf8" },
+        ),
       );
-      const report = execSync(
-        `npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/gtm-report-range.ts --start "${dateFromTime(agendaStatus.start_time)}" --end "${dateFromTime(agendaStatus.end_time)}"`,
-        { encoding: "utf8" },
+      const cycleTime = JSON.parse(
+        execSync(
+          `npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/gtm-report-range.ts "trello-label: ${label}" | tail -n 1 | jq`,
+          { encoding: "utf8" },
+        ),
       );
-      console.log({ report });
+      gtmStatus = `📅 ${decodeURI(label)} ${currentTimeBlockCommittedTime.totalDuration} \u23F1  ${cycleTime.totalDuration}`;
     }
-    // npx tsx scripts/gtm-report-range.ts --start "$(date -d "today 0" +"%Y-%m-%dT%H:%M")"
-
-    dwpCurrent = gtmReportTimeRange(
-      "dwp",
-      dateFromTime(agendaStatus.start_time),
-      dateFromTime(agendaStatus.end_time),
-    );
-    dwwCurrent = gtmReportTimeRange(
-      "dww",
-      dateFromTime(agendaStatus.start_time),
-      dateFromTime(agendaStatus.end_time),
-    );
   }
-  gtmStatus = "";
 }
 
 function renderStatus() {
   let agenda = "";
   if (agendaStatus) {
     agenda = `${agendaStatus.title} ⌛ ${remainingHms(agendaStatus).slice(0, -3)} / ${hoursToHm(agendaStatus.duration)}`;
-    const labelMatch = agendaStatus.description.match(/label:([^>]+)/);
-    // if (labelMatch) {
-    //   console.log({ labelMatch });
-    //   const utilisation =
-    //     (gtmStatus[labelMatch[1]].current / agendaStatus.duration) * 100;
-    //   gtm = `⚙️  ${hoursToHm(gtmStatus[labelMatch[1]].current)} (${utilisation.toPrecision(2)}%)`;
-    // }
   }
   status = [agenda, gtmStatus].filter((e) => e.length).join(" | ");
   return writeFileSync(`${process.env.HOME}/.ody`, status);
