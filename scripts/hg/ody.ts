@@ -1,7 +1,6 @@
 import { execSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
-import { gtmReportTime, gtmReportTimeRange } from "./lib/gtm";
-import { dateFromTime, hoursToHm, hoursToHms } from "./lib/time";
+import { dateFromTime, hmsToHours, hoursToHm, hoursToHms } from "./lib/time";
 
 let agendaStatus:
   | {
@@ -22,7 +21,7 @@ let status = "";
 })();
 
 function agenda() {
-  // TODO: run gtm-clean-all et the beginning
+  // TODO: run gtm-clean-all at the beginning
   const res = JSON.parse(
     execSync(
       `gcalcli --calendar LSS agenda "$(date '+%Y-%m-%d %H:%M')" "$(date -d '+10 minutes' '+%Y-%m-%d %H:%M')" --tsv --details "description" | npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/cq.ts | jq`,
@@ -54,13 +53,13 @@ function gtm() {
           { encoding: "utf8" },
         ),
       );
-      gtmStatus = `📅 ${decodeURI(label)} ${currentTimeBlockCommittedTime.totalDuration} \u23F1  ${cycleTime.totalDuration}`;
+      gtmStatus = `📅 ${decodeURI(label)} \u2699 ${currentTimeBlockCommittedTime.totalDuration} (${(hmsToHours(currentTimeBlockCommittedTime.totalDuration) / agendaStatus.duration) * 100}%) \u23F1  ${cycleTime.totalDuration}`;
     }
   }
 }
 
 function renderStatus() {
-  let agenda = "";
+  let agenda = "#[fg=yellow]💤";
   if (agendaStatus) {
     agenda = `${agendaStatus.title} ⌛ ${remainingHms(agendaStatus).slice(0, -3)} / ${hoursToHm(agendaStatus.duration)}`;
   }

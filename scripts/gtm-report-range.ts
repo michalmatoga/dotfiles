@@ -12,6 +12,7 @@ import { hoursToHm, toHours } from "./hg/lib/time";
   const since = start ? `--since="${start}"` : "";
   const until = end ? `--until="${end}"` : "";
   let totalDuration = 0;
+  console.log(`GTM range report`, since, until);
   for (const dir of dirs) {
     let sha1s = "";
     try {
