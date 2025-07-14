@@ -23,6 +23,11 @@ let status = "";
   runWithInterval(renderStatus, 1000);
 })();
 
+function syncUtilisation() {
+  // TODO: for DWP and DWW run gtm-report-range and script below
+  // gcalcli --calendar "michal.matoga@schibsted.com" agenda "$start" "$end" --tsv --details "description" | npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/cq.ts | jq '{meetings_h: [.[].duration] | add}'
+}
+
 async function fetchAgendaStatus() {
   const res = JSON.parse(
     execSync(
@@ -55,7 +60,7 @@ function renderAgendaStatus() {
     return "#[fg=yellow]💤🌴";
   }
   if (agendaStatus.card) {
-    return `📋 ${agendaStatus.card} | ⌛ ${remainingHms(agendaStatus).slice(0, -3)} / ${hoursToHm(agendaStatus.duration)}`;
+    return `${agendaStatus.card} | ⌛ ${remainingHms(agendaStatus).slice(0, -3)} / ${hoursToHm(agendaStatus.duration)}`;
   }
   return `#[fg=red]⛔ No card in progress matching ${agendaStatus.title} / ${agendaStatus.label}`;
 }
@@ -69,7 +74,17 @@ function fetchGtmStatus() {
         { encoding: "utf8" },
       ),
     );
-    gtmStatus = `\u2699  ${currentTimeBlockCommittedTime.totalDuration} (${((hmsToHours(currentTimeBlockCommittedTime.totalDuration) / agendaStatus.duration) * 100).toPrecision(2)}%)`;
+    let cardCycleTime: { totalDuration: string } | undefined = undefined;
+    if (agendaStatus.card) {
+      cardCycleTime = JSON.parse(
+        execSync(
+          `npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/gtm-report-range.ts "trello-label: ${encodeURI(agendaStatus.card)}" | tail -n 1 | jq`,
+          { encoding: "utf8" },
+        ),
+      );
+    }
+    console.log({ cardCycleTime });
+    gtmStatus = `\u2699  ${currentTimeBlockCommittedTime.totalDuration} (${((hmsToHours(currentTimeBlockCommittedTime.totalDuration) / agendaStatus.duration) * 100).toPrecision(2)}%)${cardCycleTime ? ` | ⏱️  ${cardCycleTime.totalDuration}` : ""}`;
   }
 }
 
@@ -77,7 +92,6 @@ function renderStatus() {
   status = [renderAgendaStatus(), gtmStatus]
     .filter((e) => e.length)
     .join(" | ");
-  console.log(status.length);
   return writeFileSync(`${process.env.HOME}/.ody`, status);
 }
 
