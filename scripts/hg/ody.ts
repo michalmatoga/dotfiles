@@ -1,69 +1,82 @@
 import { execSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { dateFromTime, hmsToHours, hoursToHm, hoursToHms } from "./lib/time";
+import { getFirstCardInDoingList } from "./lib/trello";
 
-let agendaStatus:
-  | {
-      title: string;
-      start_time: string;
-      end_time: string;
-      duration: number;
-      description: string;
-    }
-  | undefined = undefined;
+interface AgendaStatus {
+  title: string;
+  start_time: string;
+  end_time: string;
+  duration: number;
+  description: string;
+  label: string;
+  card: string;
+}
+
+let agendaStatus: AgendaStatus | undefined = undefined;
 let gtmStatus = "";
 let status = "";
 
 (async function main() {
-  runWithInterval(agenda, 60000);
-  runWithInterval(gtm, 60000);
+  runWithInterval(fetchAgendaStatus, 60000);
+  runWithInterval(fetchGtmStatus, 60000);
   runWithInterval(renderStatus, 1000);
 })();
 
-function agenda() {
-  // TODO: run gtm-clean-all at the beginning
+async function fetchAgendaStatus() {
   const res = JSON.parse(
     execSync(
       `gcalcli --calendar LSS agenda "$(date '+%Y-%m-%d %H:%M')" "$(date -d '+10 minutes' '+%Y-%m-%d %H:%M')" --tsv --details "description" | npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/cq.ts | jq`,
       { encoding: "utf8" },
     ),
-  );
+  ) as AgendaStatus[];
   if (res.length) {
-    agendaStatus = res[0];
+    if (!agendaStatus) {
+      agendaStatus = { ...res[0], label: "", card: "" };
+    }
+    const labelMatch = agendaStatus?.description.match(/label:([^>]+)/);
+    if (labelMatch) {
+      agendaStatus.label = labelMatch[1];
+      const trelloRes = await getFirstCardInDoingList();
+      if (
+        trelloRes &&
+        trelloRes.labels.find(({ name }) => name === agendaStatus?.label)
+      ) {
+        agendaStatus.card = trelloRes.name;
+      }
+    }
   } else {
     agendaStatus = undefined;
   }
 }
 
-function gtm() {
+function renderAgendaStatus() {
+  if (!agendaStatus) {
+    return "#[fg=yellow]💤🌴";
+  }
+  if (agendaStatus.card) {
+    return `📋 ${agendaStatus.card} | ⌛ ${remainingHms(agendaStatus).slice(0, -3)} / ${hoursToHm(agendaStatus.duration)}`;
+  }
+  return `#[fg=red]⛔ No card in progress matching ${agendaStatus.title} / ${agendaStatus.label}`;
+}
+
+function fetchGtmStatus() {
   gtmStatus = "";
-  if (agendaStatus) {
-    const labelMatch = agendaStatus.description.match(/label:([^>]+)/);
-    if (labelMatch) {
-      const label = labelMatch[1];
-      const currentTimeBlockCommittedTime = JSON.parse(
-        execSync(
-          `npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/gtm-report-range.ts --start "${dateFromTime(agendaStatus.start_time)}" --end "${dateFromTime(agendaStatus.end_time)}" "trello-label: ${label}" | tail -n 1 | jq`,
-          { encoding: "utf8" },
-        ),
-      );
-      const cycleTime = JSON.parse(
-        execSync(
-          `npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/gtm-report-range.ts "trello-label: ${label}" | tail -n 1 | jq`,
-          { encoding: "utf8" },
-        ),
-      );
-      gtmStatus = `📅 ${decodeURI(label)} \u2699  ${currentTimeBlockCommittedTime.totalDuration} (${((hmsToHours(currentTimeBlockCommittedTime.totalDuration) / agendaStatus.duration) * 100).toPrecision(2)}%) \u23F1  ${cycleTime.totalDuration}`;
-    }
+  if (agendaStatus && agendaStatus.label) {
+    const currentTimeBlockCommittedTime = JSON.parse(
+      execSync(
+        `npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/gtm-report-range.ts --start "${dateFromTime(agendaStatus.start_time)}" --end "${dateFromTime(agendaStatus.end_time)}" "trello-label: ${agendaStatus.label}" | tail -n 1 | jq`,
+        { encoding: "utf8" },
+      ),
+    );
+    gtmStatus = `\u2699  ${currentTimeBlockCommittedTime.totalDuration} (${((hmsToHours(currentTimeBlockCommittedTime.totalDuration) / agendaStatus.duration) * 100).toPrecision(2)}%)`;
   }
 }
 
 function renderStatus() {
-  let agenda = "#[fg=yellow]💤";
-  if (agendaStatus) {
-    agenda = `${agendaStatus.title} ⌛ ${remainingHms(agendaStatus).slice(0, -3)} / ${hoursToHm(agendaStatus.duration)}`;
-  }
-  status = [agenda, gtmStatus].filter((e) => e.length).join(" | ");
+  status = [renderAgendaStatus(), gtmStatus]
+    .filter((e) => e.length)
+    .join(" | ");
   return writeFileSync(`${process.env.HOME}/.ody`, status);
 }
 
