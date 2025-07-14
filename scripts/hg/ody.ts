@@ -77,6 +77,7 @@ function renderStatus() {
   status = [renderAgendaStatus(), gtmStatus]
     .filter((e) => e.length)
     .join(" | ");
+  console.log(status.length);
   return writeFileSync(`${process.env.HOME}/.ody`, status);
 }
 

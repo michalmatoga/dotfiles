@@ -249,7 +249,7 @@ in
       set -g window-status-format '#[fg=grey] #I: #W #[fg=default]'
 
       set -g status-interval 1
-      set -g status-right-length 100
+      set -g status-right-length 200
       set -ag status-right "#[bg=blue] 🎯 #[bg=default] #[fg=white]#(cat ~/.ody)"
     '';
   };
