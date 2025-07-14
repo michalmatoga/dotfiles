@@ -14,6 +14,9 @@ const TRELLO_LABELS = {
   issue: ["6694db7c23e5de7bec1b7489"],
 };
 
+process.env.GH_USER = "michal-matoga";
+process.env.GH_HOST = "schibsted.ghe.com";
+
 (async function main() {
   const issues = JSON.parse(
     execSync(
@@ -33,13 +36,14 @@ const TRELLO_LABELS = {
     BOARD_ID,
     "Praca w Schibsted",
   );
+
   const newIssues = issues.filter(
-    (issue: { title: string }) =>
-      !trelloCards.some((card: { name: string }) => card.name === issue.title),
+    (issue: { url: string }) =>
+      !trelloCards.some(({ desc }) => desc.includes(`Refs: ${issue.url}`)),
   );
   const newPullRequests = pullRequests.filter(
-    (pr: { title: string }) =>
-      !trelloCards.some((card: { name: string }) => card.name === pr.title),
+    (pr: { url: string }) =>
+      !trelloCards.some(({ desc }) => desc.includes(`Refs: ${pr.url}`)),
   );
 
   for (const pr of newPullRequests) {
@@ -83,7 +87,7 @@ async function addTrelloCard(name: string, body: string, labels: string[]) {
 async function fetchTrelloCardsWithLabel(boardId: string, label: string) {
   try {
     const response = await fetch(
-      `https://api.trello.com/1/boards/${boardId}/cards?key=${TRELLO_API_KEY}&token=${TRELLO_TOKEN}`,
+      `https://api.trello.com/1/boards/${boardId}/cards?key=${TRELLO_API_KEY}&token=${TRELLO_TOKEN}&filter=incomplete`,
     );
     if (!response.ok) {
       throw new Error("Network response was not ok");
