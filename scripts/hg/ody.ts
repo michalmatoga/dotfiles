@@ -23,7 +23,7 @@ let status = "";
   runWithInterval(fetchAgendaStatus, 60000);
   runWithInterval(fetchGtmStatus, 60000);
   runWithInterval(renderStatus, 1000);
-  runWithInterval(syncUtilization, 3600000);
+  // runWithInterval(syncUtilization, 3600000);
 })();
 
 function syncUtilization() {
@@ -70,9 +70,9 @@ async function fetchAgendaStatus() {
     if (!agendaStatus) {
       agendaStatus = { ...res[0], label: "", card: "" };
     }
-    const labelMatch = agendaStatus?.description.match(/label:([^>]+)/);
+    const labelMatch = agendaStatus?.description.match(/label:([^>^"]+)/);
     if (labelMatch) {
-      agendaStatus.label = labelMatch[1];
+      agendaStatus.label = decodeURI(labelMatch[1]);
       const trelloRes = await getFirstCardInDoingList();
       if (
         trelloRes &&
@@ -108,7 +108,7 @@ function fetchGtmStatus() {
     let cardCycleTime: { totalDuration: string } | undefined = undefined;
     cardCycleTime = JSON.parse(
       execSync(
-        `npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/gtm-report-range.ts "trello-label: ${encodeURI(agendaStatus.card)}" | tail -n 1 | jq`,
+        `npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/gtm-report-range.ts "trello-label: ${agendaStatus.card}" | tail -n 1 | jq`,
         { encoding: "utf8" },
       ),
     );
