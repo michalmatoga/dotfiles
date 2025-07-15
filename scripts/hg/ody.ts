@@ -13,6 +13,8 @@ interface AgendaStatus {
   card: string;
 }
 
+const dataFile = "/mnt/g/My\ Drive/hourglass.csv";
+
 let agendaStatus: AgendaStatus | undefined = undefined;
 let gtmStatus = "";
 let status = "";
@@ -21,11 +23,40 @@ let status = "";
   runWithInterval(fetchAgendaStatus, 60000);
   runWithInterval(fetchGtmStatus, 60000);
   runWithInterval(renderStatus, 1000);
+  runWithInterval(syncUtilization, 3600000);
 })();
 
-function syncUtilisation() {
-  // TODO: for DWP and DWW run gtm-report-range and script below
-  // gcalcli --calendar "michal.matoga@schibsted.com" agenda "$start" "$end" --tsv --details "description" | npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/cq.ts | jq '{meetings_h: [.[].duration] | add}'
+function syncUtilization() {
+  const date = new Date().toISOString().split("T")[0];
+  const timestamp = `${date} ${new Date().toTimeString().slice(0, 5)}`;
+  const start = `${date} 00:00`;
+  const end = `${date} 23:59`;
+
+  const areas = ["dwp", "dww"];
+  const utilizationData: string[] = [];
+  for (const area of areas) {
+    const { totalDuration } = JSON.parse(
+      execSync(
+        `gcalcli --calendar LSS search "${area}" "${start}" "${end}" --tsv --details "description" | npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/cq.ts | jq '{totalDuration: [.[].duration] | add}'`,
+        { encoding: "utf8" },
+      ),
+    );
+    const { totalDuration: utilization } = JSON.parse(
+      execSync(
+        `npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/gtm-report-range.ts --start "${start}" --end "${end}" "trello-label: ${area}" | tail -n 1 | jq`,
+        { encoding: "utf8" },
+      ),
+    );
+    utilizationData.push(
+      [timestamp, `[[d-${area}]]`, utilization, hoursToHm(totalDuration)].join(
+        ",",
+      ),
+    );
+  }
+  writeFileSync(dataFile, utilizationData.join("\n").concat("\n"), {
+    flag: "a",
+  });
+  console.log("synced utilization", { utilizationData });
 }
 
 async function fetchAgendaStatus() {
@@ -67,7 +98,7 @@ function renderAgendaStatus() {
 
 function fetchGtmStatus() {
   gtmStatus = "";
-  if (agendaStatus && agendaStatus.label) {
+  if (agendaStatus && agendaStatus.card) {
     const currentTimeBlockCommittedTime = JSON.parse(
       execSync(
         `npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/gtm-report-range.ts --start "${dateFromTime(agendaStatus.start_time)}" --end "${dateFromTime(agendaStatus.end_time)}" "trello-label: ${agendaStatus.label}" | tail -n 1 | jq`,
@@ -75,15 +106,12 @@ function fetchGtmStatus() {
       ),
     );
     let cardCycleTime: { totalDuration: string } | undefined = undefined;
-    if (agendaStatus.card) {
-      cardCycleTime = JSON.parse(
-        execSync(
-          `npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/gtm-report-range.ts "trello-label: ${encodeURI(agendaStatus.card)}" | tail -n 1 | jq`,
-          { encoding: "utf8" },
-        ),
-      );
-    }
-    console.log({ cardCycleTime });
+    cardCycleTime = JSON.parse(
+      execSync(
+        `npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/gtm-report-range.ts "trello-label: ${encodeURI(agendaStatus.card)}" | tail -n 1 | jq`,
+        { encoding: "utf8" },
+      ),
+    );
     gtmStatus = `\u2699  ${currentTimeBlockCommittedTime.totalDuration} (${((hmsToHours(currentTimeBlockCommittedTime.totalDuration) / agendaStatus.duration) * 100).toPrecision(2)}%)${cardCycleTime ? ` | ⏱️  ${cardCycleTime.totalDuration}` : ""}`;
   }
 }
