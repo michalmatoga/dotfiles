@@ -19,7 +19,7 @@ else
       printf "  %s\n" "$dir"
     fi
   done)
-  selected_entry=$(printf "%s\n%s" "$existing_entries" "$other_entries" | fzf --ansi --tmux)
+  selected_entry=$(printf "%s\n%s" "$existing_entries" "$other_entries" | fzf --ansi)
   selected="${selected_entry:2}"
 fi
 

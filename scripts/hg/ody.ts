@@ -1,7 +1,10 @@
 import { execSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { dateFromTime, hmsToHours, hoursToHm, hoursToHms } from "./lib/time";
-import { getFirstCardInDoingList } from "./lib/trello";
+import {
+  getFirstCardInDoingList,
+  moveFirstCardInDoingListToReady,
+} from "./lib/trello";
 
 interface AgendaStatus {
   title: string;
@@ -23,7 +26,7 @@ let status = "";
   runWithInterval(fetchAgendaStatus, 60000);
   runWithInterval(fetchGtmStatus, 60000);
   runWithInterval(renderStatus, 1000);
-  // runWithInterval(syncUtilization, 3600000);
+  runWithInterval(syncUtilization, 3600000);
 })();
 
 function syncUtilization() {
@@ -74,11 +77,13 @@ async function fetchAgendaStatus() {
     if (labelMatch) {
       agendaStatus.label = decodeURI(labelMatch[1]);
       const trelloRes = await getFirstCardInDoingList();
-      if (
-        trelloRes &&
-        trelloRes.labels.find(({ name }) => name === agendaStatus?.label)
-      ) {
-        agendaStatus.card = trelloRes.name;
+      if (trelloRes) {
+        if (trelloRes.labels.find(({ name }) => name === agendaStatus?.label)) {
+          agendaStatus.card = trelloRes.name;
+        } else {
+          agendaStatus.card = "";
+          await moveFirstCardInDoingListToReady();
+        }
       }
     }
   } else {
