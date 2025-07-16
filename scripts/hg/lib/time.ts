@@ -11,6 +11,9 @@ export function toHours(gtmTime: string) {
   return totalHours;
 }
 
+export function dateToLocaleTimestamp(date: Date) {
+  return `${new Date().toISOString().split("T")[0]} ${date.toTimeString().slice(0, 5)}`;
+}
 export function hoursToHms(hrs: number): string {
   let sign = "";
   if (hrs < 0) {

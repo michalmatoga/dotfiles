@@ -59,7 +59,7 @@ sudo nix-channel --add https://channels.nixos.org/nixos-24.11 nixos
 sudo nixos-rebuild switch --upgrade
 ```
 
-Reference: https://superuser.com/questions/1604694/how-to-update-every-package-on-nixos
+Reference: <https://superuser.com/questions/1604694/how-to-update-every-package-on-nixos>
 
 ## Populating `.env` file
 

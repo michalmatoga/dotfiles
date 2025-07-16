@@ -1,7 +1,14 @@
 import { execSync } from "node:child_process";
-import { writeFileSync } from "node:fs";
-import { dateFromTime, hmsToHours, hoursToHm, hoursToHms } from "./lib/time";
+import { readFileSync, writeFileSync } from "node:fs";
 import {
+  dateFromTime,
+  dateToLocaleTimestamp,
+  hmsToHours,
+  hoursToHm,
+  hoursToHms,
+} from "./lib/time";
+import {
+  getCardMoveActionsSince,
   getFirstCardInDoingList,
   moveFirstCardInDoingListToReady,
 } from "./lib/trello";
@@ -21,13 +28,54 @@ const dataFile = "/mnt/g/My\ Drive/hourglass.csv";
 let agendaStatus: AgendaStatus | undefined = undefined;
 let gtmStatus = "";
 let status = "";
+let lastActionsCheck: Date | undefined = undefined;
 
 (async function main() {
+  runWithInterval(checkActions, 10000);
   runWithInterval(fetchAgendaStatus, 60000);
   runWithInterval(fetchGtmStatus, 60000);
   runWithInterval(renderStatus, 1000);
   runWithInterval(syncUtilization, 3600000);
 })();
+
+async function checkActions() {
+  if (!lastActionsCheck) {
+    const dataContent = readFileSync(dataFile, { encoding: "utf8" });
+    const lastDate = dataContent
+      .split("\n")
+      .reverse()
+      .find((line) => line.includes("[[d-bst]]"))
+      ?.split(",")[0];
+    if (lastDate) {
+      lastActionsCheck = new Date(new Date(lastDate).getTime() + 60000);
+    } else {
+      lastActionsCheck = new Date(new Date().setHours(0, 0, 0, 0));
+    }
+  }
+
+  const moveActions = await getCardMoveActionsSince(lastActionsCheck);
+  if (!moveActions.length) {
+    lastActionsCheck = new Date();
+    return;
+  }
+  console.log({ lastActionsCheck });
+  lastActionsCheck = new Date(moveActions.at(-1).date);
+
+  const dataPoints = moveActions.map(
+    ({ date, listAfter, card: { id, name, labels } }) =>
+      [
+        dateToLocaleTimestamp(new Date(date)),
+        "[[d-bst]]",
+        id,
+        name,
+        labels,
+        listAfter,
+      ].join(","),
+  );
+  writeFileSync(dataFile, dataPoints.join("\n").concat("\n"), {
+    flag: "a",
+  });
+}
 
 function syncUtilization() {
   const date = new Date().toISOString().split("T")[0];

@@ -461,7 +461,7 @@
   },
   "JSON.stringify()": {
     "prefix": "js",
-    "body": "JSON.stringify($0)"
+    "body": "JSON.stringify($0, null, 2)"
   },
   "JSON.parse()": {
     "prefix": "jp",

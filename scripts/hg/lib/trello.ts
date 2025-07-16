@@ -23,6 +23,20 @@ export async function getFirstCardInDoingList() {
   return undefined;
 }
 
+export async function getCard(cardId: string) {
+  const response = await fetch(
+    `https://api.trello.com/1/cards/${cardId}?key=${TRELLO_API_KEY}&token=${TRELLO_TOKEN}`,
+  );
+  return response.json();
+}
+
+export async function searchCards(cardIds: string[]) {
+  const response = await fetch(
+    `https://api.trello.com/1/search?query=*&idCards=${cardIds.join(",")}&key=${TRELLO_API_KEY}&token=${TRELLO_TOKEN}`,
+  );
+  return (await response.json())?.cards;
+}
+
 export async function getLabelsFromFirstCardInDoingList() {
   try {
     const response = await fetch(
@@ -58,11 +72,30 @@ export async function getDoingListActions() {
   return cardsResponse.json();
 }
 
-export async function getBoardActions() {
+export async function getCardMoveActionsSince(since: Date) {
   const cardsResponse = await fetch(
-    `https://api.trello.com/1/boards/${BOARD_ID}/actions?key=${TRELLO_API_KEY}&token=${TRELLO_TOKEN}&limit=1&filter=updateCard`,
+    `https://api.trello.com/1/boards/${BOARD_ID}/actions?key=${TRELLO_API_KEY}&token=${TRELLO_TOKEN}&filter=updateCard&since=${since.toISOString()}`,
   );
-  return await cardsResponse.json();
+
+  const moveActions = (await cardsResponse.json()).filter(({ data }) =>
+    Object.keys(data).includes("listAfter"),
+  );
+  const foundCards = await searchCards(
+    moveActions.map((e: any) => e.data.card.id),
+  );
+  const dataPoints = moveActions.map(({ date, data }) => ({
+    date,
+    listAfter: data.listAfter.name,
+    card: foundCards
+      .filter(({ id }) => id === data.card.id)
+      .map(({ id, name, labels }) => ({
+        id,
+        name,
+        labels: labels.map(({ name }) => name).join(";"),
+      }))
+      .pop(),
+  }));
+  return dataPoints.reverse();
 }
 
 export async function moveFirstCardInDoingListToReady() {
