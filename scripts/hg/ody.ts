@@ -20,7 +20,7 @@ interface AgendaStatus {
   duration: number;
   description: string;
   label: string;
-  card: string;
+  card: Record<string, any> | undefined;
 }
 
 const dataFile = "/mnt/g/My\ Drive/hourglass.csv";
@@ -58,7 +58,6 @@ async function checkActions() {
     lastActionsCheck = new Date();
     return;
   }
-  console.log({ lastActionsCheck });
   lastActionsCheck = new Date(moveActions.at(-1).date);
 
   const dataPoints = moveActions.map(
@@ -119,7 +118,7 @@ async function fetchAgendaStatus() {
   ) as AgendaStatus[];
   if (res.length) {
     if (!agendaStatus) {
-      agendaStatus = { ...res[0], label: "", card: "" };
+      agendaStatus = { ...res[0], label: "", card: undefined };
     }
     const labelMatch = agendaStatus?.description.match(/label:([^>^"]+)/);
     if (labelMatch) {
@@ -127,9 +126,10 @@ async function fetchAgendaStatus() {
       const trelloRes = await getFirstCardInDoingList();
       if (trelloRes) {
         if (trelloRes.labels.find(({ name }) => name === agendaStatus?.label)) {
-          agendaStatus.card = trelloRes.name;
+          trelloRes.startTime = getCardStartTime(trelloRes);
+          agendaStatus.card = trelloRes;
         } else {
-          agendaStatus.card = "";
+          agendaStatus.card = undefined;
           await moveFirstCardInDoingListToReady();
         }
       }
@@ -139,14 +139,34 @@ async function fetchAgendaStatus() {
   }
 }
 
+function getCardStartTime(card: { id: string }) {
+  try {
+    const startTime = execSync(
+      `cat /mnt/g/My\\ Drive/hourglass.csv | rg -F '[[d-bst]]' | rg '${card.id}' | rg 'Doing' | head -n 1 | csvjson -H | jq -r '.[].a'`,
+      { encoding: "utf-8" },
+    );
+    return new Date(startTime.trim());
+  } catch (error) {
+    return undefined;
+  }
+}
+
 function renderAgendaStatus() {
   if (!agendaStatus) {
     return "#[fg=yellow]💤🌴";
   }
   if (agendaStatus.card) {
-    return `${agendaStatus.card} | ⌛ ${remainingHms(agendaStatus).slice(0, -3)} / ${hoursToHm(agendaStatus.duration)}`;
+    const cycleTime = renderCycleTime(agendaStatus.card);
+    return `${agendaStatus.card.name}${cycleTime} | ⌛ ${remainingHms(agendaStatus).slice(0, -3)} / ${hoursToHm(agendaStatus.duration)}`;
   }
   return `#[fg=red]⛔ No card in progress matching ${agendaStatus.title} / ${agendaStatus.label}`;
+}
+
+function renderCycleTime(card: Record<string, any>) {
+  if (!card.startTime) {
+    return "";
+  }
+  return ` | ⏱️  ${hoursToHm((new Date().getTime() - card.startTime.getTime()) / 3600000)}`;
 }
 
 function fetchGtmStatus() {
@@ -158,14 +178,14 @@ function fetchGtmStatus() {
         { encoding: "utf8" },
       ),
     );
-    let cardCycleTime: { totalDuration: string } | undefined = undefined;
-    cardCycleTime = JSON.parse(
+    let cardTouchTime: { totalDuration: string } | undefined = undefined;
+    cardTouchTime = JSON.parse(
       execSync(
-        `npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/gtm-report-range.ts "trello-label: ${agendaStatus.card}" | tail -n 1 | jq`,
+        `npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/gtm-report-range.ts "trello-label: ${agendaStatus.card.name}" | tail -n 1 | jq`,
         { encoding: "utf8" },
       ),
     );
-    gtmStatus = `\u2699  ${currentTimeBlockCommittedTime.totalDuration} (${((hmsToHours(currentTimeBlockCommittedTime.totalDuration) / agendaStatus.duration) * 100).toPrecision(2)}%)${cardCycleTime ? ` | ⏱️  ${cardCycleTime.totalDuration}` : ""}`;
+    gtmStatus = `\u2699  ${currentTimeBlockCommittedTime.totalDuration} (${((hmsToHours(currentTimeBlockCommittedTime.totalDuration) / agendaStatus.duration) * 100).toPrecision(2)}%)${cardTouchTime ? ` | 👋  ${cardTouchTime.totalDuration}` : ""}`;
   }
 }
 
