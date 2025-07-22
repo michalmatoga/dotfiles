@@ -83,18 +83,20 @@ export async function getCardMoveActionsSince(since: Date) {
   const foundCards = await searchCards(
     moveActions.map((e: any) => e.data.card.id),
   );
-  const dataPoints = moveActions.map(({ date, data }) => ({
-    date,
-    listAfter: data.listAfter.name,
-    card: foundCards
-      .filter(({ id }) => id === data.card.id)
-      .map(({ id, name, labels }) => ({
-        id,
-        name,
-        labels: labels.map(({ name }) => name).join(";"),
-      }))
-      .pop(),
-  }));
+  const dataPoints = moveActions
+    .map(({ date, data }) => ({
+      date,
+      listAfter: data.listAfter.name,
+      card: foundCards
+        .filter(({ id }) => id === data.card.id)
+        .map(({ id, name, labels }) => ({
+          id,
+          name,
+          labels: labels.map(({ name }) => name).join(";"),
+        }))
+        .pop(),
+    }))
+    .filter(({ card }) => card !== undefined);
   return dataPoints.reverse();
 }
 

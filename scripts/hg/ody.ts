@@ -35,7 +35,7 @@ let lastActionsCheck: Date | undefined = undefined;
   runWithInterval(fetchAgendaStatus, 60000);
   runWithInterval(fetchGtmStatus, 60000);
   runWithInterval(renderStatus, 1000);
-  runWithInterval(syncUtilization, 3600000);
+  // runWithInterval(syncUtilization, 3600000);
 })();
 
 async function checkActions() {
@@ -116,11 +116,12 @@ async function fetchAgendaStatus() {
       { encoding: "utf8" },
     ),
   ) as AgendaStatus[];
+
   if (res.length) {
     if (!agendaStatus) {
       agendaStatus = { ...res[0], label: "", card: undefined };
     }
-    const labelMatch = agendaStatus?.description.match(/label:([^>^"]+)/);
+    const labelMatch = agendaStatus?.description.match(/>.*label:([^<]+)<\/a>/);
     if (labelMatch) {
       agendaStatus.label = decodeURI(labelMatch[1]);
       const trelloRes = await getFirstCardInDoingList();

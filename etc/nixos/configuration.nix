@@ -60,6 +60,13 @@ in
   users.defaultUserShell = pkgs.zsh;
   users.users.nixos.extraGroups = [ "docker" ];
 
+
+  networking.extraHosts =
+  ''
+    23.50.55.26 svp-api-stage.akamaized.net
+  '';
+
+
   virtualisation.docker.enable = true;
 
   time.timeZone = lib.mkDefault "Europe/Warsaw";
