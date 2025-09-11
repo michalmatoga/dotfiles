@@ -1,5 +1,4 @@
 node_modules
 repolist.txt
 .env
-/.gtm/
 /dist/

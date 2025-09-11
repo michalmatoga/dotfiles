@@ -20,14 +20,14 @@ process.env.GH_HOST = "schibsted.ghe.com";
 (async function main() {
   const issues = JSON.parse(
     execSync(
-      'gh issue list --search "is:issue state:open archived:false assignee:@me sort:updated-desc org:svp" --json url,title,body',
+      'gh issue list --search "is:issue state:open archived:false assignee:@me sort:updated-desc" --json url,title,body',
       { encoding: "utf-8" },
     ),
   );
 
   const pullRequests = JSON.parse(
     execSync(
-      'gh pr list --search "is:open archived:false sort:created-asc review-requested:@me org:svp" --json url,title,body',
+      'gh pr list --search "is:open archived:false sort:created-asc review-requested:@me" --json url,title,body',
       { encoding: "utf-8" },
     ),
   );
