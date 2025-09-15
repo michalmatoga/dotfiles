@@ -27,7 +27,7 @@ process.env.GH_HOST = "schibsted.ghe.com";
 
   const pullRequests = JSON.parse(
     execSync(
-      'gh pr list --search "is:open archived:false sort:created-asc review-requested:@me" --json url,title,body',
+      'gh pr list --search "is:open archived:false sort:created-asc review-requested:@me org:svp" --json url,title,body',
       { encoding: "utf-8" },
     ),
   );
