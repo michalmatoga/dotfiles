@@ -66,9 +66,9 @@ in
     direnv
     eslint_d
     eza # A modern replacement for ‘ls’
+    fd
     ffmpeg_7-full
     file
-    fd
     flyctl
     gawk
     gcalcli
@@ -85,6 +85,7 @@ in
     lazydocker
     lazygit
     linode-cli
+    lsof
     lua-language-server
     lua51Packages.luarocks
     mariadb
