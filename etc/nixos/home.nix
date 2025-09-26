@@ -246,12 +246,6 @@ in
       set -g @continuum-save-interval '10'
       set -g @resurrect-capture-pane-contents 'on'
       set -g @resurrect-strategy-nvim 'session'
-      set -g window-status-current-format '#[bg=black,fg=green,bold] #I: #W #[bg=default,fg=default]'
-      set -g window-status-format '#[fg=grey] #I: #W #[fg=default]'
-
-      set -g status-interval 1
-      set -g status-right-length 200
-      set -ag status-right "#[bg=blue] 🎯 #[bg=default] #[fg=white]#(cat ~/.ody)"
     '';
   };
 
