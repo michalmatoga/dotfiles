@@ -226,8 +226,8 @@ in
     extraConfig = ''
       set-window-option -g mode-keys vi
       set-option -s escape-time 0
-      set-option -g default-terminal "tmux-256color"
-      set -ag terminal-overrides ",tmux-256color:RGB"
+      # set-option -g default-terminal "tmux-256color"
+      # set -ag terminal-overrides ",tmux-256color:RGB"
       set -g @catppuccin_flavour "frappe"
       set -g base-index 1
       setw -g pane-base-index 1
