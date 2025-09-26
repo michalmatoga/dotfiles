@@ -3,7 +3,7 @@
 let
   unstablePackages = with unstable; [
     pulumi
-    pulumiPackages.pulumi-language-nodejs
+    pulumiPackages.pulumi-nodejs
   ];
 in
 {
