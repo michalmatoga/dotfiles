@@ -173,7 +173,7 @@ in
       update-npm-deps = "npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/update-npm-deps.ts";
     };
     # setup some environment variables
-    initExtra = ''
+    initContent = ''
       export BROWSER="wsl-open"
       export GH_USER="michalmatoga"
       export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=true
