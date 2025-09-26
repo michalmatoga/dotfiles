@@ -215,7 +215,7 @@ in
     enable = true;
     plugins = with pkgs;
       [
-        # tmuxPlugins.catppuccin
+        tmuxPlugins.catppuccin
         tmuxPlugins.continuum
         tmuxPlugins.jump
         tmuxPlugins.resurrect
@@ -226,7 +226,7 @@ in
     extraConfig = ''
       set-window-option -g mode-keys vi
       set-option -s escape-time 0
-      # set -g @catppuccin_flavour "frappe"
+      set -g @catppuccin_flavour "frappe"
       set -g base-index 1
       setw -g pane-base-index 1
       setw -g mouse on
