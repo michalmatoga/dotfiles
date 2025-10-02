@@ -4,7 +4,6 @@ let
   unstablePackages = with unstable; [
     pulumi
     pulumiPackages.pulumi-nodejs
-    opencode
   ];
 in
 {
