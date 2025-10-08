@@ -5,7 +5,7 @@ import semver from "semver";
 
 function runTest(testCommand: string): boolean {
   try {
-    execSync(testCommand, { stdio: "ignore" });
+    execSync(testCommand, { stdio: "inherit" });
     return true;
   } catch {
     return false;
@@ -31,7 +31,10 @@ function bumpVersion(
   return null;
 }
 
-function updateDependencies(testCommand: string, bumpTypes: semver.ReleaseType[]) {
+function updateDependencies(
+  testCommand: string,
+  bumpTypes: semver.ReleaseType[],
+) {
   const pkgPath = path.resolve(`${process.cwd()}/package.json`);
   const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
 
@@ -62,7 +65,7 @@ function updateDependencies(testCommand: string, bumpTypes: semver.ReleaseType[]
         fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
 
         try {
-          execSync("npm install", { stdio: "ignore" });
+          execSync("npm install", { stdio: "inherit" });
         } catch {
           console.error("npm install failed, reverting");
           pkg[section][name] = original;
@@ -86,7 +89,8 @@ function updateDependencies(testCommand: string, bumpTypes: semver.ReleaseType[]
 }
 
 const args = process.argv.slice(2);
-const usage = 'Usage: update-dependencies.ts --test "<test command>" [--bump "<types>"]';
+const usage =
+  'Usage: update-dependencies.ts --test "<test command>" [--bump "<types>"]';
 let testCommand = "";
 let bumpTypes: semver.ReleaseType[] = ["patch", "minor", "major"];
 for (let i = 0; i < args.length; i++) {
@@ -94,7 +98,9 @@ for (let i = 0; i < args.length; i++) {
     testCommand = args[i + 1];
     i++;
   } else if (args[i] === "--bump" && args[i + 1]) {
-    bumpTypes = args[i + 1].split(",").map((b) => b.trim()) as semver.ReleaseType[];
+    bumpTypes = args[i + 1]
+      .split(",")
+      .map((b) => b.trim()) as semver.ReleaseType[];
     i++;
   } else {
     console.error(usage);

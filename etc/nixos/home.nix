@@ -101,6 +101,7 @@ in
     php
     postgresql_17
     prettierd
+    prisma-engines
     python3
     restic
     ripgrep # recursively searches directories for a regex pattern
