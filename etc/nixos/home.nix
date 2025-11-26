@@ -4,6 +4,7 @@ let
   unstablePackages = with unstable; [
     pulumi
     pulumiPackages.pulumi-nodejs
+    postgresql_18
   ];
 in
 {
@@ -99,7 +100,6 @@ in
     opentofu
     pgadmin4
     php
-    postgresql_17
     prettierd
     prisma-engines
     python3
