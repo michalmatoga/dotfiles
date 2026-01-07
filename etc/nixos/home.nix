@@ -95,7 +95,7 @@ in
     mongodb-tools
     neofetch
     nmap # A utility for network discovery and security auditing
-    nodejs_22 # nodejs & npm
+    nodejs_24 # nodejs & npm
     openssl
     opentofu
     pgadmin4
