@@ -83,6 +83,7 @@ in
     gnutar
     jq # A lightweight and flexible command-line JSON processor
     kubectl
+    kubectl-node-shell
     lazydocker
     lazygit
     linode-cli
