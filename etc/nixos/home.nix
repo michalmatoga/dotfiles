@@ -108,6 +108,7 @@ in
     ripgrep # recursively searches directories for a regex pattern
     rustc
     tmux
+    tree-sitter
     unzip
     vault
     wsl-open # WSL-specific
