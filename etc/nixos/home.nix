@@ -62,7 +62,7 @@ in
     # fzf # A command-line fuzzy finder
     awscli2
     bitwarden-cli
-    corepack_20
+    corepack_24
     csvkit
     direnv
     eslint_d
