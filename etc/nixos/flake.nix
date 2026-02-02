@@ -14,15 +14,20 @@
   outputs = { self, nixpkgs, nixpkgs-unstable, nixos-wsl, home-manager }:
   let
     system = "x86_64-linux";
-    pkgs = import nixpkgs {inherit system;};
-    unstable = import nixpkgs-unstable {inherit system;};
+    unstableBase = import nixpkgs-unstable { inherit system; };
+    overlays = [
+      (final: prev: {
+        gogcli = prev.callPackage ./gogcli.nix { unstableGo = unstableBase.go_1_25; };
+      })
+    ];
+    pkgs = import nixpkgs { inherit system overlays; };
+    unstable = import nixpkgs-unstable { inherit system overlays; };
   in
   {
    nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
      system = "x86_64-linux";
-     # unstable = import nixpkgs-unstable { inherit system };
-     # specialArgs = { inherit unstable; };
      modules = [
+      { nixpkgs.overlays = overlays; }
       ./configuration.nix
       nixos-wsl.nixosModules.wsl
       # make home-manager as a module of nixos
@@ -36,6 +41,7 @@
       }
      ];
    };
+
+   packages.${system}.gogcli = pkgs.gogcli;
   };
 }
-

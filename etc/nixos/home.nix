@@ -117,6 +117,7 @@ in
     zig
     zip
     zstd
+    gogcli
   ] ++ unstablePackages;
 
   # starship - an customizable prompt for any shell
