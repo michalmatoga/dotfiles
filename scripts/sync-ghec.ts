@@ -14,6 +14,11 @@ const TRELLO_LABELS = {
   issue: ["6694db7c23e5de7bec1b7489"],
 };
 
+const TRELLO_LISTS = {
+  new: "6694f3249e46f9e9aec6db3b",
+  blocked: "68d38cb24e504757ecc2d19a",
+};
+
 process.env.GH_USER = "michal-matoga";
 process.env.GH_HOST = "schibsted.ghe.com";
 
@@ -47,10 +52,14 @@ process.env.GH_HOST = "schibsted.ghe.com";
   );
 
   for (const pr of newPullRequests) {
+    const name = pr.title.startsWith("REVIEW: ")
+      ? pr.title
+      : `REVIEW: ${pr.title}`;
     await addTrelloCard(
-      pr.title,
+      name,
       `Refs: ${pr.url}\n\n${pr.body}`,
       TRELLO_LABELS.review,
+      TRELLO_LISTS.blocked,
     );
   }
   for (const issue of newIssues) {
@@ -58,16 +67,21 @@ process.env.GH_HOST = "schibsted.ghe.com";
       issue.title,
       `Refs: ${issue.url}\n\n${issue.body}`,
       TRELLO_LABELS.issue,
+      TRELLO_LISTS.new,
     );
   }
 })();
 
-async function addTrelloCard(name: string, body: string, labels: string[]) {
+async function addTrelloCard(
+  name: string,
+  body: string,
+  labels: string[],
+  listId: string,
+) {
   try {
-    const newListId = "6694f3249e46f9e9aec6db3b";
     const labelIds = labels.map((label) => `&idLabels=${label}`).join("");
     const response = await fetch(
-      `https://api.trello.com/1/cards?key=${TRELLO_API_KEY}&token=${TRELLO_TOKEN}&idList=${newListId}&name=${encodeURIComponent(name)}&desc=${encodeURIComponent(body)}${labelIds}`,
+      `https://api.trello.com/1/cards?key=${TRELLO_API_KEY}&token=${TRELLO_TOKEN}&idList=${listId}&name=${encodeURIComponent(name)}&desc=${encodeURIComponent(body)}${labelIds}`,
       {
         method: "POST",
       },
