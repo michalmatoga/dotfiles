@@ -24,6 +24,7 @@ in
 {
   wsl.enable = true;
   wsl.defaultUser = "nixos";
+  wsl.wslConf.network.generateHosts = false;
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
 
 
