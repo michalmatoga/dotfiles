@@ -3,24 +3,35 @@
 if [[ $# -eq 1 ]]; then
   selected=$1
 else
-  sessions=$(tmux list-sessions -F "#{session_name}" 2>/dev/null)
-  all_entries=$(
-    fd -d 3 -t d . ~/ghq
-  )
-  existing_entries=$(echo "$all_entries" | while read -r dir; do
+  declare -A session_map
+  while IFS= read -r session_name; do
+    [[ -n $session_name ]] && session_map["$session_name"]=1
+  done < <(tmux list-sessions -F "#{session_name}" 2>/dev/null || true)
+
+  mapfile -t all_entries < <(fd -d 3 -t d . ~/ghq 2>/dev/null)
+
+  existing_entries=()
+  other_entries=()
+
+  for dir in "${all_entries[@]}"; do
+    [[ -z $dir ]] && continue
     name=$(basename "$dir" | tr . _)
-    if echo "$sessions" | grep -Fxq "$name"; then
-      printf "\033[32m* %s\033[0m\n" "$dir"
+    if [[ -n ${session_map["$name"]} ]]; then
+      display=$'\033[32m* '$dir$'\033[0m'
+      existing_entries+=("${display}	${dir}")
+    else
+      other_entries+=("  ${dir}	${dir}")
     fi
-  done)
-  other_entries=$(echo "$all_entries" | while read -r dir; do
-    name=$(basename "$dir" | tr . _)
-    if ! echo "$sessions" | grep -Fxq "$name"; then
-      printf "  %s\n" "$dir"
-    fi
-  done)
-  selected_entry=$(printf "%s\n%s" "$existing_entries" "$other_entries" | fzf --ansi)
-  selected="${selected_entry:2}"
+  done
+
+  fzf_input=("${existing_entries[@]}" "${other_entries[@]}")
+  selected_entry=$(printf '%s\n' "${fzf_input[@]}" | fzf --ansi --delimiter=$'\t' --with-nth=1)
+
+  if [[ -z $selected_entry ]]; then
+    exit 0
+  fi
+
+  IFS=$'\t' read -r _ selected <<< "$selected_entry"
 fi
 
 if [[ -z $selected ]]; then
