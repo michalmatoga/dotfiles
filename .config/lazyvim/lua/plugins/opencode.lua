@@ -3,7 +3,7 @@ return {
     "NickvanDyke/opencode.nvim",
     dependencies = {
       -- Recommended for better prompt input, and required to use `opencode.nvim`'s embedded terminal — otherwise optional
-      { "folke/snacks.nvim", opts = { input = { enabled = true } } },
+      { "folke/snacks.nvim", opts = { input = {}, picker = {}, terminal = {} } },
     },
     config = function()
       vim.g.opencode_opts = {
@@ -27,22 +27,22 @@ return {
         require("opencode").ask("@selection: ")
       end, { desc = "Ask about selection" })
       vim.keymap.set("n", "<leader>o+", function()
-        require("opencode").append_prompt("@buffer")
+        require("opencode").prompt("@buffer")
       end, { desc = "Add buffer to prompt" })
       vim.keymap.set("v", "<leader>o+", function()
-        require("opencode").append_prompt("@selection")
+        require("opencode").prompt("@selection")
       end, { desc = "Add selection to prompt" })
       vim.keymap.set("n", "<leader>on", function()
-        require("opencode").command("session_new")
+        require("opencode").command("session.new")
       end, { desc = "New session" })
       vim.keymap.set("n", "<leader>oy", function()
-        require("opencode").command("messages_copy")
-      end, { desc = "Copy last response" })
+        require("opencode").command("session.share")
+      end, { desc = "Share current session" })
       vim.keymap.set("n", "<S-C-u>", function()
-        require("opencode").command("messages_half_page_up")
+        require("opencode").command("session.half.page.up")
       end, { desc = "Messages half page up" })
       vim.keymap.set("n", "<S-C-d>", function()
-        require("opencode").command("messages_half_page_down")
+        require("opencode").command("session.half.page.down")
       end, { desc = "Messages half page down" })
 
       vim.keymap.set({ "n", "v" }, "<leader>os", function()
