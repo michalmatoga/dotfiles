@@ -162,7 +162,7 @@ in
       ldk = "lazydocker";
       meetings = "bash /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/meetings.sh";
       nag = "bash ~/ghq/github.com/michalmatoga/dotfiles/scripts/nag.sh";
-      oc = "bash /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/oc.sh";
+      oc = "opencode --port";
       ody = "npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/hg/ody.ts";
       odyr = "pkill -f ody.ts && tmux send-keys -t ody:1 'ody' C-m";
       paste = "powershell.exe get-clipboard";
