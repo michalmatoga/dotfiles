@@ -6,6 +6,8 @@ local g = vim.g
 
 opt.swapfile = false
 opt.wrap = true
+opt.diffopt:append({ "vertical", "linematch:60" })
+opt.fillchars:append({ diff = "/" })
 
 g.mapleader = ";"
 opt.conceallevel = 0
