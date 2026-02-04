@@ -143,6 +143,15 @@ return {
         { desc = "Compare clipboard selection" }
       )
 
+      map("n", "<leader><leader>q", function()
+        local ok, lib = pcall(require, "diffview.lib")
+        if ok and lib.get_current_view() then
+          vim.cmd("DiffviewClose")
+        else
+          vim.cmd("tabclose")
+        end
+      end, { desc = "Close Diffview" })
+
       function _G.toggle_diffview()
         local bufnr = vim.api.nvim_get_current_buf()
         local buftype = vim.api.nvim_get_option_value("buftype", { buf = bufnr })
