@@ -26,12 +26,11 @@ else
 
   fzf_input=("${existing_entries[@]}" "${other_entries[@]}")
   selected_entry=$(printf '%s\n' "${fzf_input[@]}" | fzf --ansi --delimiter=$'\t' --with-nth=1)
-
   if [[ -z $selected_entry ]]; then
     exit 0
   fi
 
-  IFS=$'\t' read -r _ selected <<< "$selected_entry"
+  IFS=$'\t' read -r _ selected <<<"$selected_entry"
 fi
 
 if [[ -z $selected ]]; then
