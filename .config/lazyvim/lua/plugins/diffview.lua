@@ -53,16 +53,16 @@ return {
         return result.code == 0 and "main" or "master"
       end
 
-      map("n", ",hh", "<Cmd>DiffviewFileHistory<CR>", { desc = "Repo history" })
-      map("n", ",hf", "<Cmd>DiffviewFileHistory --follow %<CR>", { desc = "File history" })
-      map("n", ",hl", "<Cmd>.DiffviewFileHistory --follow<CR>", { desc = "Line history" })
-      map("v", ",hl", "<Esc><Cmd>'<,'>DiffviewFileHistory --follow<CR>", { desc = "Range history" })
+      map("n", "<leader><leader>hh", "<Cmd>DiffviewFileHistory<CR>", { desc = "Repo history" })
+      map("n", "<leader><leader>hf", "<Cmd>DiffviewFileHistory --follow %<CR>", { desc = "File history" })
+      map("n", "<leader><leader>hl", "<Cmd>.DiffviewFileHistory --follow<CR>", { desc = "Line history" })
+      map("v", "<leader><leader>hl", "<Esc><Cmd>'<,'>DiffviewFileHistory --follow<CR>", { desc = "Range history" })
 
-      map("n", ",d", "<Cmd>DiffviewOpen<CR>", { desc = "Repo diff" })
-      map("n", ",hm", function()
+      map("n", "<leader><leader>d", "<Cmd>DiffviewOpen<CR>", { desc = "Repo diff" })
+      map("n", "<leader><leader>hm", function()
         vim.cmd("DiffviewOpen " .. get_default_branch_name())
       end, { desc = "Diff against master" })
-      map("n", ",hM", function()
+      map("n", "<leader><leader>hM", function()
         vim.cmd("DiffviewOpen HEAD..origin/" .. get_default_branch_name())
       end, { desc = "Diff against origin/master" })
 
@@ -73,7 +73,7 @@ return {
         end
       end
 
-      map("n", ",vw", function()
+      map("n", "<leader><leader>vw", function()
         with_gitsigns(function(gs)
           if gs.toggle_word_diff then
             gs.toggle_word_diff()
@@ -81,7 +81,7 @@ return {
         end)
       end, { desc = "Toggle word diff" })
 
-      map("n", ",vL", function()
+      map("n", "<leader><leader>vL", function()
         with_gitsigns(function(gs)
           if gs.toggle_linehl then
             gs.toggle_linehl()
@@ -89,7 +89,7 @@ return {
         end)
       end, { desc = "Toggle line highlight" })
 
-      map("n", ",vv", function()
+      map("n", "<leader><leader>vv", function()
         with_gitsigns(function(gs)
           if gs.toggle_deleted then
             gs.toggle_deleted()
@@ -97,7 +97,7 @@ return {
         end)
       end, { desc = "Toggle deleted lines" })
 
-      map("n", ",vh", function()
+      map("n", "<leader><leader>vh", function()
         with_gitsigns(function(gs)
           if gs.preview_hunk then
             gs.preview_hunk()
@@ -135,8 +135,8 @@ return {
         vim.cmd([[windo diffthis]])
       end, { range = true })
 
-      map("n", ",vc", "<Cmd>CompareClipboard<CR>", { desc = "Compare clipboard" })
-      map("v", ",vc", "<Esc><Cmd>CompareClipboardSelection<CR>", { desc = "Compare clipboard selection" })
+      map("n", "<leader><leader>vc", "<Cmd>CompareClipboard<CR>", { desc = "Compare clipboard" })
+      map("v", "<leader><leader>vc", "<Esc><Cmd>CompareClipboardSelection<CR>", { desc = "Compare clipboard selection" })
 
       function _G.toggle_diffview()
         local bufnr = vim.api.nvim_get_current_buf()
