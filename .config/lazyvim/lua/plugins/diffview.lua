@@ -10,9 +10,9 @@ return {
 
       local function apply_diff_highlights()
         set_hl(0, "DiffAdd", { bg = "#144620", fg = "#d4f4dd" })
-        set_hl(0, "DiffDelete", { bg = "#6F1313", fg = "#f8d7da" })
-        set_hl(0, "DiffChange", { bg = "#1F334A", fg = "#d0e7ff" })
-        set_hl(0, "DiffText", { bg = "#2C5372", fg = "#d0e7ff" })
+        set_hl(0, "DiffDelete", { bg = "#6f1313", fg = "#f8d7da" })
+        set_hl(0, "DiffChange", { bg = "#1f334a", fg = "#d0e7ff" })
+        set_hl(0, "DiffText", { bg = "#2c5372", fg = "#d0e7ff" })
       end
 
       require("diffview").setup({
@@ -45,16 +45,110 @@ return {
         pattern = "*",
         callback = apply_diff_highlights,
       })
+
+      local map = vim.keymap.set
+
+      local function get_default_branch_name()
+        local result = vim.system({ "git", "rev-parse", "--verify", "main" }, { text = true }):wait()
+        return result.code == 0 and "main" or "master"
+      end
+
+      map("n", ",hh", "<Cmd>DiffviewFileHistory<CR>", { desc = "Repo history" })
+      map("n", ",hf", "<Cmd>DiffviewFileHistory --follow %<CR>", { desc = "File history" })
+      map("n", ",hl", "<Cmd>.DiffviewFileHistory --follow<CR>", { desc = "Line history" })
+      map("v", ",hl", "<Esc><Cmd>'<,'>DiffviewFileHistory --follow<CR>", { desc = "Range history" })
+
+      map("n", ",d", "<Cmd>DiffviewOpen<CR>", { desc = "Repo diff" })
+      map("n", ",hm", function()
+        vim.cmd("DiffviewOpen " .. get_default_branch_name())
+      end, { desc = "Diff against master" })
+      map("n", ",hM", function()
+        vim.cmd("DiffviewOpen HEAD..origin/" .. get_default_branch_name())
+      end, { desc = "Diff against origin/master" })
+
+      local function with_gitsigns(action)
+        local ok, gs = pcall(require, "gitsigns")
+        if ok then
+          action(gs)
+        end
+      end
+
+      map("n", ",vw", function()
+        with_gitsigns(function(gs)
+          if gs.toggle_word_diff then
+            gs.toggle_word_diff()
+          end
+        end)
+      end, { desc = "Toggle word diff" })
+
+      map("n", ",vL", function()
+        with_gitsigns(function(gs)
+          if gs.toggle_linehl then
+            gs.toggle_linehl()
+          end
+        end)
+      end, { desc = "Toggle line highlight" })
+
+      map("n", ",vv", function()
+        with_gitsigns(function(gs)
+          if gs.toggle_deleted then
+            gs.toggle_deleted()
+          end
+        end)
+      end, { desc = "Toggle deleted lines" })
+
+      map("n", ",vh", function()
+        with_gitsigns(function(gs)
+          if gs.preview_hunk then
+            gs.preview_hunk()
+          end
+        end)
+      end, { desc = "Preview hunk" })
+
+      local function create_command(name, handler, opts)
+        pcall(vim.api.nvim_del_user_command, name)
+        vim.api.nvim_create_user_command(name, handler, opts or {})
+      end
+
+      create_command("Ns", function()
+        vim.cmd("vsplit | enew")
+        vim.bo.buftype = "nofile"
+        vim.bo.bufhidden = "hide"
+        vim.bo.swapfile = false
+      end)
+
+      create_command("CompareClipboard", function()
+        local filetype = vim.api.nvim_get_option_value("filetype", { buf = 0 })
+        vim.cmd("tabnew %")
+        vim.cmd("Ns")
+        vim.cmd([[normal! P]])
+        vim.cmd([[windo diffthis]])
+        vim.bo.filetype = filetype
+      end)
+
+      create_command("CompareClipboardSelection", function()
+        vim.cmd([[normal! gv"zy]])
+        vim.cmd([[tabnew | setlocal buftype=nofile bufhidden=hide noswapfile]])
+        vim.cmd([[normal! V"zp]])
+        vim.cmd("Ns")
+        vim.cmd([[normal! Vp]])
+        vim.cmd([[windo diffthis]])
+      end, { range = true })
+
+      map("n", ",vc", "<Cmd>CompareClipboard<CR>", { desc = "Compare clipboard" })
+      map("v", ",vc", "<Esc><Cmd>CompareClipboardSelection<CR>", { desc = "Compare clipboard selection" })
+
       function _G.toggle_diffview()
         local bufnr = vim.api.nvim_get_current_buf()
-        local buftype = vim.api.nvim_get_option_value("buftype", { buf = bufnr }) -- plus some comment
+        local buftype = vim.api.nvim_get_option_value("buftype", { buf = bufnr })
         if buftype == "nofile" then
           vim.cmd("DiffviewClose")
         else
           vim.cmd("DiffviewOpen")
         end
       end
-      vim.keymap.set("n", "<leader>gD", "<cmd>lua toggle_diffview()<CR>", { desc = "DiffView toggle" })
+
+      map("n", "<leader>gD", "<Cmd>lua toggle_diffview()<CR>", { desc = "DiffView toggle" })
     end,
   },
 }
