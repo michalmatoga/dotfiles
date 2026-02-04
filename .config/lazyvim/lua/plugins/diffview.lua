@@ -136,7 +136,12 @@ return {
       end, { range = true })
 
       map("n", "<leader><leader>vc", "<Cmd>CompareClipboard<CR>", { desc = "Compare clipboard" })
-      map("v", "<leader><leader>vc", "<Esc><Cmd>CompareClipboardSelection<CR>", { desc = "Compare clipboard selection" })
+      map(
+        "v",
+        "<leader><leader>vc",
+        "<Esc><Cmd>CompareClipboardSelection<CR>",
+        { desc = "Compare clipboard selection" }
+      )
 
       function _G.toggle_diffview()
         local bufnr = vim.api.nvim_get_current_buf()
