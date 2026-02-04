@@ -20,11 +20,11 @@ return {
         use_icons = true,
         view = {
           default = {
-            layout = "diff2_vertical",
+            layout = "diff2_horizontal",
             winbar_info = true,
           },
           file_history = {
-            layout = "diff2_vertical",
+            layout = "diff2_horizontal",
             winbar_info = true,
           },
           merge_tool = {
