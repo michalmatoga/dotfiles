@@ -9,10 +9,10 @@ return {
       local create_autocmd = vim.api.nvim_create_autocmd
 
       local function apply_diff_highlights()
-        set_hl(0, "DiffAdd", { bg = "#144620", fg = "#d4f4dd" })
-        set_hl(0, "DiffDelete", { bg = "#6f1313", fg = "#f8d7da" })
-        set_hl(0, "DiffChange", { bg = "#1f334a", fg = "#d0e7ff" })
-        set_hl(0, "DiffText", { bg = "#2c5372", fg = "#d0e7ff" })
+        set_hl(0, "DiffAdd", { bg = "#1f442d" })
+        set_hl(0, "DiffDelete", { bg = "#512026" })
+        set_hl(0, "DiffChange", { bg = "#1f314d" })
+        set_hl(0, "DiffText", { bg = "#2d4b6b", bold = true })
       end
 
       require("diffview").setup({
