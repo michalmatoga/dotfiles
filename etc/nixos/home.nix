@@ -81,7 +81,8 @@ in
     gnupg
     gnused
     gnutar
-    jq # A lightweight and flexible command-line JSON processor
+    hunspellDicts.pl_PL
+    jq
     kubectl
     kubectl-node-shell
     lazydocker
