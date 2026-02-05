@@ -39,16 +39,22 @@ return {
       local args = config_path and { "--config", config_path, "-" } or { "-" }
 
       opts.linters = opts.linters or {}
-      opts.linters.markdownlint_cli2 = opts.linters.markdownlint_cli2 or {}
-      opts.linters.markdownlint_cli2.args = args
 
-      if config_path then
-        local env = opts.linters.markdownlint_cli2.env or {}
-        env = vim.tbl_extend("force", env, {
-          MARKDOWNLINT_CLI2_CONFIG = config_path,
-          MARKDOWNLINT_CONFIG = config_path,
+      opts.linters.markdownlint_cli2 = function()
+        local linter = require("lint.linters.markdownlint-cli2")
+
+        linter = vim.tbl_deep_extend("force", {}, linter, {
+          args = args,
         })
-        opts.linters.markdownlint_cli2.env = env
+
+        if config_path then
+          linter.env = vim.tbl_deep_extend("force", {}, linter.env or {}, {
+            MARKDOWNLINT_CLI2_CONFIG = config_path,
+            MARKDOWNLINT_CONFIG = config_path,
+          })
+        end
+
+        return linter
       end
     end,
   },
