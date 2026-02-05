@@ -204,52 +204,9 @@ in
         fi
       fi
 
-      humioctl() {
-        if [ "$1" = "search" ]; then
-          shift
-          if [ -n "''${HUMIO_DEFAULT_REPO:-}" ]; then
-            local -a __flags __positional
-            while [ "$#" -gt 0 ]; do
-              case "$1" in
-                --)
-                  __flags+=("$1")
-                  shift
-                  while [ "$#" -gt 0 ]; do
-                    __positional+=("$1")
-                    shift
-                  done
-                  break
-                  ;;
-                -*)
-                  __flags+=("$1")
-                  shift
-                  if [ "$#" -gt 0 ] && [ "''${1#-}" = "$1" ]; then
-                    __flags+=("$1")
-                    shift
-                  fi
-                  ;;
-                *)
-                  __positional+=("$1")
-                  shift
-                  ;;
-              esac
-            done
-
-            if [ "''${#__positional[@]}" -eq 1 ]; then
-              __positional=("$HUMIO_DEFAULT_REPO" "''${__positional[1]}")
-            elif [ "''${#__positional[@]}" -eq 0 ]; then
-              __positional=("$HUMIO_DEFAULT_REPO")
-            fi
-
-            command humioctl search "''${__flags[@]}" "''${__positional[@]}"
-            return
-          fi
-          command humioctl search "$@"
-          return
-        fi
-
-        command humioctl "$@"
-      }
+      if [ -f ~/ghq/github.com/michalmatoga/dotfiles/scripts/humioctl-wrapper.zsh ]; then
+        source ~/ghq/github.com/michalmatoga/dotfiles/scripts/humioctl-wrapper.zsh
+      fi
 
       alias PWD='pwd' # necessary for compatibility with sourced script below
       source ~/ghq/github.com/michalmatoga/dotfiles/dist/gtm-terminal-plugin/gtm-plugin.sh
