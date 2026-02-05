@@ -7,7 +7,7 @@ return {
           args = {
             "--config",
             os.getenv("HOME") .. "/.markdownlint.json",
-            "--",
+            "-",
           },
         },
       },
