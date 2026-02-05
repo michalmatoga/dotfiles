@@ -41,6 +41,15 @@ return {
       opts.linters = opts.linters or {}
       opts.linters.markdownlint_cli2 = opts.linters.markdownlint_cli2 or {}
       opts.linters.markdownlint_cli2.args = args
+
+      if config_path then
+        local env = opts.linters.markdownlint_cli2.env or {}
+        env = vim.tbl_extend("force", env, {
+          MARKDOWNLINT_CLI2_CONFIG = config_path,
+          MARKDOWNLINT_CONFIG = config_path,
+        })
+        opts.linters.markdownlint_cli2.env = env
+      end
     end,
   },
 }
