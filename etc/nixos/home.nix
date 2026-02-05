@@ -189,6 +189,17 @@ in
       export PATH="$HOME/.cache/npm/global/bin:$PATH"
       source ~/ghq/github.com/michalmatoga/dotfiles/.env
 
+      if [ -f ~/ghq/github.com/michalmatoga/dotfiles/secrets.json ]; then
+        humio_address=$(jq -r '.humio.address // empty' ~/ghq/github.com/michalmatoga/dotfiles/secrets.json)
+        humio_token=$(jq -r '.humio.token // empty' ~/ghq/github.com/michalmatoga/dotfiles/secrets.json)
+        if [ -n "$humio_address" ]; then
+          export HUMIO_ADDRESS="$humio_address"
+        fi
+        if [ -n "$humio_token" ]; then
+          export HUMIO_TOKEN="$humio_token"
+        fi
+      fi
+
       alias PWD='pwd' # necessary for compatibility with sourced script below
       source ~/ghq/github.com/michalmatoga/dotfiles/dist/gtm-terminal-plugin/gtm-plugin.sh
 
