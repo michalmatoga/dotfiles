@@ -18,6 +18,9 @@
     overlays = [
       (final: prev: {
         gogcli = prev.callPackage ./gogcli.nix { unstableGo = unstableBase.go_1_25; };
+        python3Packages = prev.python3Packages // {
+          pynvim = unstableBase.python3Packages.pynvim;
+        };
       })
     ];
     pkgs = import nixpkgs { inherit system overlays; };

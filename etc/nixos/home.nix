@@ -33,6 +33,11 @@ in
     source = ../../.config/lazyvim;
   };
 
+  home.file.".config/lazyvim" = {
+    recursive = true;
+    source = ../../.config/lazyvim;
+  };
+
   home.file.".config/lazydocker/config.yml" = {
     source = ../../.config/lazydocker/config.yml;
   };
@@ -252,7 +257,8 @@ in
       set-window-option -g mode-keys vi
       set-option -s escape-time 0
       set-option -g default-terminal "tmux-256color"
-      set -ag terminal-overrides ",tmux-256color:RGB"
+      set-option -g focus-events on
+      set -sa terminal-features 'xterm-256color:RGB'
       set -g @catppuccin_flavour "frappe"
       set -g base-index 1
       setw -g pane-base-index 1
