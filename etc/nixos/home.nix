@@ -192,13 +192,60 @@ in
       if [ -f ~/ghq/github.com/michalmatoga/dotfiles/secrets.json ]; then
         humio_address=$(jq -r '.humio.address // empty' ~/ghq/github.com/michalmatoga/dotfiles/secrets.json)
         humio_token=$(jq -r '.humio.token // empty' ~/ghq/github.com/michalmatoga/dotfiles/secrets.json)
+        humio_default_repo=$(jq -r '.humio.default_repo // empty' ~/ghq/github.com/michalmatoga/dotfiles/secrets.json)
         if [ -n "$humio_address" ]; then
           export HUMIO_ADDRESS="$humio_address"
         fi
         if [ -n "$humio_token" ]; then
           export HUMIO_TOKEN="$humio_token"
         fi
+        if [ -n "$humio_default_repo" ]; then
+          export HUMIO_DEFAULT_REPO="$humio_default_repo"
+        fi
       fi
+
+      humioctl() {
+        if [ "$1" = "search" ]; then
+          shift
+          if [ -n "${HUMIO_DEFAULT_REPO:-}" ]; then
+            local -a __flags __positional
+            while [ "$#" -gt 0 ]; do
+              case "$1" in
+                --)
+                  __flags+=("$1")
+                  shift
+                  while [ "$#" -gt 0 ]; do
+                    __positional+=("$1")
+                    shift
+                  done
+                  break
+                  ;;
+                -*)
+                  __flags+=("$1")
+                  shift
+                  ;;
+                *)
+                  __positional+=("$1")
+                  shift
+                  ;;
+              esac
+            done
+
+            if [ "${#__positional[@]}" -eq 1 ]; then
+              __positional=("$HUMIO_DEFAULT_REPO" "${__positional[1]}")
+            elif [ "${#__positional[@]}" -eq 0 ]; then
+              __positional=("$HUMIO_DEFAULT_REPO")
+            fi
+
+            command humioctl search "${__flags[@]}" "${__positional[@]}"
+            return
+          fi
+          command humioctl search "$@"
+          return
+        fi
+
+        command humioctl "$@"
+      }
 
       alias PWD='pwd' # necessary for compatibility with sourced script below
       source ~/ghq/github.com/michalmatoga/dotfiles/dist/gtm-terminal-plugin/gtm-plugin.sh
