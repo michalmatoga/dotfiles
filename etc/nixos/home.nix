@@ -81,6 +81,7 @@ in
     gnupg
     gnused
     gnutar
+    humioctl
     hunspellDicts.pl_PL
     jq
     kubectl
