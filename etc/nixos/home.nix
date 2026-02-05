@@ -207,7 +207,7 @@ in
       humioctl() {
         if [ "$1" = "search" ]; then
           shift
-          if [ -n "${HUMIO_DEFAULT_REPO:-}" ]; then
+          if [ -n "''${HUMIO_DEFAULT_REPO:-}" ]; then
             local -a __flags __positional
             while [ "$#" -gt 0 ]; do
               case "$1" in
@@ -223,6 +223,10 @@ in
                 -*)
                   __flags+=("$1")
                   shift
+                  if [ "$#" -gt 0 ] && [ "''${1#-}" = "$1" ]; then
+                    __flags+=("$1")
+                    shift
+                  fi
                   ;;
                 *)
                   __positional+=("$1")
@@ -231,13 +235,13 @@ in
               esac
             done
 
-            if [ "${#__positional[@]}" -eq 1 ]; then
-              __positional=("$HUMIO_DEFAULT_REPO" "${__positional[1]}")
-            elif [ "${#__positional[@]}" -eq 0 ]; then
+            if [ "''${#__positional[@]}" -eq 1 ]; then
+              __positional=("$HUMIO_DEFAULT_REPO" "''${__positional[1]}")
+            elif [ "''${#__positional[@]}" -eq 0 ]; then
               __positional=("$HUMIO_DEFAULT_REPO")
             fi
 
-            command humioctl search "${__flags[@]}" "${__positional[@]}"
+            command humioctl search "''${__flags[@]}" "''${__positional[@]}"
             return
           fi
           command humioctl search "$@"
