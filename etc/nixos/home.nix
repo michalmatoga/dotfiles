@@ -258,6 +258,7 @@ in
       set-option -s escape-time 0
       set-option -g default-terminal "tmux-256color"
       set-option -g focus-events on
+      set -ag terminal-overrides ",xterm-256color:RGB"
       set -sa terminal-features 'xterm-256color:RGB'
       set -g @catppuccin_flavour "frappe"
       set -g base-index 1
