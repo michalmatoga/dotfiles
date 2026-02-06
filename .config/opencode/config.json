@@ -1,0 +1,51 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "agent": {
+    "build": {
+      "mode": "primary",
+      "model": "litellm/gpt-5.2-codex"
+    },
+    "plan": {
+      "mode": "primary",
+      "model": "litellm/gpt-5.2-codex",
+      "tools": { "edit": true },
+      "permission": { "edit": "ask" }
+    },
+    "code-reviewer": {
+      "description": "Reviews code for best practices and potential issues",
+      "mode": "subagent",
+      "model": "litellm/gpt-5.2-codex",
+      "prompt": "You are a code reviewer. Focus on security, performance, and maintainability.",
+      "tools": {
+        "write": false,
+        "edit": false
+      }
+    }
+  },
+  "provider": {
+    "litellm": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "LiteLLM",
+      "options": {
+        "baseURL": "https://litellm.pct-ai-foundations-pro-1.eks.schibsted.io/v1"
+      },
+      "models": {
+        "gpt-5.2-codex": {
+          "name": "GPT-5.2 Codex"
+        },
+        "bedrock-claude-opus-4-5": {
+          "name": "Claude Opus 4.5 (Bedrock)"
+        }
+      }
+    },
+    "openai": {
+      "npm": "@ai-sdk/openai",
+      "name": "OpenAI",
+      "models": {
+        "gpt-5.2-codex": {
+          "name": "GPT-5.2 Codex (OpenAI)"
+        }
+      }
+    }
+  }
+}

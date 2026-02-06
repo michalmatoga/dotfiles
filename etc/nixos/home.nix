@@ -42,6 +42,10 @@ in
     source = ../../.config/lazydocker/config.yml;
   };
 
+  home.file.".config/opencode/config.json" = {
+    source = ../../.config/opencode/config.json;
+  };
+
   home.file.".config/k9s/skins/catppuccin-frappe.yaml" = {
     source = ../../.config/k9s/skins/catppuccin-frappe.yaml;
   };
