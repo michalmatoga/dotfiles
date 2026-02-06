@@ -53,16 +53,16 @@ return {
         return result.code == 0 and "main" or "master"
       end
 
-      map("n", "<leader><leader>hh", "<Cmd>DiffviewFileHistory<CR>", { desc = "Repo history" })
-      map("n", "<leader><leader>hf", "<Cmd>DiffviewFileHistory --follow %<CR>", { desc = "File history" })
-      map("n", "<leader><leader>hl", "<Cmd>.DiffviewFileHistory --follow<CR>", { desc = "Line history" })
-      map("v", "<leader><leader>hl", "<Esc><Cmd>'<,'>DiffviewFileHistory --follow<CR>", { desc = "Range history" })
+      map("n", "<leader>gah", "<Cmd>DiffviewFileHistory<CR>", { desc = "Repo history" })
+      map("n", "<leader>gaf", "<Cmd>DiffviewFileHistory --follow %<CR>", { desc = "File history" })
+      map("n", "<leader>gal", "<Cmd>.DiffviewFileHistory --follow<CR>", { desc = "Line history" })
+      map("v", "<leader>gal", "<Esc><Cmd>'<,'>DiffviewFileHistory --follow<CR>", { desc = "Range history" })
 
-      map("n", "<leader><leader>d", "<Cmd>DiffviewOpen<CR>", { desc = "Repo diff" })
-      map("n", "<leader><leader>hm", function()
+      map("n", "<leader>gad", "<Cmd>DiffviewOpen<CR>", { desc = "Repo diff" })
+      map("n", "<leader>gam", function()
         vim.cmd("DiffviewOpen " .. get_default_branch_name())
       end, { desc = "Diff against master" })
-      map("n", "<leader><leader>hM", function()
+      map("n", "<leader>gaM", function()
         vim.cmd("DiffviewOpen HEAD..origin/" .. get_default_branch_name())
       end, { desc = "Diff against origin/master" })
 
@@ -73,7 +73,7 @@ return {
         end
       end
 
-      map("n", "<leader><leader>vw", function()
+      map("n", "<leader>gaw", function()
         with_gitsigns(function(gs)
           if gs.toggle_word_diff then
             gs.toggle_word_diff()
@@ -81,7 +81,7 @@ return {
         end)
       end, { desc = "Toggle word diff" })
 
-      map("n", "<leader><leader>vL", function()
+      map("n", "<leader>gaL", function()
         with_gitsigns(function(gs)
           if gs.toggle_linehl then
             gs.toggle_linehl()
@@ -89,7 +89,7 @@ return {
         end)
       end, { desc = "Toggle line highlight" })
 
-      map("n", "<leader><leader>vv", function()
+      map("n", "<leader>gav", function()
         with_gitsigns(function(gs)
           if gs.toggle_deleted then
             gs.toggle_deleted()
@@ -97,7 +97,7 @@ return {
         end)
       end, { desc = "Toggle deleted lines" })
 
-      map("n", "<leader><leader>vh", function()
+      map("n", "<leader>gap", function()
         with_gitsigns(function(gs)
           if gs.preview_hunk then
             gs.preview_hunk()
@@ -135,15 +135,15 @@ return {
         vim.cmd([[windo diffthis]])
       end, { range = true })
 
-      map("n", "<leader><leader>vc", "<Cmd>CompareClipboard<CR>", { desc = "Compare clipboard" })
+      map("n", "<leader>gac", "<Cmd>CompareClipboard<CR>", { desc = "Compare clipboard" })
       map(
         "v",
-        "<leader><leader>vc",
+        "<leader>gac",
         "<Esc><Cmd>CompareClipboardSelection<CR>",
         { desc = "Compare clipboard selection" }
       )
 
-      map("n", "<leader><leader>q", function()
+      map("n", "<leader>gaq", function()
         local ok, lib = pcall(require, "diffview.lib")
         if ok and lib.get_current_view() then
           vim.cmd("DiffviewClose")
@@ -162,7 +162,7 @@ return {
         end
       end
 
-      map("n", "<leader>gD", "<Cmd>lua toggle_diffview()<CR>", { desc = "DiffView toggle" })
+      map("n", "<leader>gaD", "<Cmd>lua toggle_diffview()<CR>", { desc = "DiffView toggle" })
     end,
   },
 }
