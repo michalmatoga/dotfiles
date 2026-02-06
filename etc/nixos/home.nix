@@ -103,6 +103,7 @@ in
     lua51Packages.luarocks
     mariadb
     markdownlint-cli2
+    marksman
     mkcert
     mongodb-tools
     neofetch
