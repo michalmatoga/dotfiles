@@ -136,12 +136,7 @@ return {
       end, { range = true })
 
       map("n", "<leader>gac", "<Cmd>CompareClipboard<CR>", { desc = "Compare clipboard" })
-      map(
-        "v",
-        "<leader>gac",
-        "<Esc><Cmd>CompareClipboardSelection<CR>",
-        { desc = "Compare clipboard selection" }
-      )
+      map("v", "<leader>gac", "<Esc><Cmd>CompareClipboardSelection<CR>", { desc = "Compare clipboard selection" })
 
       map("n", "<leader>gaq", function()
         local ok, lib = pcall(require, "diffview.lib")
@@ -153,9 +148,8 @@ return {
       end, { desc = "Close Diffview" })
 
       function _G.toggle_diffview()
-        local bufnr = vim.api.nvim_get_current_buf()
-        local buftype = vim.api.nvim_get_option_value("buftype", { buf = bufnr })
-        if buftype == "nofile" then
+        local ok, lib = pcall(require, "diffview.lib")
+        if ok and lib.get_current_view() then
           vim.cmd("DiffviewClose")
         else
           vim.cmd("DiffviewOpen")
