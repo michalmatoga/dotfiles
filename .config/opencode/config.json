@@ -3,18 +3,18 @@
   "agent": {
     "build": {
       "mode": "primary",
-      "model": "litellm/gpt-5.2-codex"
+      "model": "openai/gpt-5.2-codex"
     },
     "plan": {
       "mode": "primary",
-      "model": "litellm/gpt-5.2-codex",
+      "model": "openai/gpt-5.2-codex",
       "tools": { "edit": true },
       "permission": { "edit": "ask" }
     },
     "code-reviewer": {
       "description": "Reviews code for best practices and potential issues",
       "mode": "subagent",
-      "model": "litellm/gpt-5.2-codex",
+      "model": "openai/gpt-5.2-codex",
       "prompt": "You are a code reviewer. Focus on security, performance, and maintainability.",
       "tools": {
         "write": false,
