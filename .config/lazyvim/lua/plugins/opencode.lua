@@ -5,12 +5,32 @@ return {
       -- Recommended for `ask()` and `select()`.
       -- Required for `snacks` provider.
       ---@module 'snacks' <- Loads `snacks.nvim` types for configuration intellisense.
-      { "folke/snacks.nvim", opts = { input = {}, picker = {}, terminal = {} } },
+      {
+        "folke/snacks.nvim",
+        opts = function(_, opts)
+          opts.input = opts.input or {}
+          opts.picker = opts.picker or {}
+          opts.terminal = opts.terminal or {}
+        end,
+      },
     },
     config = function()
+      local opencode_port = tonumber(vim.env.OPENCODE_PORT)
+
       ---@type opencode.Opts
       vim.g.opencode_opts = {
-        -- Your configuration, if any — see `lua/opencode/config.lua`, or "goto definition" on the type or field.
+        provider = {
+          enabled = false,
+        },
+        port = opencode_port,
+        ask = {
+          blink_cmp_sources = { "opencode" },
+        },
+        select = {
+          snacks = {
+            preview = "hidden",
+          },
+        },
       }
 
       -- Required for `opts.events.reload`.
