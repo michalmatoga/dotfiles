@@ -8,6 +8,7 @@ Syncs pending GitHub review requests from `schibsted.ghe.com` into Trello as car
 `Blocked` list on board `HZ7hcWZy`.
 
 ### Behavior
+
 - Pulls open, non-draft PRs where review is requested for `michal-matoga`.
 - Creates a Trello card titled `REVIEW: [org/repo] <PR title>`.
 - Card description includes the PR URL and PR description.
@@ -25,18 +26,21 @@ npx --yes tsx scripts/wf/review-requests.ts --verbose
 ```
 
 Flags:
+
 - `--dry-run` prints actions without mutating Trello.
 - `--verbose` prints additional diagnostics.
 
 ### Required Environment
 
 Loaded from `.env` in the repo root:
+
 - `TRELLO_API_KEY`
 - `TRELLO_TOKEN`
 
 ### Scheduler
 
 An hourly systemd user timer is declared in `etc/nixos/home.nix`:
+
 - Service: `review-requests-to-trello`
 - Timer: `review-requests-to-trello`
 
@@ -44,4 +48,12 @@ To apply via home-manager:
 
 ```bash
 home-manager switch --flake .#nixos
+```
+
+### Logs
+
+```bash
+journalctl --user -u review-requests-to-trello.service
+journalctl --user -u review-requests-to-trello.service -f
+systemctl --user status review-requests-to-trello.service
 ```
