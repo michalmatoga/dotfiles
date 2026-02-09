@@ -1,4 +1,10 @@
 import { execFile } from "node:child_process";
+import {
+  appendFileSync,
+  existsSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 
 type ReviewRequestNode = {
   createdAt?: string;
@@ -113,6 +119,9 @@ const viewerQuery = `
   }
 `;
 
+const journalCsvPath =
+  "/home/nixos/ghq/gitlab.com/michalmatoga/journal/pr-review-standard.csv";
+
 (async function main() {
   if (args.includes("--help") || args.includes("-h")) {
     printHelp();
@@ -133,6 +142,18 @@ const viewerQuery = `
     const latency = computeLatency(pr, viewerLogin, windowStart);
     if (latency) results.push(latency);
   }
+
+  appendJournalEntry(
+    journalCsvPath,
+    buildCsvEntry(
+      viewerLogin,
+      windowStartIso,
+      pullRequests.length,
+      results,
+      truncatedReviews,
+      truncatedRequests,
+    ),
+  );
 
   if (options.json) {
     const payload = buildJsonPayload(
@@ -156,6 +177,105 @@ const viewerQuery = `
     truncatedRequests,
   );
 })();
+
+type CsvEntry = {
+  header: string[];
+  row: string[];
+};
+
+function appendJournalEntry(filePath: string, entry: CsvEntry) {
+  const headerLine = `${entry.header.join(",")}\n`;
+  const rowLine = `${entry.row.map(escapeCsv).join(",")}\n`;
+
+  if (!existsSync(filePath)) {
+    writeFileSync(filePath, headerLine, "utf8");
+    appendFileSync(filePath, rowLine, "utf8");
+    return;
+  }
+
+  const existing = safeReadFile(filePath);
+  const [firstLine, ...rest] = existing.split("\n");
+  const needsRewrite =
+    firstLine.trim() !== entry.header.join(",") &&
+    firstLine.trim() === "timestamp";
+
+  if (needsRewrite) {
+    const preservedRows = rest.filter((line) => line.trim().length > 0);
+    const rewritten = [headerLine.trimEnd(), ...preservedRows].join("\n");
+    writeFileSync(filePath, `${rewritten}\n`, "utf8");
+  }
+
+  appendFileSync(filePath, rowLine, "utf8");
+}
+
+function safeReadFile(filePath: string): string {
+  try {
+    return readFileSync(filePath, "utf8");
+  } catch {
+    return "";
+  }
+}
+
+function escapeCsv(value: string): string {
+  if (value.includes("\"")) {
+    value = value.replace(/\"/g, "\"\"");
+  }
+  if (/[",\n]/.test(value)) {
+    return `"${value}"`;
+  }
+  return value;
+}
+
+function buildCsvEntry(
+  viewerLogin: string,
+  windowStartIso: string,
+  scanned: number,
+  results: LatencyResult[],
+  truncatedReviews: number,
+  truncatedRequests: number,
+): CsvEntry {
+  const durations = results.map((result) => result.durationMs);
+  const avg = average(durations);
+  const med = median(durations);
+  const min = durations.length ? Math.min(...durations) : 0;
+  const max = durations.length ? Math.max(...durations) : 0;
+
+  const header = [
+    "timestamp",
+    "host",
+    "viewer",
+    "window_start",
+    "days",
+    "prs_scanned",
+    "prs_matched",
+    "prs_skipped",
+    "average_hours",
+    "median_hours",
+    "min_hours",
+    "max_hours",
+    "truncated_reviews",
+    "truncated_requests",
+  ];
+
+  const row = [
+    new Date().toISOString(),
+    options.host,
+    viewerLogin,
+    windowStartIso,
+    String(options.days),
+    String(scanned),
+    String(results.length),
+    String(scanned - results.length),
+    (avg / (1000 * 60 * 60)).toFixed(4),
+    (med / (1000 * 60 * 60)).toFixed(4),
+    (min / (1000 * 60 * 60)).toFixed(4),
+    (max / (1000 * 60 * 60)).toFixed(4),
+    String(truncatedReviews),
+    String(truncatedRequests),
+  ];
+
+  return { header, row };
+}
 
 function parseArgs(argv: string[]): Options {
   let days = 30;
