@@ -291,5 +291,29 @@ in
     enable = true;
   };
 
+  systemd.user.services.review-requests-to-trello = {
+    Unit = {
+      Description = "Sync GitHub review requests to Trello";
+    };
+    Service = {
+      Type = "oneshot";
+      WorkingDirectory = "%h/ghq/github.com/michalmatoga/dotfiles";
+      ExecStart = "${pkgs.nodejs_24}/bin/npx --yes tsx %h/ghq/github.com/michalmatoga/dotfiles/scripts/wf/review-requests.ts";
+    };
+  };
+
+  systemd.user.timers.review-requests-to-trello = {
+    Unit = {
+      Description = "Hourly GitHub review requests to Trello";
+    };
+    Timer = {
+      OnCalendar = "hourly";
+      Persistent = true;
+    };
+    Install = {
+      WantedBy = [ "timers.target" ];
+    };
+  };
+
   home.stateVersion = "23.11";
 }
