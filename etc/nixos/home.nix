@@ -129,6 +129,7 @@ in
     zig
     zip
     zstd
+    agent-of-empires
     gogcli
   ] ++ unstablePackages;
 

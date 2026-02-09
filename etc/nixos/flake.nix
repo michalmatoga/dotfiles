@@ -17,6 +17,7 @@
     unstableBase = import nixpkgs-unstable { inherit system; };
     overlays = [
       (final: prev: {
+        agent-of-empires = prev.callPackage ./agent-of-empires.nix { };
         gogcli = prev.callPackage ./gogcli.nix { unstableGo = unstableBase.go_1_25; };
         python3Packages = prev.python3Packages // {
           pynvim = unstableBase.python3Packages.pynvim;
@@ -45,6 +46,9 @@
      ];
    };
 
-   packages.${system}.gogcli = pkgs.gogcli;
+   packages.${system} = {
+     agent-of-empires = pkgs.agent-of-empires;
+     gogcli = pkgs.gogcli;
+   };
   };
 }
