@@ -1,53 +1,14 @@
-import { loadEnvFile, requireEnv } from "./lib/env";
-import { fetchReviewRequests, type ReviewRequest } from "./lib/review-requests";
-import { trelloRequest, type TrelloCard } from "./lib/trello";
+import { loadEnvFile, requireEnv } from "./env";
+import { type ReviewRequest } from "./review-requests";
+import { trelloRequest, type TrelloCard } from "./trello";
 
-const ghHost = "schibsted.ghe.com";
-const ghUser = "michal-matoga";
 const trelloBoardId = "HZ7hcWZy";
 const trelloBlockedListId = "68d38cb24e504757ecc2d19a";
 const trelloCodeReviewLabelId = "686cbf33add233ccba380f46";
 const trelloWorkLabelId = "6694db7c23e5de7bec1b7489";
 const trelloEnvFile = ".env";
 
-const prUrlRegex = new RegExp(
-  `https://${ghHost.replace(/\./g, "\\.")}/[^\s)]+/pull/\\d+`,
-  "g",
-);
-
-const parseArgs = (args: string[]) => {
-  const flags = new Set(args);
-  return {
-    dryRun: flags.has("--dry-run"),
-    verbose: flags.has("--verbose"),
-  };
-};
-
-const fetchReviewRequests = async (): Promise<ReviewRequest[]> => {
-  const response = await ghJson<Array<{ title: string; url: string; body: string | null }>>(
-    [
-    "search",
-    "prs",
-    "draft:false",
-    "--review-requested",
-    ghUser,
-    "--state",
-    "open",
-    "--json",
-    "title,url,body",
-    "--limit",
-    "100",
-    ],
-    { host: ghHost },
-  );
-
-  return response.map((item) => ({
-    title: item.title,
-    url: item.url,
-    body: item.body ?? null,
-    repo: extractRepoSlug(item.url),
-  }));
-};
+const prUrlRegex = /https:\/\/schibsted\.ghe\.com\/[^\s)]+\/pull\/\d+/g;
 
 const fetchOpenCards = async (): Promise<TrelloCard[]> => {
   return trelloRequest<TrelloCard[]>(`boards/${trelloBoardId}/cards`, {
@@ -67,7 +28,6 @@ const buildCardDescription = (request: ReviewRequest) => {
 };
 
 const createTrelloCard = async (
-  listId: string,
   request: ReviewRequest,
   dryRun: boolean,
 ) => {
@@ -81,10 +41,10 @@ const createTrelloCard = async (
   await trelloRequest(
     "cards",
     {
-    idList: listId,
-    name,
-    desc,
-    idLabels: `${trelloCodeReviewLabelId},${trelloWorkLabelId}`,
+      idList: trelloBlockedListId,
+      name,
+      desc,
+      idLabels: `${trelloCodeReviewLabelId},${trelloWorkLabelId}`,
     },
     { method: "POST" },
   );
@@ -100,17 +60,16 @@ const archiveCard = async (card: TrelloCard, dryRun: boolean) => {
   console.log(`Archived card: ${card.name}`);
 };
 
-const main = async () => {
-  const { dryRun, verbose } = parseArgs(process.argv.slice(2));
+export const runReviewRequestSync = async (options: {
+  reviewRequests: ReviewRequest[];
+  dryRun: boolean;
+  verbose: boolean;
+}) => {
   await loadEnvFile(trelloEnvFile);
-
   requireEnv("TRELLO_API_KEY");
   requireEnv("TRELLO_TOKEN");
 
-  const [openCards, reviewRequests] = await Promise.all([
-    fetchOpenCards(),
-    fetchReviewRequests({ host: ghHost, user: ghUser }),
-  ]);
+  const openCards = await fetchOpenCards();
 
   const openCardUrls = new Set<string>();
   for (const card of openCards) {
@@ -120,22 +79,24 @@ const main = async () => {
     }
   }
 
-  const activeUrls = new Set(reviewRequests.map((request) => request.url));
-
-  if (verbose) {
-    console.log(`Review requests: ${reviewRequests.length}`);
+  if (options.verbose) {
+    console.log(`Review requests: ${options.reviewRequests.length}`);
     console.log(`Open cards: ${openCards.length}`);
   }
 
-  for (const request of reviewRequests) {
+  const newlyCreated: ReviewRequest[] = [];
+  for (const request of options.reviewRequests) {
     if (openCardUrls.has(request.url)) {
-      if (verbose) {
+      if (options.verbose) {
         console.log(`Skip existing card for ${request.url}`);
       }
       continue;
     }
-    await createTrelloCard(trelloBlockedListId, request, dryRun);
+    await createTrelloCard(request, options.dryRun);
+    newlyCreated.push(request);
   }
+
+  const activeUrls = new Set(options.reviewRequests.map((request) => request.url));
 
   for (const card of openCards) {
     if (!card.idLabels.includes(trelloCodeReviewLabelId)) {
@@ -143,20 +104,16 @@ const main = async () => {
     }
     const urls = extractPrUrls(card.desc);
     if (urls.size === 0) {
-      if (verbose) {
+      if (options.verbose) {
         console.log(`Skip unlabeled card without PR URL: ${card.name}`);
       }
       continue;
     }
     const isActive = Array.from(urls).some((url) => activeUrls.has(url));
     if (!isActive) {
-      await archiveCard(card, dryRun);
+      await archiveCard(card, options.dryRun);
     }
   }
-};
 
-main().catch((error) => {
-  const message = error instanceof Error ? error.message : String(error);
-  console.error(message);
-  process.exit(1);
-});
+  return { newlyCreated };
+};

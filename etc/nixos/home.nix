@@ -298,7 +298,7 @@ in
     Service = {
       Type = "oneshot";
       WorkingDirectory = "%h/ghq/github.com/michalmatoga/dotfiles";
-      ExecStart = "${pkgs.nodejs_24}/bin/npx --yes tsx %h/ghq/github.com/michalmatoga/dotfiles/scripts/wf/review-requests.ts";
+      ExecStart = "${pkgs.nodejs_24}/bin/npx --yes tsx %h/ghq/github.com/michalmatoga/dotfiles/scripts/wf/main.ts";
     };
   };
 

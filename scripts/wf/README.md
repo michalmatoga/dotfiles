@@ -21,19 +21,28 @@ Syncs pending GitHub review requests from `schibsted.ghe.com` into Trello as car
 ### Manual Run
 
 ```bash
-npx --yes tsx scripts/wf/review-requests.ts --dry-run --verbose
-npx --yes tsx scripts/wf/review-requests.ts --verbose
+npx --yes tsx scripts/wf/main.ts --dry-run --verbose
+npx --yes tsx scripts/wf/main.ts --verbose
+npx --yes tsx scripts/wf/main.ts --sessions --dry-run
+npx --yes tsx scripts/wf/main.ts --trello --dry-run
 ```
 
 Flags:
 
 - `--dry-run` prints actions without mutating Trello.
 - `--verbose` prints additional diagnostics.
+- `--sessions` runs Workflow 2 only (skips Trello).
+- `--trello` runs Workflow 1 only (skips sessions).
 
 ### Prompts
 
 Default review prompt:
+
 - `scripts/wf/prompts/review.md`
+
+### Entrypoint
+
+- `scripts/wf/main.ts`
 
 ### Workflow Docs
 
