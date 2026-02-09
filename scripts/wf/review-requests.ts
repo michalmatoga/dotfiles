@@ -23,6 +23,7 @@ const ghUser = "michal-matoga";
 const trelloBoardId = "HZ7hcWZy";
 const trelloBlockedListId = "68d38cb24e504757ecc2d19a";
 const trelloCodeReviewLabelId = "686cbf33add233ccba380f46";
+const trelloWorkLabelId = "6694db7c23e5de7bec1b7489";
 const trelloEnvFile = ".env";
 
 const prUrlRegex = new RegExp(
@@ -163,12 +164,16 @@ const createTrelloCard = async (
     console.log(`[dry-run] create card: ${name}`);
     return;
   }
-  await trelloRequest("cards", {
+  await trelloRequest(
+    "cards",
+    {
     idList: listId,
     name,
     desc,
-    idLabels: trelloCodeReviewLabelId,
-  }, { method: "POST" });
+    idLabels: `${trelloCodeReviewLabelId},${trelloWorkLabelId}`,
+    },
+    { method: "POST" },
+  );
   console.log(`Created card: ${name}`);
 };
 

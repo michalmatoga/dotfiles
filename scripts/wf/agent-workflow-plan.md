@@ -95,6 +95,7 @@ in the `Blocked` list on board `HZ7hcWZy`.
 - Trello list: `Blocked`
 - Trello list id: `68d38cb24e504757ecc2d19a` (Blocked)
 - Trello label id: `686cbf33add233ccba380f46` (Code Review)
+- Trello label id: `6694db7c23e5de7bec1b7489` (Praca w Schibsted)
 
 ### Implementation Notes
 
@@ -129,5 +130,6 @@ in the `Blocked` list on board `HZ7hcWZy`.
 - Exclude draft PRs from review requests.
 - Card title format: `REVIEW: [org/repo] <original PR title>`.
 - Card labels: include `686cbf33add233ccba380f46` (Code Review).
+- Card labels: also include `6694db7c23e5de7bec1b7489` (Praca w Schibsted).
 - Card description: include a link to the PR and the PR description.
 - Archive sweep scope: all lists on the board.
