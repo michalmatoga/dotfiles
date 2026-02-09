@@ -20,6 +20,10 @@ in
   home.file.".ssh/config".text = ''
     Host *
       StrictHostKeyChecking no
+
+    Host schibsted.ghe.com
+      IdentityFile ~/.ssh/id_rsa
+      IdentitiesOnly yes
   '';
 
   home.file.".config/git" = {
