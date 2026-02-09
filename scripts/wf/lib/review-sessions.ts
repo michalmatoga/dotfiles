@@ -1,4 +1,4 @@
-import { mkdir, readFile } from "node:fs/promises";
+import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { runCommand } from "./command";
@@ -18,16 +18,14 @@ const ensureBareRepo = async (
   options: { dryRun: boolean; verbose: boolean },
 ) => {
   await mkdir(barePath, { recursive: true });
-  const hasGitDir = await runCommand("git", ["-C", barePath, "rev-parse", "--git-dir"], {
-    dryRun: options.dryRun,
-    verbose: options.verbose,
-  }).then(
+  const headPath = join(barePath, "HEAD");
+  const hasHead = await access(headPath).then(
     () => true,
     () => false,
   );
 
-  if (!hasGitDir && !options.dryRun) {
-    await runCommand("git", ["-C", barePath, "init", "--bare"], {
+  if (!hasHead) {
+    await runCommand("git", ["init", "--bare", barePath], {
       dryRun: options.dryRun,
       verbose: options.verbose,
     });
@@ -36,17 +34,23 @@ const ensureBareRepo = async (
   await runCommand("git", ["-C", barePath, "remote", "get-url", "origin"], {
     dryRun: options.dryRun,
     verbose: options.verbose,
-  }).catch(async () => {
-    await runCommand("git", ["-C", barePath, "remote", "add", "origin", cloneUrl], {
-      dryRun: options.dryRun,
-      verbose: options.verbose,
+  })
+    .then(async () => {
+      await runCommand("git", ["-C", barePath, "remote", "set-url", "origin", cloneUrl], {
+        dryRun: options.dryRun,
+        verbose: options.verbose,
+      });
+    })
+    .catch(async () => {
+      await runCommand("git", ["-C", barePath, "remote", "add", "origin", cloneUrl], {
+        dryRun: options.dryRun,
+        verbose: options.verbose,
+      });
     });
-  });
 };
 
-const buildOpencodeCommand = (title: string, prompt: string) => {
-  const escapedPrompt = prompt.replaceAll("\"", "\\\"");
-  return `opencode run --format json --title "${title}" --share "${escapedPrompt}"`;
+const buildOpencodeCommand = (title: string, promptFile: string) => {
+  return `bash -lc 'opencode run --format json --title "${title}" --share "$(cat "${promptFile}")"'`;
 };
 
 export const runReviewSessions = async (
@@ -69,7 +73,7 @@ export const runReviewSessions = async (
     const prNumber = request.url.split("/pull/")[1];
     const bareRepoPath = join(options.workspaceRoot, org, `${repo}.git`);
     const worktreePath = join(options.workspaceRoot, org, repo, `pr-${prNumber}`);
-    const cloneUrl = `git@${options.host}:${request.repo}.git`;
+    const cloneUrl = `schibsted@${options.host}:${request.repo}.git`;
 
     await ensureBareRepo(bareRepoPath, cloneUrl, options);
     await runCommand("git", ["-C", bareRepoPath, "fetch", "origin", "+refs/pull/*/head:refs/pull/*"], {
@@ -80,7 +84,7 @@ export const runReviewSessions = async (
     await mkdir(worktreePath, { recursive: true });
     await runCommand(
       "git",
-      ["-C", bareRepoPath, "worktree", "add", "--force", worktreePath, `refs/pull/${prNumber}/head`],
+      ["-C", bareRepoPath, "worktree", "add", "--force", worktreePath, `refs/pull/${prNumber}`],
       { dryRun: options.dryRun, verbose: options.verbose },
     );
 
@@ -88,7 +92,11 @@ export const runReviewSessions = async (
     const prompt = promptTemplate
       .replaceAll("[org/repo]", request.repo)
       .replaceAll("[pr-url]", request.url);
-    const opencodeCmd = buildOpencodeCommand(title, prompt);
+    const promptFile = join(worktreePath, ".wf-review-prompt.txt");
+    if (!options.dryRun) {
+      await writeFile(promptFile, prompt, "utf8");
+    }
+    const opencodeCmd = buildOpencodeCommand(title, promptFile);
 
     const aoeArgs = [
       "add",
