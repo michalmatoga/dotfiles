@@ -30,6 +30,15 @@ Flags:
 - `--dry-run` prints actions without mutating Trello.
 - `--verbose` prints additional diagnostics.
 
+### Prompts
+
+Default review prompt:
+- `scripts/wf/prompts/review.md`
+
+### Workflow Docs
+
+- `scripts/wf/agent-workflow-plan.md`
+
 ### Required Environment
 
 Loaded from `.env` in the repo root:

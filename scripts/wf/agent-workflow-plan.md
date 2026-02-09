@@ -133,3 +133,33 @@ in the `Blocked` list on board `HZ7hcWZy`.
 - Card labels: also include `6694db7c23e5de7bec1b7489` (Praca w Schibsted).
 - Card description: include a link to the PR and the PR description.
 - Archive sweep scope: all lists on the board.
+
+## Workflow 2: Review Request Workspace + Sessions
+
+### Purpose
+
+For each new review request, prepare a local worktree checkout and spawn automation sessions
+to support code review.
+
+### Trigger
+
+- Same loop as Workflow 1 when a new review request is detected.
+
+### Actions
+
+1. Ensure a bare repo exists under `~/g/[GH_HOST]/[org]/[repo].git`.
+2. Fetch the PR branch into the bare repo.
+3. Create a worktree at `~/g/[GH_HOST]/[org]/[repo]/[pr-<number>]`.
+4. Spawn an opencode session to run a code review against `main`.
+5. Create a new Agent of Empires (AoE) session for review management.
+
+### Decisions
+
+- Workspace layout: `~/g/[GH_HOST]/[org]/[repo]/[pr-<number>]` with bare repo at `~/g/[GH_HOST]/[org]/[repo].git`.
+- Checkout strategy: `git fetch` + `git worktree add` against a bare repo.
+- opencode CLI invocation: `opencode run --format json --title "Review org/repo#<number>" --share "<prompt>"`.
+- AoE CLI command: `aoe add <worktree-path> --title "Review org/repo#<number>" --group "reviews/[GH_HOST]/org/repo" --cmd "opencode run --format json --title \"Review org/repo#<number>\" --share \"<prompt>\"" --launch`.
+
+### Default Opencode Prompt (editable)
+
+Stored at `scripts/wf/prompts/review.md` for easy iteration.

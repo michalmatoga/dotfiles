@@ -1,22 +1,6 @@
-import { execFile } from "node:child_process";
-import { readFile } from "node:fs/promises";
-import { promisify } from "node:util";
-
-type ReviewRequest = {
-  title: string;
-  url: string;
-  body: string | null;
-  repo: string | null;
-};
-
-type TrelloCard = {
-  id: string;
-  name: string;
-  desc: string;
-  idLabels: string[];
-};
-
-const execFileAsync = promisify(execFile);
+import { loadEnvFile, requireEnv } from "./lib/env";
+import { fetchReviewRequests, type ReviewRequest } from "./lib/review-requests";
+import { trelloRequest, type TrelloCard } from "./lib/trello";
 
 const ghHost = "schibsted.ghe.com";
 const ghUser = "michal-matoga";
@@ -31,33 +15,6 @@ const prUrlRegex = new RegExp(
   "g",
 );
 
-const readEnvFile = async (filePath: string) => {
-  const content = await readFile(filePath, "utf8");
-  for (const rawLine of content.split("\n")) {
-    const line = rawLine.trim();
-    if (!line || line.startsWith("#")) {
-      continue;
-    }
-    const match = line.match(/^(?:export\s+)?([A-Z0-9_]+)=(.*)$/);
-    if (!match) {
-      continue;
-    }
-    const [, key, valueRaw] = match;
-    const value = valueRaw.replace(/^['"]|['"]$/g, "");
-    if (!process.env[key]) {
-      process.env[key] = value;
-    }
-  }
-};
-
-const requireEnv = (name: string) => {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`Missing required env var: ${name}`);
-  }
-  return value;
-};
-
 const parseArgs = (args: string[]) => {
   const flags = new Set(args);
   return {
@@ -66,49 +23,9 @@ const parseArgs = (args: string[]) => {
   };
 };
 
-const ghJson = async <T,>(args: string[]): Promise<T> => {
-  try {
-    const { stdout } = await execFileAsync("gh", args, {
-      env: { ...process.env, GH_HOST: ghHost },
-      maxBuffer: 1024 * 1024 * 10,
-    });
-    return JSON.parse(stdout) as T;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(
-      `Failed to query GitHub via gh CLI (${ghHost}). ${message}. Ensure gh auth is set up for ${ghHost}.`,
-    );
-  }
-};
-
-const trelloRequest = async <T,>(
-  path: string,
-  params: Record<string, string | number | boolean | undefined>,
-  options: { method?: string } = {},
-): Promise<T> => {
-  const apiKey = requireEnv("TRELLO_API_KEY");
-  const token = requireEnv("TRELLO_TOKEN");
-  const url = new URL(`https://api.trello.com/1/${path}`);
-
-  url.searchParams.set("key", apiKey);
-  url.searchParams.set("token", token);
-  for (const [key, value] of Object.entries(params)) {
-    if (value !== undefined) {
-      url.searchParams.set(key, String(value));
-    }
-  }
-
-  const response = await fetch(url, { method: options.method ?? "GET" });
-  if (!response.ok) {
-    throw new Error(
-      `Trello API request failed (${response.status} ${response.statusText}) for ${path}`,
-    );
-  }
-  return (await response.json()) as T;
-};
-
 const fetchReviewRequests = async (): Promise<ReviewRequest[]> => {
-  const response = await ghJson<Array<{ title: string; url: string; body: string | null }>>([
+  const response = await ghJson<Array<{ title: string; url: string; body: string | null }>>(
+    [
     "search",
     "prs",
     "draft:false",
@@ -120,7 +37,9 @@ const fetchReviewRequests = async (): Promise<ReviewRequest[]> => {
     "title,url,body",
     "--limit",
     "100",
-  ]);
+    ],
+    { host: ghHost },
+  );
 
   return response.map((item) => ({
     title: item.title,
@@ -145,11 +64,6 @@ const extractPrUrls = (text: string): Set<string> => {
 const buildCardDescription = (request: ReviewRequest) => {
   const body = request.body?.trim();
   return body ? `PR: ${request.url}\n\n${body}` : `PR: ${request.url}`;
-};
-
-const extractRepoSlug = (url: string): string | null => {
-  const match = url.match(new RegExp(`https://${ghHost.replace(/\./g, "\\.")}/([^/]+/[^/]+)/pull/\\d+`));
-  return match?.[1] ?? null;
 };
 
 const createTrelloCard = async (
@@ -188,14 +102,14 @@ const archiveCard = async (card: TrelloCard, dryRun: boolean) => {
 
 const main = async () => {
   const { dryRun, verbose } = parseArgs(process.argv.slice(2));
-  await readEnvFile(trelloEnvFile);
+  await loadEnvFile(trelloEnvFile);
 
   requireEnv("TRELLO_API_KEY");
   requireEnv("TRELLO_TOKEN");
 
   const [openCards, reviewRequests] = await Promise.all([
     fetchOpenCards(),
-    fetchReviewRequests(),
+    fetchReviewRequests({ host: ghHost, user: ghUser }),
   ]);
 
   const openCardUrls = new Set<string>();
