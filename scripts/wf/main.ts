@@ -1,8 +1,10 @@
 import { join } from "node:path";
 
 import { loadEnvFile } from "./lib/env";
+import { fetchAssignedIssues } from "./lib/assigned-issues";
 import { fetchReviewRequests } from "./lib/review-requests";
 import { runReviewSessions } from "./lib/review-sessions";
+import { runAssignedIssuesSync } from "./lib/workflow-assigned-issues";
 import { runReviewRequestSync } from "./lib/workflow-review-requests";
 
 const ghHost = "schibsted.ghe.com";
@@ -27,10 +29,16 @@ const parseArgs = (args: string[]) => {
 const main = async () => {
   const { dryRun, verbose, mode } = parseArgs(process.argv.slice(2));
   await loadEnvFile(".env");
-  const reviewRequests = await fetchReviewRequests({
-    host: ghHost,
-    user: ghUser,
-  });
+  const [reviewRequests, assignedIssues] = await Promise.all([
+    fetchReviewRequests({
+      host: ghHost,
+      user: ghUser,
+    }),
+    fetchAssignedIssues({
+      host: ghHost,
+      user: ghUser,
+    }),
+  ]);
 
   if (mode === "sessions") {
     await runReviewSessions(reviewRequests, {
@@ -47,6 +55,12 @@ const main = async () => {
     reviewRequests,
     reviewer: ghUser,
     host: ghHost,
+    dryRun,
+    verbose,
+  });
+
+  await runAssignedIssuesSync({
+    assignedIssues,
     dryRun,
     verbose,
   });

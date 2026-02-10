@@ -125,6 +125,10 @@ in the `New` list on board `HZ7hcWZy`.
 - Avoids duplicates by checking all open cards on the board for issue URLs.
 - Archives cards that have the Schibsted label and no longer match active assignments.
 
+### Entrypoint
+
+- `scripts/wf/main.ts`
+
 ### Required Environment
 
 Loaded from `.env` in the repo root:
