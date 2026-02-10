@@ -1,5 +1,5 @@
-Feature: Agent workflow automation
-  The scheduler monitors Trello and GitHub Enterprise and executes automated workflows.
+Feature: Review requests to Trello
+  The workflow syncs pending GitHub review requests into Trello.
   It prefers safe, read-only checks before side-effecting actions.
 
   Background:
@@ -12,7 +12,6 @@ Feature: Agent workflow automation
       | Code Review        | 686cbf33add233ccba380f46 |
       | Praca w Schibsted  | 6694db7c23e5de7bec1b7489 |
 
-  # Workflow 1: Code Review Requests to Trello
   Scenario: Create a Trello card for a new review request
     Given a pending review request assigned to me exists on "schibsted.ghe.com"
     And no open Trello card on board "HZ7hcWZy" references the PR URL
@@ -45,31 +44,11 @@ Feature: Agent workflow automation
     When the review request workflow runs
     Then the draft PR is excluded from card creation
 
-  # Workflow 2: Review Request Workspace + Sessions
-  Scenario: Prepare a local worktree for a new review request
-    Given a pending review request assigned to me exists on "schibsted.ghe.com"
-    And a bare repo exists at "~/g/[GH_HOST]/[org]/[repo].git"
-    When the review request workflow runs with "--sessions"
-    Then the PR branch is fetched into the bare repo
-    And a worktree is created at "~/g/[GH_HOST]/[org]/[repo]/[pr-<number>]"
-
-  Scenario: Spawn review sessions for a new request
-    Given a new review request is detected
-    When the review request workflow runs with "--sessions"
-    Then an opencode session is started for "Review org/repo#<number>"
-    And an AoE session is created in group "reviews/[GH_HOST]/org/repo"
-
   Scenario: Run Trello sync only
     Given a pending review request assigned to me exists on "schibsted.ghe.com"
     When the review request workflow runs with "--trello"
     Then Trello cards are created or archived as needed
     And no review sessions are started
-
-  Scenario: Run sessions only
-    Given a pending review request assigned to me exists on "schibsted.ghe.com"
-    When the review request workflow runs with "--sessions"
-    Then review sessions are started as needed
-    And no Trello cards are created or archived
 
   Scenario: Dry-run does not mutate Trello
     Given a pending review request assigned to me exists on "schibsted.ghe.com"
