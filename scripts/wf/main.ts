@@ -45,6 +45,8 @@ const main = async () => {
 
   const { newlyCreated } = await runReviewRequestSync({
     reviewRequests,
+    reviewer: ghUser,
+    host: ghHost,
     dryRun,
     verbose,
   });
