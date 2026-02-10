@@ -111,16 +111,16 @@ const fetchReviewDecision = async (options: {
     { host: options.host },
   );
 
-  if (!pr.mergedAt) {
-    return "unknown";
-  }
-
   const approvedByUser = pr.reviews.some(
     (review) =>
       review.author?.login === options.user && review.state === "APPROVED",
   );
 
-  return approvedByUser ? "approved" : "missed";
+  if (approvedByUser) {
+    return "approved";
+  }
+
+  return pr.mergedAt ? "missed" : "unknown";
 };
 
 let doneListIdCache: string | null = null;
