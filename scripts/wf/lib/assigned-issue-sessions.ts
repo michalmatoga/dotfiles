@@ -270,13 +270,6 @@ export const runAssignedIssueSessions = async (
         dryRun: options.dryRun,
         verbose: options.verbose,
       });
-      await ensureWorktree({
-        bareRepoPath,
-        worktreePath: baseWorktreePath,
-        ref: baseRef,
-        dryRun: options.dryRun,
-        verbose: options.verbose,
-      });
 
       const title = `Work ${target.repo}#${target.issueNumber}`;
       const prompt = promptTemplate
