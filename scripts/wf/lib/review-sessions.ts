@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { access, mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 
@@ -66,19 +66,17 @@ const buildOpencodeResumeCommand = (sessionId: string) => {
 
 const runInitialOpencode = async (options: {
   title: string;
-  promptFileName: string;
+  prompt: string;
   cwd: string;
   verbose: boolean;
 }): Promise<string> => {
   const args = [
     "run",
-    "Review using attached prompt file.",
-    "--file",
-    options.promptFileName,
     "--format",
     "json",
     "--title",
     options.title,
+    options.prompt,
   ];
 
   if (options.verbose) {
@@ -179,14 +177,9 @@ export const runReviewSessions = async (
     const prompt = promptTemplate
       .replaceAll("[org/repo]", request.repo)
       .replaceAll("[pr-url]", request.url);
-    const promptFileName = ".wf-review-prompt.txt";
-    const promptFile = join(worktreePath, promptFileName);
-    if (!options.dryRun) {
-      await writeFile(promptFile, prompt, "utf8");
-    }
     const sessionId = await runInitialOpencode({
       title,
-      promptFileName,
+      prompt,
       cwd: worktreePath,
       verbose: options.verbose,
     });
