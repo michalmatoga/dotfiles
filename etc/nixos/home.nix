@@ -304,10 +304,10 @@ in
 
   systemd.user.timers.review-requests-to-trello = {
     Unit = {
-      Description = "Hourly GitHub review requests to Trello";
+      Description = "GitHub review requests to Trello every 5 minutes";
     };
     Timer = {
-      OnCalendar = "hourly";
+      OnCalendar = "*:0/5";
       Persistent = true;
     };
     Install = {

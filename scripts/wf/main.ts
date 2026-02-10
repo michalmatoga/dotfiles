@@ -10,8 +10,6 @@ const ghUser = "michal-matoga";
 const promptPath = "scripts/wf/prompts/review.md";
 const workspaceRoot = join(process.env.HOME ?? "", "g", ghHost);
 
-type Mode = "trello" | "sessions" | "all";
-
 const parseArgs = (args: string[]) => {
   const flags = new Set(args);
   const mode = flags.has("--sessions")
@@ -29,7 +27,10 @@ const parseArgs = (args: string[]) => {
 const main = async () => {
   const { dryRun, verbose, mode } = parseArgs(process.argv.slice(2));
   await loadEnvFile(".env");
-  const reviewRequests = await fetchReviewRequests({ host: ghHost, user: ghUser });
+  const reviewRequests = await fetchReviewRequests({
+    host: ghHost,
+    user: ghUser,
+  });
 
   if (mode === "sessions") {
     await runReviewSessions(reviewRequests, {
