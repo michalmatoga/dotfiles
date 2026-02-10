@@ -7,6 +7,10 @@ import {
   runReviewSessions,
   runReviewSessionsTargets,
 } from "./lib/review-sessions";
+import {
+  fetchAssignedIssueSessionTargets,
+  runAssignedIssueSessions,
+} from "./lib/assigned-issue-sessions";
 import { runAssignedIssuesSync } from "./lib/workflow-assigned-issues";
 import { runReviewRequestSync } from "./lib/workflow-review-requests";
 import {
@@ -49,6 +53,7 @@ const main = async () => {
 
   if (mode === "sessions") {
     const targets = await fetchSessionTargets({ host: ghHost, verbose });
+    const issueTargets = await fetchAssignedIssueSessionTargets({ verbose });
     await runReviewSessionsTargets(
       targets,
       {
@@ -69,6 +74,13 @@ const main = async () => {
         });
       },
     );
+    await runAssignedIssueSessions(issueTargets, {
+      host: ghHost,
+      workspaceRoot,
+      promptPath: "scripts/wf/prompts/issue.md",
+      dryRun,
+      verbose,
+    });
     return;
   }
 
@@ -91,6 +103,7 @@ const main = async () => {
   }
 
   const sessionTargets = await fetchSessionTargets({ host: ghHost, verbose });
+  const issueTargets = await fetchAssignedIssueSessionTargets({ verbose });
   await runReviewSessionsTargets(
     sessionTargets,
     {
@@ -108,6 +121,13 @@ const main = async () => {
       });
     },
   );
+  await runAssignedIssueSessions(issueTargets, {
+    host: ghHost,
+    workspaceRoot,
+    promptPath: "scripts/wf/prompts/issue.md",
+    dryRun,
+    verbose,
+  });
 };
 
 main().catch((error) => {

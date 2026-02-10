@@ -106,7 +106,7 @@ automation sessions.
 - Creates a worktree at `~/g/[GH_HOST]/[org]/[repo]/[pr-<number>]`.
 - Creates a worktree for the base branch at `~/g/[GH_HOST]/[org]/[repo]/[base-branch]`.
 - Runs opencode review sessions against `main`.
-- Creates an AoE session for review management.
+- Creates an AoE session for review management under profile `${GH_HOST}-reviews` in group `reviews/[org]/[repo]`.
 - Adds a Trello comment containing `opencode -s <sessionId>` after both sessions succeed.
 
 ### Defaults
@@ -133,6 +133,21 @@ in the `New` list on board `HZ7hcWZy`.
 ### Entrypoint
 
 - `scripts/wf/main.ts`
+
+## Assigned Issues Work Sessions
+
+Creates work sessions for Ready cards with the Schibsted label and an issue URL.
+
+### Behavior
+
+- Filters Trello cards to the Ready list (`6689284f81d51c086a80879c`).
+- Skips cards that already have a comment containing `opencode -s <sessionId>`.
+- Ensures a bare repo exists at `~/g/[GH_HOST]/[org]/[repo].git`.
+- Creates a worktree at `~/g/[GH_HOST]/[org]/[repo]/issue-<number>`.
+- Creates a base worktree at `~/g/[GH_HOST]/[org]/[repo]/main`.
+- Runs opencode work sessions with `scripts/wf/prompts/issue.md`.
+- Creates an AoE session for work tracking under profile `${GH_HOST}-issues` in group `issues/[org]/[repo]`.
+- Adds a Trello comment containing `opencode -s <sessionId>` after success.
 
 ### Required Environment
 

@@ -26,7 +26,7 @@ Feature: Review request workspace and sessions
     And the card has no session comment
     When the review sessions workflow runs
     Then an opencode session is started for "Review org/repo#<number>"
-    And an AoE session is created in group "reviews/[GH_HOST]/org/repo"
+    And an AoE session is created in group "reviews/[org]/[repo]"
     And the card receives a comment containing "opencode -s <sessionId>"
 
   Scenario: Skip sessions when a session comment exists

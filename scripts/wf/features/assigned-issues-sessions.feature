@@ -20,7 +20,7 @@ Feature: Assigned issues work sessions
     And a worktree is created at "~/g/[GH_HOST]/[org]/[repo]/[issue-<number>]"
     And a worktree is created at "~/g/[GH_HOST]/[org]/[repo]/[base-branch]"
     And an opencode session is started for the issue
-    And an AoE session is created for the issue
+    And an AoE session is created in group "issues/[org]/[repo]"
     And the card receives a comment containing "opencode -s <sessionId>"
 
   Scenario: Skip Ready cards that already have a session comment
