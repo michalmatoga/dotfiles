@@ -14,6 +14,11 @@ type ReviewSessionsOptions = {
   verbose: boolean;
 };
 
+export type ReviewSessionTarget = {
+  request: ReviewRequest;
+  cardId?: string;
+};
+
 const ensureBareRepo = async (
   barePath: string,
   cloneUrl: string,
@@ -138,17 +143,22 @@ const runInitialOpencode = async (options: {
   });
 };
 
-export const runReviewSessions = async (
-  requests: ReviewRequest[],
+export const runReviewSessionsTargets = async (
+  targets: ReviewSessionTarget[],
   options: ReviewSessionsOptions,
+  onSessionCreated?: (options: {
+    target: ReviewSessionTarget;
+    sessionId: string;
+  }) => Promise<void>,
 ) => {
-  if (requests.length === 0) {
+  if (targets.length === 0) {
     return;
   }
 
   const promptTemplate = await readFile(options.promptPath, "utf8");
 
-  for (const request of requests) {
+  for (const target of targets) {
+    const request = target.request;
     if (!request.repo) {
       console.log(`Skip review without repo slug: ${request.url}`);
       continue;
@@ -170,7 +180,7 @@ export const runReviewSessions = async (
     await runCommand(
       "git",
       ["-C", bareRepoPath, "worktree", "add", "--force", worktreePath, `refs/pull/${prNumber}`],
-      { dryRun: options.dryRun, verbose: options.verbose },
+      { dryRun: options.dryRun, verbose: options.verbose, allowFailure: true },
     );
 
     const title = `Review ${request.repo}#${prNumber}`;
@@ -201,5 +211,19 @@ export const runReviewSessions = async (
       dryRun: options.dryRun,
       verbose: options.verbose,
     });
+
+    if (onSessionCreated) {
+      await onSessionCreated({ target, sessionId });
+    }
   }
+};
+
+export const runReviewSessions = async (
+  requests: ReviewRequest[],
+  options: ReviewSessionsOptions,
+) => {
+  await runReviewSessionsTargets(
+    requests.map((request) => ({ request })),
+    options,
+  );
 };

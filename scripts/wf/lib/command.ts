@@ -6,7 +6,7 @@ const execFileAsync = promisify(execFile);
 export const runCommand = async (
   command: string,
   args: string[],
-  options: { cwd?: string; dryRun?: boolean; verbose?: boolean } = {},
+  options: { cwd?: string; dryRun?: boolean; verbose?: boolean; allowFailure?: boolean } = {},
 ) => {
   if (options.verbose) {
     console.log(`${options.dryRun ? "[dry-run] " : ""}$ ${command} ${args.join(" ")}`);
@@ -22,6 +22,13 @@ export const runCommand = async (
     child.on("error", reject);
     child.on("close", (code) => {
       if (code === 0) {
+        resolve();
+        return;
+      }
+      if (options.allowFailure) {
+        if (options.verbose) {
+          console.warn(`Ignored failure: ${command} exited with status ${code ?? "unknown"}`);
+        }
         resolve();
         return;
       }

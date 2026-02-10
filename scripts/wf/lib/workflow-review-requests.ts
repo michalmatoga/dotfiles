@@ -10,7 +10,7 @@ const trelloCodeReviewLabelId = "686cbf33add233ccba380f46";
 const trelloWorkLabelId = "6694db7c23e5de7bec1b7489";
 const trelloEnvFile = ".env";
 
-const prUrlRegex = /https:\/\/schibsted\.ghe\.com\/[^\s)]+\/pull\/\d+/g;
+export const prUrlRegex = /https:\/\/schibsted\.ghe\.com\/[^\s)]+\/pull\/\d+/g;
 
 const fetchOpenCards = async (): Promise<TrelloCard[]> => {
   return trelloRequest<TrelloCard[]>(`boards/${trelloBoardId}/cards`, {
@@ -19,7 +19,7 @@ const fetchOpenCards = async (): Promise<TrelloCard[]> => {
   });
 };
 
-const extractPrUrls = (text: string): Set<string> => {
+export const extractPrUrls = (text: string): Set<string> => {
   const matches = text.match(prUrlRegex) ?? [];
   return new Set(matches);
 };

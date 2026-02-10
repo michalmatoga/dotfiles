@@ -98,11 +98,14 @@ automation sessions.
 
 ### Behavior
 
+- Finds Trello cards with the Code Review label and a PR URL in the description.
+- Skips cards that already have a comment containing `opencode -s <sessionId>`.
 - Ensures a bare repo exists at `~/g/[GH_HOST]/[org]/[repo].git`.
 - Fetches the PR branch into the bare repo.
 - Creates a worktree at `~/g/[GH_HOST]/[org]/[repo]/[pr-<number>]`.
 - Runs opencode review sessions against `main`.
 - Creates an AoE session for review management.
+- Adds a Trello comment containing `opencode -s <sessionId>` after both sessions succeed.
 
 ### Defaults
 

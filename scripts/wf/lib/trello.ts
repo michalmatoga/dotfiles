@@ -8,6 +8,13 @@ export type TrelloCard = {
   idList?: string;
 };
 
+export type TrelloComment = {
+  id: string;
+  data: {
+    text: string;
+  };
+};
+
 export const trelloRequest = async <T,>(
   path: string,
   params: Record<string, string | number | boolean | undefined>,

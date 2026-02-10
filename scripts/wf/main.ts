@@ -3,9 +3,16 @@ import { join } from "node:path";
 import { loadEnvFile } from "./lib/env";
 import { fetchAssignedIssues } from "./lib/assigned-issues";
 import { fetchReviewRequests } from "./lib/review-requests";
-import { runReviewSessions } from "./lib/review-sessions";
+import {
+  runReviewSessions,
+  runReviewSessionsTargets,
+} from "./lib/review-sessions";
 import { runAssignedIssuesSync } from "./lib/workflow-assigned-issues";
 import { runReviewRequestSync } from "./lib/workflow-review-requests";
+import {
+  addSessionComment,
+  fetchSessionTargets,
+} from "./lib/workflow-review-sessions";
 
 const ghHost = "schibsted.ghe.com";
 const ghUser = "michal-matoga";
@@ -41,17 +48,31 @@ const main = async () => {
   ]);
 
   if (mode === "sessions") {
-    await runReviewSessions(reviewRequests, {
-      host: ghHost,
-      workspaceRoot,
-      promptPath,
-      dryRun,
-      verbose,
-    });
+    const targets = await fetchSessionTargets({ host: ghHost, verbose });
+    await runReviewSessionsTargets(
+      targets,
+      {
+        host: ghHost,
+        workspaceRoot,
+        promptPath,
+        dryRun,
+        verbose,
+      },
+      async ({ target, sessionId }) => {
+        if (!target.cardId) {
+          return;
+        }
+        await addSessionComment({
+          cardId: target.cardId,
+          sessionId,
+          dryRun,
+        });
+      },
+    );
     return;
   }
 
-  const { newlyCreated } = await runReviewRequestSync({
+  await runReviewRequestSync({
     reviewRequests,
     reviewer: ghUser,
     host: ghHost,
@@ -69,13 +90,24 @@ const main = async () => {
     return;
   }
 
-  await runReviewSessions(newlyCreated, {
-    host: ghHost,
-    workspaceRoot,
-    promptPath,
-    dryRun,
-    verbose,
-  });
+  const sessionTargets = await fetchSessionTargets({ host: ghHost, verbose });
+  await runReviewSessionsTargets(
+    sessionTargets,
+    {
+      host: ghHost,
+      workspaceRoot,
+      promptPath,
+      dryRun,
+      verbose,
+    },
+    async ({ target, sessionId }) => {
+      await addSessionComment({
+        cardId: target.cardId,
+        sessionId,
+        dryRun,
+      });
+    },
+  );
 };
 
 main().catch((error) => {

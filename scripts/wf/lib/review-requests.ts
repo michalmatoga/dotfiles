@@ -7,6 +7,12 @@ export type ReviewRequest = {
   repo: string | null;
 };
 
+type ReviewRequestResponse = {
+  title: string;
+  url: string;
+  body: string | null;
+};
+
 export const extractRepoSlug = (host: string, url: string): string | null => {
   const escapedHost = host.replace(/\./g, "\\.");
   const match = url.match(
@@ -19,7 +25,7 @@ export const fetchReviewRequests = async (options: {
   host: string;
   user: string;
 }): Promise<ReviewRequest[]> => {
-  const response = await ghJson<Array<{ title: string; url: string; body: string | null }>>(
+  const response = await ghJson<ReviewRequestResponse[]>(
     [
       "search",
       "prs",
@@ -42,4 +48,21 @@ export const fetchReviewRequests = async (options: {
     body: item.body ?? null,
     repo: extractRepoSlug(options.host, item.url),
   }));
+};
+
+export const fetchReviewRequestByUrl = async (options: {
+  host: string;
+  url: string;
+}): Promise<ReviewRequest> => {
+  const response = await ghJson<ReviewRequestResponse>(
+    ["pr", "view", options.url, "--json", "title,url,body"],
+    { host: options.host },
+  );
+
+  return {
+    title: response.title,
+    url: response.url,
+    body: response.body ?? null,
+    repo: extractRepoSlug(options.host, response.url),
+  };
 };
