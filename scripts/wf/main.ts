@@ -1,5 +1,6 @@
 import { join } from "node:path";
 
+import { loadEnvFile } from "./lib/env";
 import { fetchReviewRequests } from "./lib/review-requests";
 import { runReviewSessions } from "./lib/review-sessions";
 import { runReviewRequestSync } from "./lib/workflow-review-requests";
@@ -27,6 +28,7 @@ const parseArgs = (args: string[]) => {
 
 const main = async () => {
   const { dryRun, verbose, mode } = parseArgs(process.argv.slice(2));
+  await loadEnvFile(".env");
   const reviewRequests = await fetchReviewRequests({ host: ghHost, user: ghUser });
 
   if (mode === "sessions") {

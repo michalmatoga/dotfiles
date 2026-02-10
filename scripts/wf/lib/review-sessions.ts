@@ -1,5 +1,7 @@
+import { spawn } from "node:child_process";
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { createInterface } from "node:readline";
 
 import { runCommand } from "./command";
 import { type ReviewRequest } from "./review-requests";
@@ -49,11 +51,93 @@ const ensureBareRepo = async (
     });
 };
 
-const escapeDoubleQuotes = (value: string) => value.replaceAll("\"", "\\\"");
+const ansiPattern = new RegExp(
+  "[\\u001B\\u009B][[\\]()#;?]*(?:" +
+    "(?:[a-zA-Z\\d]*(?:;[a-zA-Z\\d]*)*)?\\u0007" +
+    "|(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PRZcf-nq-uy=><~])",
+  "g",
+);
 
-const buildOpencodeCommand = (title: string, promptFileName: string) => {
-  const safeTitle = escapeDoubleQuotes(title);
-  return `opencode run --title "${safeTitle}" --share --file ${promptFileName} "Review using attached prompt file."`;
+const stripAnsi = (value: string) => value.replace(ansiPattern, "");
+
+const buildOpencodeResumeCommand = (sessionId: string) => {
+  return `opencode -s ${sessionId}`;
+};
+
+const runInitialOpencode = async (options: {
+  title: string;
+  promptFileName: string;
+  cwd: string;
+  verbose: boolean;
+}): Promise<string> => {
+  const args = [
+    "run",
+    "Review using attached prompt file.",
+    "--file",
+    options.promptFileName,
+    "--format",
+    "json",
+    "--title",
+    options.title,
+  ];
+
+  if (options.verbose) {
+    console.log(`$ opencode ${args.join(" ")}`);
+  }
+
+  return new Promise<string>((resolve, reject) => {
+    const child = spawn("opencode", args, {
+      cwd: options.cwd,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    const stderrChunks: string[] = [];
+    let sessionId: string | null = null;
+
+    const rl = createInterface({ input: child.stdout });
+    rl.on("line", (line) => {
+      const stripped = stripAnsi(line).trim();
+      if (!stripped) {
+        return;
+      }
+      try {
+        const event = JSON.parse(stripped) as {
+          sessionID?: string;
+          part?: { sessionID?: string };
+        };
+        const candidate = event.sessionID ?? event.part?.sessionID ?? null;
+        if (candidate && !sessionId) {
+          sessionId = candidate;
+        }
+      } catch {
+        // ignore non-json lines
+      }
+    });
+
+    child.stderr.on("data", (chunk) => {
+      stderrChunks.push(chunk.toString());
+    });
+
+    child.on("error", (error) => {
+      rl.close();
+      reject(error);
+    });
+
+    child.on("close", (code) => {
+      rl.close();
+      if (code !== 0) {
+        const stderr = stderrChunks.join("").trim();
+        reject(new Error(stderr || `opencode exited with status ${code ?? "unknown"}.`));
+        return;
+      }
+      if (!sessionId) {
+        const stderr = stderrChunks.join("").trim();
+        reject(new Error(stderr || "opencode completed but session id was not captured."));
+        return;
+      }
+      resolve(sessionId);
+    });
+  });
 };
 
 export const runReviewSessions = async (
@@ -100,7 +184,13 @@ export const runReviewSessions = async (
     if (!options.dryRun) {
       await writeFile(promptFile, prompt, "utf8");
     }
-    const opencodeCmd = buildOpencodeCommand(title, promptFileName);
+    const sessionId = await runInitialOpencode({
+      title,
+      promptFileName,
+      cwd: worktreePath,
+      verbose: options.verbose,
+    });
+    const opencodeCmd = buildOpencodeResumeCommand(sessionId);
 
     const aoeArgs = [
       "add",
