@@ -76,6 +76,19 @@ const moveCardToDone = async (card: TrelloCard, dryRun: boolean) => {
   console.log(`Moved card to Done: ${card.name} (${card.id})`);
 };
 
+const moveCardToBlocked = async (card: TrelloCard, dryRun: boolean) => {
+  if (dryRun) {
+    console.log(`[dry-run] move card to Blocked: ${card.name} (${card.id})`);
+    return;
+  }
+  await trelloRequest(
+    `cards/${card.id}`,
+    { idList: trelloBlockedListId },
+    { method: "PUT" },
+  );
+  console.log(`Moved card to Blocked: ${card.name} (${card.id})`);
+};
+
 type ReviewDecision = "approved" | "missed" | "rejected" | "unknown";
 
 const parsePrReference = (url: string) => {
@@ -149,6 +162,13 @@ const isCardInDone = async (card: TrelloCard) => {
   }
   const doneListId = await fetchDoneListId();
   return card.idList === doneListId;
+};
+
+const isCardInBlocked = (card: TrelloCard) => {
+  if (!card.idList) {
+    return false;
+  }
+  return card.idList === trelloBlockedListId;
 };
 
 export const runReviewRequestSync = async (options: {
@@ -235,9 +255,13 @@ export const runReviewRequestSync = async (options: {
         }
         await moveCardToDone(card, options.dryRun);
       } else if (decision === "rejected") {
-        if (options.verbose) {
-          console.log(`Keep blocked card after rejection: ${card.name}`);
+        if (isCardInBlocked(card)) {
+          if (options.verbose) {
+            console.log(`Skip Blocked card after rejection: ${card.name}`);
+          }
+          continue;
         }
+        await moveCardToBlocked(card, options.dryRun);
       } else if (decision === "missed") {
         await archiveCard(card, options.dryRun);
       } else if (options.verbose) {

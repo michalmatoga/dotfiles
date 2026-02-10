@@ -48,10 +48,9 @@ Feature: Review requests to Trello
 
   Scenario: Keep cards in Blocked when changes are rejected
     Given an open Trello card has label "Code Review"
-    And the card is in the "Blocked" list
     And the referenced PR is rejected by me
     When the review request workflow runs
-    Then the Trello card remains in the "Blocked" list
+    Then the Trello card is moved to the "Blocked" list
 
   Scenario: Ignore draft pull requests
     Given a draft PR has a review request assigned to me on "schibsted.ghe.com"
