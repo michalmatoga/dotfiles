@@ -49,8 +49,11 @@ const ensureBareRepo = async (
     });
 };
 
-const buildOpencodeCommand = (title: string, promptFile: string) => {
-  return `bash -lc 'opencode run --format json --title "${title}" --share "$(cat "${promptFile}")"'`;
+const escapeDoubleQuotes = (value: string) => value.replaceAll("\"", "\\\"");
+
+const buildOpencodeCommand = (title: string, promptFileName: string) => {
+  const safeTitle = escapeDoubleQuotes(title);
+  return `opencode run --title "${safeTitle}" --share --file ${promptFileName} "Review using attached prompt file."`;
 };
 
 export const runReviewSessions = async (
@@ -92,11 +95,12 @@ export const runReviewSessions = async (
     const prompt = promptTemplate
       .replaceAll("[org/repo]", request.repo)
       .replaceAll("[pr-url]", request.url);
-    const promptFile = join(worktreePath, ".wf-review-prompt.txt");
+    const promptFileName = ".wf-review-prompt.txt";
+    const promptFile = join(worktreePath, promptFileName);
     if (!options.dryRun) {
       await writeFile(promptFile, prompt, "utf8");
     }
-    const opencodeCmd = buildOpencodeCommand(title, promptFile);
+    const opencodeCmd = buildOpencodeCommand(title, promptFileName);
 
     const aoeArgs = [
       "add",
@@ -107,9 +111,12 @@ export const runReviewSessions = async (
       `reviews/${options.host}/${request.repo}`,
       "--cmd",
       opencodeCmd,
-      "--launch",
     ];
 
     await runCommand("aoe", aoeArgs, { dryRun: options.dryRun, verbose: options.verbose });
+    await runCommand("aoe", ["session", "start", title], {
+      dryRun: options.dryRun,
+      verbose: options.verbose,
+    });
   }
 };
