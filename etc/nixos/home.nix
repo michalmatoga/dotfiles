@@ -298,6 +298,10 @@ in
     Service = {
       Type = "oneshot";
       WorkingDirectory = "%h/ghq/github.com/michalmatoga/dotfiles";
+      Environment = [
+        "PATH=${pkgs.dash}/bin:${pkgs.bash}/bin:${pkgs.nodejs_24}/bin:${pkgs.gh}/bin:/run/current-system/sw/bin"
+        "SHELL=${pkgs.bash}/bin/bash"
+      ];
       ExecStart = "${pkgs.nodejs_24}/bin/npx --yes tsx %h/ghq/github.com/michalmatoga/dotfiles/scripts/wf/main.ts";
     };
   };
