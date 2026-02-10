@@ -15,7 +15,7 @@ const prUrlRegex = /https:\/\/schibsted\.ghe\.com\/[^\s)]+\/pull\/\d+/g;
 const fetchOpenCards = async (): Promise<TrelloCard[]> => {
   return trelloRequest<TrelloCard[]>(`boards/${trelloBoardId}/cards`, {
     filter: "open",
-    fields: "id,name,desc,idLabels",
+    fields: "id,name,desc,idLabels,idList",
   });
 };
 
@@ -76,7 +76,7 @@ const moveCardToDone = async (card: TrelloCard, dryRun: boolean) => {
   console.log(`Moved card to Done: ${card.name} (${card.id})`);
 };
 
-type ReviewDecision = "approved" | "missed" | "unknown";
+type ReviewDecision = "approved" | "missed" | "rejected" | "unknown";
 
 const parsePrReference = (url: string) => {
   const match = url.match(
@@ -111,12 +111,15 @@ const fetchReviewDecision = async (options: {
     { host: options.host },
   );
 
-  const approvedByUser = pr.reviews.some(
-    (review) =>
-      review.author?.login === options.user && review.state === "APPROVED",
-  );
+  const userReviews = pr.reviews
+    .filter((review) => review.author?.login === options.user)
+    .map((review) => review.state ?? "");
 
-  if (approvedByUser) {
+  if (userReviews.includes("CHANGES_REQUESTED")) {
+    return "rejected";
+  }
+
+  if (userReviews.includes("APPROVED")) {
     return "approved";
   }
 
@@ -138,6 +141,14 @@ const fetchDoneListId = async () => {
   }
   doneListIdCache = match.id;
   return match.id;
+};
+
+const isCardInDone = async (card: TrelloCard) => {
+  if (!card.idList) {
+    return false;
+  }
+  const doneListId = await fetchDoneListId();
+  return card.idList === doneListId;
 };
 
 export const runReviewRequestSync = async (options: {
@@ -216,7 +227,17 @@ export const runReviewRequestSync = async (options: {
         host: options.host,
       });
       if (decision === "approved") {
+        if (await isCardInDone(card)) {
+          if (options.verbose) {
+            console.log(`Skip Done card: ${card.name} (${card.id})`);
+          }
+          continue;
+        }
         await moveCardToDone(card, options.dryRun);
+      } else if (decision === "rejected") {
+        if (options.verbose) {
+          console.log(`Keep blocked card after rejection: ${card.name}`);
+        }
       } else if (decision === "missed") {
         await archiveCard(card, options.dryRun);
       } else if (options.verbose) {

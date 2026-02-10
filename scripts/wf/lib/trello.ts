@@ -5,6 +5,7 @@ export type TrelloCard = {
   name: string;
   desc: string;
   idLabels: string[];
+  idList?: string;
 };
 
 export const trelloRequest = async <T,>(

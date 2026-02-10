@@ -39,6 +39,20 @@ Feature: Review requests to Trello
     When the review request workflow runs
     Then the Trello card is moved to the "Done" list
 
+  Scenario: Skip moving cards already in Done
+    Given an open Trello card has label "Code Review"
+    And the card is already in the "Done" list
+    And the referenced PR is approved by me
+    When the review request workflow runs
+    Then the Trello card remains in the "Done" list
+
+  Scenario: Keep cards in Blocked when changes are rejected
+    Given an open Trello card has label "Code Review"
+    And the card is in the "Blocked" list
+    And the referenced PR is rejected by me
+    When the review request workflow runs
+    Then the Trello card remains in the "Blocked" list
+
   Scenario: Ignore draft pull requests
     Given a draft PR has a review request assigned to me on "schibsted.ghe.com"
     When the review request workflow runs
