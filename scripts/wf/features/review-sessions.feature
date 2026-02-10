@@ -15,6 +15,12 @@ Feature: Review request workspace and sessions
     Then the PR branch is fetched into the bare repo
     And a worktree is created at "~/g/[GH_HOST]/[org]/[repo]/[pr-<number>]"
 
+  Scenario: Create a base branch worktree for diffs
+    Given a Trello card with label "Code Review" contains a PR URL
+    And the PR base branch is "<base-branch>"
+    When the review sessions workflow runs
+    Then a worktree is created at "~/g/[GH_HOST]/[org]/[repo]/[<base-branch>]"
+
   Scenario: Spawn review sessions for a new request
     Given a Trello card with label "Code Review" contains a PR URL
     And the card has no session comment

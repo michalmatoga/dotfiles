@@ -102,7 +102,9 @@ automation sessions.
 - Skips cards that already have a comment containing `opencode -s <sessionId>`.
 - Ensures a bare repo exists at `~/g/[GH_HOST]/[org]/[repo].git`.
 - Fetches the PR branch into the bare repo.
+- Fetches the PR base branch into the bare repo.
 - Creates a worktree at `~/g/[GH_HOST]/[org]/[repo]/[pr-<number>]`.
+- Creates a worktree for the base branch at `~/g/[GH_HOST]/[org]/[repo]/[base-branch]`.
 - Runs opencode review sessions against `main`.
 - Creates an AoE session for review management.
 - Adds a Trello comment containing `opencode -s <sessionId>` after both sessions succeed.

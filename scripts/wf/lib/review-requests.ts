@@ -5,6 +5,7 @@ export type ReviewRequest = {
   url: string;
   body: string | null;
   repo: string | null;
+  baseRefName?: string | null;
 };
 
 type ReviewRequestResponse = {
@@ -47,6 +48,7 @@ export const fetchReviewRequests = async (options: {
     url: item.url,
     body: item.body ?? null,
     repo: extractRepoSlug(options.host, item.url),
+    baseRefName: null,
   }));
 };
 
@@ -55,7 +57,7 @@ export const fetchReviewRequestByUrl = async (options: {
   url: string;
 }): Promise<ReviewRequest> => {
   const response = await ghJson<ReviewRequestResponse>(
-    ["pr", "view", options.url, "--json", "title,url,body"],
+    ["pr", "view", options.url, "--json", "title,url,body,baseRefName"],
     { host: options.host },
   );
 
@@ -64,5 +66,6 @@ export const fetchReviewRequestByUrl = async (options: {
     url: response.url,
     body: response.body ?? null,
     repo: extractRepoSlug(options.host, response.url),
+    baseRefName: response.baseRefName ?? null,
   };
 };

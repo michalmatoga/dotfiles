@@ -168,6 +168,8 @@ export const runReviewSessionsTargets = async (
     const prNumber = request.url.split("/pull/")[1];
     const bareRepoPath = join(options.workspaceRoot, org, `${repo}.git`);
     const worktreePath = join(options.workspaceRoot, org, repo, `pr-${prNumber}`);
+    const baseBranch = request.baseRefName ?? "main";
+    const baseWorktreePath = join(options.workspaceRoot, org, repo, baseBranch);
     const cloneUrl = `schibsted@${options.host}:${request.repo}.git`;
 
     await ensureBareRepo(bareRepoPath, cloneUrl, options);
@@ -175,11 +177,35 @@ export const runReviewSessionsTargets = async (
       dryRun: options.dryRun,
       verbose: options.verbose,
     });
+    await runCommand(
+      "git",
+      ["-C", bareRepoPath, "fetch", "origin", baseBranch],
+      {
+        dryRun: options.dryRun,
+        verbose: options.verbose,
+        allowFailure: true,
+      },
+    );
 
     await mkdir(worktreePath, { recursive: true });
     await runCommand(
       "git",
       ["-C", bareRepoPath, "worktree", "add", "--force", worktreePath, `refs/pull/${prNumber}`],
+      { dryRun: options.dryRun, verbose: options.verbose, allowFailure: true },
+    );
+
+    await mkdir(baseWorktreePath, { recursive: true });
+    await runCommand(
+      "git",
+      [
+        "-C",
+        bareRepoPath,
+        "worktree",
+        "add",
+        "--force",
+        baseWorktreePath,
+        `refs/remotes/origin/${baseBranch}`,
+      ],
       { dryRun: options.dryRun, verbose: options.verbose, allowFailure: true },
     );
 
