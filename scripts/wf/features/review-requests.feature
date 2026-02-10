@@ -32,12 +32,16 @@ Feature: Review requests to Trello
     And the referenced PR is merged without my review
     When the review request workflow runs
     Then the Trello card is archived
+    And the review workspace is cleaned up
+    And the AoE session and group are removed
 
   Scenario: Complete review request cards when approved
     Given an open Trello card has label "Code Review"
     And the referenced PR is approved by me
     When the review request workflow runs
     Then the Trello card is moved to the "Done" list
+    And the review workspace is cleaned up
+    And the AoE session and group are removed
 
   Scenario: Skip moving cards already in Done
     Given an open Trello card has label "Code Review"

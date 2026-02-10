@@ -1,7 +1,10 @@
 import { loadEnvFile, requireEnv } from "./env";
+import { join } from "node:path";
+
 import { ghJson } from "./gh";
 import { type ReviewRequest } from "./review-requests";
 import { trelloRequest, type TrelloCard } from "./trello";
+import { runCommand } from "./command";
 
 const trelloBoardId = "HZ7hcWZy";
 const trelloBlockedListId = "68d38cb24e504757ecc2d19a";
@@ -9,6 +12,8 @@ const trelloDoneListName = "Done";
 const trelloCodeReviewLabelId = "686cbf33add233ccba380f46";
 const trelloWorkLabelId = "6694db7c23e5de7bec1b7489";
 const trelloEnvFile = ".env";
+const ghHost = "schibsted.ghe.com";
+const aoeReviewProfile = "schibsted.ghe.com-reviews";
 
 export const prUrlRegex = /https:\/\/schibsted\.ghe\.com\/[^\s)]+\/pull\/\d+/g;
 
@@ -171,6 +176,76 @@ const isCardInBlocked = (card: TrelloCard) => {
   return card.idList === trelloBlockedListId;
 };
 
+const parsePrDetails = (url: string) => {
+  const match = url.match(
+    /^https:\/\/schibsted\.ghe\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/,
+  );
+  if (!match) {
+    return null;
+  }
+  return { owner: match[1], repo: match[2], number: match[3] };
+};
+
+const fetchBaseBranch = async (url: string) => {
+  const response = await ghJson<{ baseRefName?: string | null }>(
+    ["pr", "view", url, "--json", "baseRefName"],
+    { host: ghHost },
+  );
+  return response.baseRefName ?? "main";
+};
+
+const cleanupReviewWorkspace = async (options: {
+  url: string;
+  dryRun: boolean;
+  verbose: boolean;
+}) => {
+  const details = parsePrDetails(options.url);
+  if (!details) {
+    if (options.verbose) {
+      console.log(`Skip cleanup: invalid PR URL ${options.url}`);
+    }
+    return;
+  }
+
+  const { owner, repo, number } = details;
+  const title = `Review ${owner}/${repo}#${number}`;
+  const group = `reviews/${owner}/${repo}`;
+  const workspaceRoot = join(process.env.HOME ?? "", "g", ghHost);
+  const bareRepoPath = join(workspaceRoot, owner, `${repo}.git`);
+  const prWorktreePath = join(workspaceRoot, owner, repo, `pr-${number}`);
+  let baseBranch = "main";
+  try {
+    baseBranch = await fetchBaseBranch(options.url);
+  } catch (error) {
+    if (options.verbose) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(`Failed to fetch base branch for ${options.url}: ${message}`);
+    }
+  }
+  const baseWorktreePath = join(workspaceRoot, owner, repo, baseBranch);
+
+  await runCommand(
+    "aoe",
+    ["remove", "-p", aoeReviewProfile, title],
+    { dryRun: options.dryRun, verbose: options.verbose, allowFailure: true },
+  );
+  await runCommand(
+    "aoe",
+    ["group", "delete", "-p", aoeReviewProfile, group],
+    { dryRun: options.dryRun, verbose: options.verbose, allowFailure: true },
+  );
+  await runCommand(
+    "git",
+    ["-C", bareRepoPath, "worktree", "remove", "-f", prWorktreePath],
+    { dryRun: options.dryRun, verbose: options.verbose, allowFailure: true },
+  );
+  await runCommand(
+    "git",
+    ["-C", bareRepoPath, "worktree", "remove", "-f", baseWorktreePath],
+    { dryRun: options.dryRun, verbose: options.verbose, allowFailure: true },
+  );
+};
+
 export const runReviewRequestSync = async (options: {
   reviewRequests: ReviewRequest[];
   reviewer: string;
@@ -254,6 +329,11 @@ export const runReviewRequestSync = async (options: {
           continue;
         }
         await moveCardToDone(card, options.dryRun);
+        await cleanupReviewWorkspace({
+          url,
+          dryRun: options.dryRun,
+          verbose: options.verbose,
+        });
       } else if (decision === "rejected") {
         if (isCardInBlocked(card)) {
           if (options.verbose) {
@@ -264,6 +344,11 @@ export const runReviewRequestSync = async (options: {
         await moveCardToBlocked(card, options.dryRun);
       } else if (decision === "missed") {
         await archiveCard(card, options.dryRun);
+        await cleanupReviewWorkspace({
+          url,
+          dryRun: options.dryRun,
+          verbose: options.verbose,
+        });
       } else if (options.verbose) {
         console.log(`Keep card for unresolved PR: ${card.name}`);
       }

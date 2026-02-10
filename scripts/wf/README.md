@@ -64,6 +64,7 @@ Syncs pending GitHub review requests from `schibsted.ghe.com` into Trello as car
 - Avoids duplicates by checking all open cards on the board for PR URLs.
 - Moves cards to Done when the PR is approved by me.
 - Archives cards when the PR is merged without my review.
+- After completion (Done or archived), removes AoE sessions/groups and cleans PR/base worktrees.
 
 ### Manual Run
 
