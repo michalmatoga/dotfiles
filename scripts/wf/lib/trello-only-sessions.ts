@@ -82,7 +82,7 @@ const ensureBareRepo = async (
   );
 
   if (!hasHead) {
-    await runCommand("git", ["init", "--bare", barePath], {
+    await runCommand("git", ["init", "--bare", "--initial-branch", "main", barePath], {
       dryRun: options.dryRun,
       verbose: options.verbose,
     });
@@ -375,10 +375,11 @@ export const runTrelloOnlySessions = async (
         dryRun: options.dryRun,
         verbose: options.verbose,
       });
-      await ensureWorktree({
+      await ensureBranchWorktree({
         bareRepoPath,
         worktreePath: baseWorktreePath,
-        ref: baseRef,
+        baseRef,
+        branchName: baseBranch,
         dryRun: options.dryRun,
         verbose: options.verbose,
       });
