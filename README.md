@@ -15,8 +15,11 @@ wsl -d NixOS
 In NixOS shell:
 
 ```sh
-sudo nix-channel --update && sudo nixos-rebuild switch && nix-shell -p git --run "git clone https://github.com/michalmatoga/dotfiles.git ~/ghq/github.com/michalmatoga/dotfiles && ./ghq/github.com/michalmatoga/dotfiles/scripts/init.sh"
+export DOTFILES_DIR="$HOME/ghq/github.com/michalmatoga/dotfiles"
+sudo nix-channel --update && sudo nixos-rebuild switch && nix-shell -p git --run "git clone https://github.com/michalmatoga/dotfiles.git \"$DOTFILES_DIR\" && \"$DOTFILES_DIR/scripts/init.sh\""
 ```
+
+`DOTFILES_DIR` must point at the dotfiles checkout for scripts and services.
 
 ### Hacks
 

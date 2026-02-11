@@ -9,6 +9,30 @@ let trelloCardData: { tag: string; card: string } | undefined;
 
 const dailyTargetOverride = process.argv[2];
 
+const gitRemoteOk = (root: string) => {
+  try {
+    return execSync("git remote -v", {
+      cwd: root,
+      stdio: ["ignore", "pipe", "ignore"],
+    })
+      .toString()
+      .includes("git@github.com:michalmatoga/dotfiles.git");
+  } catch {
+    return false;
+  }
+};
+
+const dotfilesDir = (() => {
+  const value = process.env.DOTFILES_DIR;
+  if (!value) {
+    throw new Error("DOTFILES_DIR is required");
+  }
+  if (!gitRemoteOk(value)) {
+    throw new Error("DOTFILES_DIR is required (dotfiles remote not found)");
+  }
+  return value;
+})();
+
 (async function main() {
   await syncTrelloCardData();
   renderPreamble();
@@ -46,9 +70,7 @@ function render() {
   console.clear();
   console.log(tick);
   if (timeLeft < 0) {
-    execSync(
-      `bash /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/nag.sh `,
-    );
+    execSync(`bash "${dotfilesDir}/scripts/nag.sh" `);
   }
 }
 

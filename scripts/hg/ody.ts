@@ -30,6 +30,30 @@ let gtmStatus = "";
 let status = "";
 let lastActionsCheck: Date | undefined = undefined;
 
+const gitRemoteOk = (root: string) => {
+  try {
+    return execSync("git remote -v", {
+      cwd: root,
+      stdio: ["ignore", "pipe", "ignore"],
+    })
+      .toString()
+      .includes("git@github.com:michalmatoga/dotfiles.git");
+  } catch {
+    return false;
+  }
+};
+
+const dotfilesDir = (() => {
+  const value = process.env.DOTFILES_DIR;
+  if (!value) {
+    throw new Error("DOTFILES_DIR is required");
+  }
+  if (!gitRemoteOk(value)) {
+    throw new Error("DOTFILES_DIR is required (dotfiles remote not found)");
+  }
+  return value;
+})();
+
 (async function main() {
   runWithInterval(checkActions, 10000);
   runWithInterval(fetchAgendaStatus, 60000);
@@ -87,13 +111,13 @@ function syncUtilization() {
   for (const area of areas) {
     const { totalDuration } = JSON.parse(
       execSync(
-        `gcalcli --calendar LSS search "${area}" "${start}" "${end}" --tsv --details "description" | npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/cq.ts | jq '{totalDuration: [.[].duration] | add}'`,
+        `gcalcli --calendar LSS search "${area}" "${start}" "${end}" --tsv --details "description" | npx tsx "${dotfilesDir}/scripts/cq.ts" | jq '{totalDuration: [.[].duration] | add}'`,
         { encoding: "utf8" },
       ),
     );
     const { totalDuration: utilization } = JSON.parse(
       execSync(
-        `npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/gtm-report-range.ts --start "${start}" --end "${end}" "trello-label: ${area}" | tail -n 1 | jq`,
+        `npx tsx "${dotfilesDir}/scripts/gtm-report-range.ts" --start "${start}" --end "${end}" "trello-label: ${area}" | tail -n 1 | jq`,
         { encoding: "utf8" },
       ),
     );
@@ -112,7 +136,7 @@ function syncUtilization() {
 async function fetchAgendaStatus() {
   const res = JSON.parse(
     execSync(
-      `gcalcli --calendar LSS agenda "$(date '+%Y-%m-%d %H:%M')" "$(date -d '+10 minutes' '+%Y-%m-%d %H:%M')" --tsv --details "description" | npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/cq.ts | jq`,
+      `gcalcli --calendar LSS agenda "$(date '+%Y-%m-%d %H:%M')" "$(date -d '+10 minutes' '+%Y-%m-%d %H:%M')" --tsv --details "description" | npx tsx "${dotfilesDir}/scripts/cq.ts" | jq`,
       { encoding: "utf8" },
     ),
   ) as AgendaStatus[];
@@ -175,14 +199,14 @@ function fetchGtmStatus() {
   if (agendaStatus && agendaStatus.card) {
     const currentTimeBlockCommittedTime = JSON.parse(
       execSync(
-        `npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/gtm-report-range.ts --start "${dateFromTime(agendaStatus.start_time)}" --end "${dateFromTime(agendaStatus.end_time)}" "trello-label: ${agendaStatus.label}" | tail -n 1 | jq`,
+        `npx tsx "${dotfilesDir}/scripts/gtm-report-range.ts" --start "${dateFromTime(agendaStatus.start_time)}" --end "${dateFromTime(agendaStatus.end_time)}" "trello-label: ${agendaStatus.label}" | tail -n 1 | jq`,
         { encoding: "utf8" },
       ),
     );
     let cardTouchTime: { totalDuration: string } | undefined = undefined;
     cardTouchTime = JSON.parse(
       execSync(
-        `npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/gtm-report-range.ts "trello-label: ${agendaStatus.card.name}" | tail -n 1 | jq`,
+        `npx tsx "${dotfilesDir}/scripts/gtm-report-range.ts" "trello-label: ${agendaStatus.card.name}" | tail -n 1 | jq`,
         { encoding: "utf8" },
       ),
     );

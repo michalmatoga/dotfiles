@@ -45,7 +45,7 @@ mouse = "auto"
 context_lines = 3
 
 [hooks]
-on_launch = ["bash -lc 'if [ -f /home/nixos/ghq/github.com/michalmatoga/dotfiles/.env ]; then . /home/nixos/ghq/github.com/michalmatoga/dotfiles/.env; fi; tmux set-environment -g TRELLO_API_KEY \"$TRELLO_API_KEY\"; tmux set-environment -g TRELLO_TOKEN \"$TRELLO_TOKEN\"'"]
+on_launch = ["bash -lc ': \"${DOTFILES_DIR:?DOTFILES_DIR is required}\"; if [ -f \"$DOTFILES_DIR/.env\" ]; then . \"$DOTFILES_DIR/.env\"; fi; tmux set-environment -g DOTFILES_DIR \"$DOTFILES_DIR\"; tmux set-environment -g TRELLO_API_KEY \"$TRELLO_API_KEY\"; tmux set-environment -g TRELLO_TOKEN \"$TRELLO_TOKEN\"'"]
 
 [sound]
 enabled = false

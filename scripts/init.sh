@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 
-CHECKOUT_PATH=~/ghq/github.com/michalmatoga/dotfiles
+CHECKOUT_PATH=${DOTFILES_DIR:?DOTFILES_DIR is required}
+if ! [ -d "$CHECKOUT_PATH/.git" ]; then
+  echo "DOTFILES_DIR is required (not a git repo): $CHECKOUT_PATH" >&2
+  exit 1
+fi
+if ! git -C "$CHECKOUT_PATH" remote -v | grep -q "git@github.com:michalmatoga/dotfiles.git"; then
+  echo "DOTFILES_DIR is required (dotfiles remote not found): $CHECKOUT_PATH" >&2
+  exit 1
+fi
 
 sudo rm -rf /etc/nixos
 sudo ln -s "$CHECKOUT_PATH/etc/nixos/" /etc/nixos

@@ -170,29 +170,29 @@ in
       copy = "clip.exe";
       cplc = "fc -ln -1 | clip.exe";
       cpwd = "pwd | tr -d '\n' | clip.exe";
-      cq = "npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/cq.ts";
+      cq = "dotfiles_require; npx tsx \"$DOTFILES_DIR/scripts/cq.ts\"";
       dffmpeg = "bash /home/nixos/ghq/github.schibsted.io/svp/node-ffmpeg/ffmpeg.sh";
       dk = "docker";
-      gr = "bash /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/gr.sh";
-      gtm-clean-all = "npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/gtm-clean-all.ts";
-      hg = "npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/hg/hg.ts";
-      hgs = "npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/hg/hgs.ts";
+      gr = "dotfiles_require; bash \"$DOTFILES_DIR/scripts/gr.sh\"";
+      gtm-clean-all = "dotfiles_require; npx tsx \"$DOTFILES_DIR/scripts/gtm-clean-all.ts\"";
+      hg = "dotfiles_require; npx tsx \"$DOTFILES_DIR/scripts/hg/hg.ts\"";
+      hgs = "dotfiles_require; npx tsx \"$DOTFILES_DIR/scripts/hg/hgs.ts\"";
       ldk = "lazydocker";
-      meetings = "bash /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/meetings.sh";
-      nag = "bash ~/ghq/github.com/michalmatoga/dotfiles/scripts/nag.sh";
+      meetings = "dotfiles_require; bash \"$DOTFILES_DIR/scripts/meetings.sh\"";
+      nag = "dotfiles_require; bash \"$DOTFILES_DIR/scripts/nag.sh\"";
       oc = "opencode --port";
-      ody = "npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/hg/ody.ts";
+      ody = "dotfiles_require; npx tsx \"$DOTFILES_DIR/scripts/hg/ody.ts\"";
       odyr = "pkill -f ody.ts && tmux send-keys -t ody:1 'ody' C-m";
       paste = "powershell.exe get-clipboard";
       pi = "pulumi";
-      pulumi = "bash ~/ghq/github.com/michalmatoga/dotfiles/scripts/pulumi.sh";
-      shutdown-ritual = "npx tsx ~/ghq/github.com/michalmatoga/dotfiles/scripts/shutdown.ts";
-      startup-ritual = "npx tsx ~/ghq/github.com/michalmatoga/dotfiles/scripts/startup.ts";
-      sync-ghec = "npx tsx ~/ghq/github.com/michalmatoga/dotfiles/scripts/sync-ghec.ts";
-      sync-repos = "node ~/ghq/github.com/michalmatoga/dotfiles/scripts/sync-repos.mjs";
+      pulumi = "dotfiles_require; bash \"$DOTFILES_DIR/scripts/pulumi.sh\"";
+      shutdown-ritual = "dotfiles_require; npx tsx \"$DOTFILES_DIR/scripts/shutdown.ts\"";
+      startup-ritual = "dotfiles_require; npx tsx \"$DOTFILES_DIR/scripts/startup.ts\"";
+      sync-ghec = "dotfiles_require; npx tsx \"$DOTFILES_DIR/scripts/sync-ghec.ts\"";
+      sync-repos = "dotfiles_require; node \"$DOTFILES_DIR/scripts/sync-repos.mjs\"";
       tf = "tofu";
-      update = "sudo nixos-rebuild switch && ~/ghq/github.com/michalmatoga/dotfiles/scripts/post-update.sh";
-      update-npm-deps = "npx tsx /home/nixos/ghq/github.com/michalmatoga/dotfiles/scripts/update-npm-deps.ts";
+      update = "dotfiles_require; sudo nixos-rebuild switch && \"$DOTFILES_DIR/scripts/post-update.sh\"";
+      update-npm-deps = "dotfiles_require; npx tsx \"$DOTFILES_DIR/scripts/update-npm-deps.ts\"";
     };
     # setup some environment variables
     initContent = ''
@@ -203,12 +203,54 @@ in
 
       export NIX_LD=$(nix eval --impure --raw --expr 'let pkgs = import <nixpkgs> {}; NIX_LD = pkgs.lib.fileContents "${pkgs.stdenv.cc}/nix-support/dynamic-linker"; in NIX_LD')
       export PATH="$HOME/.cache/npm/global/bin:$PATH"
-      source ~/ghq/github.com/michalmatoga/dotfiles/.env
 
-      if [ -f ~/ghq/github.com/michalmatoga/dotfiles/secrets.json ]; then
-        humio_address=$(jq -r '.humio.address // empty' ~/ghq/github.com/michalmatoga/dotfiles/secrets.json)
-        humio_token=$(jq -r '.humio.token // empty' ~/ghq/github.com/michalmatoga/dotfiles/secrets.json)
-        humio_default_repo=$(jq -r '.humio.default_repo // empty' ~/ghq/github.com/michalmatoga/dotfiles/secrets.json)
+      dotfiles_is_repo() {
+        git rev-parse --is-inside-work-tree >/dev/null 2>&1 || return 1
+        git remote -v | grep -q "git@github.com:michalmatoga/dotfiles.git"
+      }
+
+      dotfiles_set_dir() {
+        if [ -n "${DOTFILES_DIR:-}" ]; then
+          return
+        fi
+
+        if dotfiles_is_repo; then
+          export DOTFILES_DIR="$(git rev-parse --show-toplevel)"
+          return
+        fi
+
+        if command -v ghq >/dev/null 2>&1; then
+          root=$(ghq root)
+          candidate="$root/github.com/michalmatoga/dotfiles"
+          if [ -d "$candidate/.git" ] && git -C "$candidate" remote -v | grep -q "git@github.com:michalmatoga/dotfiles.git"; then
+            export DOTFILES_DIR="$candidate"
+          fi
+        fi
+      }
+
+      dotfiles_require() {
+        : "${DOTFILES_DIR:?DOTFILES_DIR is required}"
+        if ! [ -d "$DOTFILES_DIR/.git" ]; then
+          echo "DOTFILES_DIR is required (not a git repo): $DOTFILES_DIR" >&2
+          return 1
+        fi
+        if ! git -C "$DOTFILES_DIR" remote -v | grep -q "git@github.com:michalmatoga/dotfiles.git"; then
+          echo "DOTFILES_DIR is required (dotfiles remote not found): $DOTFILES_DIR" >&2
+          return 1
+        fi
+      }
+
+      dotfiles_set_dir
+      dotfiles_require
+
+      if [ -f "$DOTFILES_DIR/.env" ]; then
+        source "$DOTFILES_DIR/.env"
+      fi
+
+      if [ -f "$DOTFILES_DIR/secrets.json" ]; then
+        humio_address=$(jq -r '.humio.address // empty' "$DOTFILES_DIR/secrets.json")
+        humio_token=$(jq -r '.humio.token // empty' "$DOTFILES_DIR/secrets.json")
+        humio_default_repo=$(jq -r '.humio.default_repo // empty' "$DOTFILES_DIR/secrets.json")
         if [ -n "$humio_address" ]; then
           export HUMIO_ADDRESS="$humio_address"
         fi
@@ -220,12 +262,14 @@ in
         fi
       fi
 
-      if [ -f ~/ghq/github.com/michalmatoga/dotfiles/scripts/humioctl-wrapper.zsh ]; then
-        source ~/ghq/github.com/michalmatoga/dotfiles/scripts/humioctl-wrapper.zsh
+      if [ -f "$DOTFILES_DIR/scripts/humioctl-wrapper.zsh" ]; then
+        source "$DOTFILES_DIR/scripts/humioctl-wrapper.zsh"
       fi
 
       alias PWD='pwd' # necessary for compatibility with sourced script below
-      source ~/ghq/github.com/michalmatoga/dotfiles/dist/gtm-terminal-plugin/gtm-plugin.sh
+      if [ -f "$DOTFILES_DIR/dist/gtm-terminal-plugin/gtm-plugin.sh" ]; then
+        source "$DOTFILES_DIR/dist/gtm-terminal-plugin/gtm-plugin.sh"
+      fi
 
     '';
   };
@@ -280,7 +324,7 @@ in
       set-option -g prefix C-f
 
       bind-key -Tcopy-mode-vi 'v' send -X begin-selection
-      bind-key -r o run-shell "tmux neww ~/ghq/github.com/michalmatoga/dotfiles/scripts/tmux-sessionizer.sh"
+      bind-key -r o run-shell "tmux neww ${DOTFILES_DIR:?DOTFILES_DIR is required}/scripts/tmux-sessionizer.sh"
 
       set -g @thumbs-command 'echo -n {} | clip.exe && tmux display-message \"Copied {}\"'
       set -g @thumbs-upcase-command 'wsl-open {}'
@@ -296,18 +340,22 @@ in
     enable = true;
   };
 
+  home.file.".local/bin/wf-run" = {
+    source = ../../scripts/wf/wf-run.sh;
+    executable = true;
+  };
+
   systemd.user.services.review-requests-to-trello = {
     Unit = {
       Description = "Sync GitHub review requests to Trello";
     };
     Service = {
       Type = "oneshot";
-      WorkingDirectory = "%h/ghq/github.com/michalmatoga/dotfiles";
       Environment = [
         "PATH=${pkgs.dash}/bin:${pkgs.bash}/bin:${pkgs.nodejs_24}/bin:${pkgs.gh}/bin:/run/current-system/sw/bin"
         "SHELL=${pkgs.bash}/bin/bash"
       ];
-      ExecStart = "${pkgs.nodejs_24}/bin/npx --yes tsx %h/ghq/github.com/michalmatoga/dotfiles/scripts/wf/main.ts";
+      ExecStart = "%h/.local/bin/wf-run";
     };
   };
 
