@@ -210,7 +210,7 @@ in
       }
 
       dotfiles_set_dir() {
-        if [ -n "${DOTFILES_DIR:-}" ]; then
+        if [ -n "''${DOTFILES_DIR:-}" ]; then
           return
         fi
 
@@ -229,13 +229,13 @@ in
       }
 
       dotfiles_require() {
-        : "${DOTFILES_DIR:?DOTFILES_DIR is required}"
-        if ! [ -d "$DOTFILES_DIR/.git" ]; then
-          echo "DOTFILES_DIR is required (not a git repo): $DOTFILES_DIR" >&2
+        : "''${DOTFILES_DIR:?DOTFILES_DIR is required}"
+        if ! [ -d "''${DOTFILES_DIR}/.git" ]; then
+          echo "DOTFILES_DIR is required (not a git repo): ''${DOTFILES_DIR}" >&2
           return 1
         fi
-        if ! git -C "$DOTFILES_DIR" remote -v | grep -q "git@github.com:michalmatoga/dotfiles.git"; then
-          echo "DOTFILES_DIR is required (dotfiles remote not found): $DOTFILES_DIR" >&2
+        if ! git -C "''${DOTFILES_DIR}" remote -v | grep -q "git@github.com:michalmatoga/dotfiles.git"; then
+          echo "DOTFILES_DIR is required (dotfiles remote not found): ''${DOTFILES_DIR}" >&2
           return 1
         fi
       }
@@ -243,14 +243,14 @@ in
       dotfiles_set_dir
       dotfiles_require
 
-      if [ -f "$DOTFILES_DIR/.env" ]; then
-        source "$DOTFILES_DIR/.env"
+      if [ -f "''${DOTFILES_DIR}/.env" ]; then
+        source "''${DOTFILES_DIR}/.env"
       fi
 
-      if [ -f "$DOTFILES_DIR/secrets.json" ]; then
-        humio_address=$(jq -r '.humio.address // empty' "$DOTFILES_DIR/secrets.json")
-        humio_token=$(jq -r '.humio.token // empty' "$DOTFILES_DIR/secrets.json")
-        humio_default_repo=$(jq -r '.humio.default_repo // empty' "$DOTFILES_DIR/secrets.json")
+      if [ -f "''${DOTFILES_DIR}/secrets.json" ]; then
+        humio_address=$(jq -r '.humio.address // empty' "''${DOTFILES_DIR}/secrets.json")
+        humio_token=$(jq -r '.humio.token // empty' "''${DOTFILES_DIR}/secrets.json")
+        humio_default_repo=$(jq -r '.humio.default_repo // empty' "''${DOTFILES_DIR}/secrets.json")
         if [ -n "$humio_address" ]; then
           export HUMIO_ADDRESS="$humio_address"
         fi
@@ -262,13 +262,13 @@ in
         fi
       fi
 
-      if [ -f "$DOTFILES_DIR/scripts/humioctl-wrapper.zsh" ]; then
-        source "$DOTFILES_DIR/scripts/humioctl-wrapper.zsh"
+      if [ -f "''${DOTFILES_DIR}/scripts/humioctl-wrapper.zsh" ]; then
+        source "''${DOTFILES_DIR}/scripts/humioctl-wrapper.zsh"
       fi
 
       alias PWD='pwd' # necessary for compatibility with sourced script below
-      if [ -f "$DOTFILES_DIR/dist/gtm-terminal-plugin/gtm-plugin.sh" ]; then
-        source "$DOTFILES_DIR/dist/gtm-terminal-plugin/gtm-plugin.sh"
+      if [ -f "''${DOTFILES_DIR}/dist/gtm-terminal-plugin/gtm-plugin.sh" ]; then
+        source "''${DOTFILES_DIR}/dist/gtm-terminal-plugin/gtm-plugin.sh"
       fi
 
     '';
@@ -324,7 +324,7 @@ in
       set-option -g prefix C-f
 
       bind-key -Tcopy-mode-vi 'v' send -X begin-selection
-      bind-key -r o run-shell "tmux neww ${DOTFILES_DIR:?DOTFILES_DIR is required}/scripts/tmux-sessionizer.sh"
+      bind-key -r o run-shell "tmux neww ''${DOTFILES_DIR:?DOTFILES_DIR is required}/scripts/tmux-sessionizer.sh"
 
       set -g @thumbs-command 'echo -n {} | clip.exe && tmux display-message \"Copied {}\"'
       set -g @thumbs-upcase-command 'wsl-open {}'
