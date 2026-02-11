@@ -1,0 +1,57 @@
+default_profile = ""
+
+[theme]
+name = ""
+
+[claude]
+
+[updates]
+check_enabled = true
+auto_update = false
+check_interval_hours = 24
+notify_in_cli = true
+
+[worktree]
+enabled = false
+path_template = "../{repo-name}-worktrees/{branch}"
+bare_repo_path_template = "./{branch}"
+auto_cleanup = true
+show_branch_in_tui = true
+delete_branch_on_cleanup = false
+
+[sandbox]
+enabled_by_default = false
+yolo_mode_default = false
+default_image = "ghcr.io/njbrake/aoe-sandbox:latest"
+extra_volumes = []
+environment = [
+    "TERM",
+    "COLORTERM",
+    "FORCE_COLOR",
+    "NO_COLOR",
+]
+auto_cleanup = true
+default_terminal_mode = "host"
+volume_ignores = []
+mount_ssh = false
+
+[tmux]
+status_bar = "auto"
+mouse = "auto"
+
+[session]
+
+[diff]
+context_lines = 3
+
+[hooks]
+on_launch = ["bash -lc 'if [ -f /home/nixos/ghq/github.com/michalmatoga/dotfiles/.env ]; then . /home/nixos/ghq/github.com/michalmatoga/dotfiles/.env; fi; tmux set-environment -g TRELLO_API_KEY \"$TRELLO_API_KEY\"; tmux set-environment -g TRELLO_TOKEN \"$TRELLO_TOKEN\"'"]
+
+[sound]
+enabled = false
+mode = "random"
+
+[app_state]
+has_seen_welcome = true
+last_seen_version = "0.11.1"
+home_list_width = 50

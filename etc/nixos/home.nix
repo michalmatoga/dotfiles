@@ -42,6 +42,11 @@ in
     source = ../../.config/lazydocker/config.yml;
   };
 
+  home.file.".config/agent-of-empires" = {
+    recursive = true;
+    source = ../../.config/agent-of-empires;
+  };
+
   home.file.".config/opencode/config.json" = {
     source = ../../.config/opencode/config.json;
   };
