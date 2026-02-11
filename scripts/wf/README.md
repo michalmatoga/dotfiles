@@ -141,13 +141,32 @@ Creates work sessions for Ready cards with the Schibsted label and an issue URL.
 
 ### Behavior
 
-- Filters Trello cards to the Ready list (`6689284f81d51c086a80879c`).
+- Filters Trello cards to the Ready (`6689284f81d51c086a80879c`) or Doing (`668928577acb6ab04b723321`) lists.
 - Skips cards that already have a comment containing `opencode -s <sessionId>`.
 - Ensures a bare repo exists at `~/g/[GH_HOST]/[org]/[repo].git`.
 - Creates a worktree at `~/g/[GH_HOST]/[org]/[repo]/issue-<number>`.
 - Creates a base worktree at `~/g/[GH_HOST]/[org]/[repo]/main`.
 - Runs opencode work sessions with `scripts/wf/prompts/issue.md`.
 - Creates an AoE session for work tracking under profile `${GH_HOST}-issues` in group `issues/[org]/[repo]`.
+- Adds a Trello comment containing `opencode -s <sessionId>` after success.
+
+## Trello-only Tasks Sessions
+
+Creates work sessions from Trello cards without GitHub queries.
+
+### Behavior
+
+- Filters Trello cards in the Ready (`6689284f81d51c086a80879c`) or Doing (`668928577acb6ab04b723321`) lists.
+- Requires the `dwp` label (case-sensitive).
+- Maps repo labels to clone URLs:
+  - `dotfiles` -> `github.com:michalmatoga/dotfiles.git`
+  - `Elikonas` -> `github.com:elikonas/elikonas.git`
+- Builds a slug from `<repo-label>-<card-title>` (lowercase, dashed, max 80 chars).
+- Ensures a bare repo exists at `~/g/github.com/[org]/[repo].git`.
+- Creates a worktree at `~/g/github.com/[org]/[repo]/<slug>`.
+- Creates a base worktree at `~/g/github.com/[org]/[repo]/<base-branch>`.
+- Runs opencode sessions with `scripts/wf/prompts/issue.md`.
+- Creates an AoE session in the default profile under group `issues/[org]/[repo]`.
 - Adds a Trello comment containing `opencode -s <sessionId>` after success.
 
 ### Required Environment

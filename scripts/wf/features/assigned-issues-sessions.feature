@@ -10,6 +10,7 @@ Feature: Assigned issues work sessions
       | Name               | Id                       |
       | Praca w Schibsted  | 6694db7c23e5de7bec1b7489 |
     And the Trello list "Ready" has id "6689284f81d51c086a80879c"
+    And the Trello list "Doing" has id "668928577acb6ab04b723321"
 
   Scenario: Spawn issue sessions for Ready cards without a session comment
     Given a Trello card in the "Ready" list has label "Praca w Schibsted"
@@ -30,10 +31,10 @@ Feature: Assigned issues work sessions
     When the assigned issues sessions workflow runs
     Then no new sessions are started for the card
 
-  Scenario: Skip cards that are not in Ready
+  Scenario: Skip cards that are not in Ready or Doing
     Given a Trello card has label "Praca w Schibsted"
     And the card contains an issue URL
-    And the card is not in the "Ready" list
+    And the card is not in the "Ready" or "Doing" list
     When the assigned issues sessions workflow runs
     Then no new sessions are started for the card
 

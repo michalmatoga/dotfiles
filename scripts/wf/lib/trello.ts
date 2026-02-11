@@ -6,6 +6,9 @@ export type TrelloCard = {
   desc: string;
   idLabels: string[];
   idList?: string;
+  labels?: { name: string }[];
+  url?: string;
+  shortUrl?: string;
 };
 
 export type TrelloComment = {

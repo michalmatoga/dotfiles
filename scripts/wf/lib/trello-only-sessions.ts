@@ -6,25 +6,36 @@ import { loadEnvFile, requireEnv } from "./env";
 import { buildOpencodeResumeCommand, runInitialOpencode } from "./opencode";
 import { trelloRequest, type TrelloCard, type TrelloComment } from "./trello";
 
-export type AssignedIssueSessionTarget = {
+export type TrelloOnlySessionTarget = {
   cardId: string;
-  issueUrl: string;
-  repo: string;
-  issueNumber: string;
+  cardName: string;
+  cardUrl: string;
+  repoLabel: string;
+  cloneUrl: string;
+  workspaceRepoPath: string;
 };
 
 const trelloBoardId = "HZ7hcWZy";
 const trelloReadyListId = "6689284f81d51c086a80879c";
 const trelloDoingListId = "668928577acb6ab04b723321";
-const trelloWorkLabelId = "6694db7c23e5de7bec1b7489";
 const trelloEnvFile = ".env";
-const issueUrlRegex = /https:\/\/schibsted\.ghe\.com\/([^/]+\/[^/]+)\/issues\/(\d+)/;
 const sessionMarkerRegex = /\bopencode\s+-s\s+\S+/i;
+const dwpLabelName = "dwp";
+const repoLabelMappings = new Map<string, { cloneUrl: string; workspacePath: string }>([
+  ["dotfiles", {
+    cloneUrl: "git@github.com:michalmatoga/dotfiles.git",
+    workspacePath: "michalmatoga/dotfiles",
+  }],
+  ["Elikonas", {
+    cloneUrl: "git@github.com:elikonas/elikonas.git",
+    workspacePath: "elikonas/elikonas",
+  }],
+]);
 
 const fetchOpenCards = async (): Promise<TrelloCard[]> => {
   return trelloRequest<TrelloCard[]>(`boards/${trelloBoardId}/cards`, {
     filter: "open",
-    fields: "id,name,desc,idLabels,idList",
+    fields: "id,name,desc,idLabels,idList,labels,shortUrl,url",
   });
 };
 
@@ -166,23 +177,48 @@ const resolveBaseRef = async (options: {
   return "refs/remotes/origin/main";
 };
 
-const extractIssueReference = (text: string) => {
-  const match = text.match(issueUrlRegex);
-  if (!match) {
-    return null;
+const slugify = (input: string) => {
+  const cleaned = input
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+  if (cleaned.length <= 80) {
+    return cleaned;
   }
-  return { repo: match[1], issueNumber: match[2], url: match[0] };
+  return cleaned.slice(0, 80).replace(/-+$/g, "");
 };
 
-export const fetchAssignedIssueSessionTargets = async (options: {
+const resolveCardUrl = (card: TrelloCard): string | null => {
+  if (card.shortUrl) {
+    return card.shortUrl;
+  }
+  if (card.url) {
+    return card.url;
+  }
+  return null;
+};
+
+const resolveRepoMapping = (card: TrelloCard) => {
+  const labels = card.labels ?? [];
+  for (const label of labels) {
+    const mapping = repoLabelMappings.get(label.name);
+    if (mapping) {
+      return { repoLabel: label.name, mapping };
+    }
+  }
+  return null;
+};
+
+export const fetchTrelloOnlySessionTargets = async (options: {
   verbose: boolean;
-}): Promise<AssignedIssueSessionTarget[]> => {
+}): Promise<TrelloOnlySessionTarget[]> => {
   await loadEnvFile(trelloEnvFile);
   requireEnv("TRELLO_API_KEY");
   requireEnv("TRELLO_TOKEN");
 
   const openCards = await fetchOpenCards();
-  const targets: AssignedIssueSessionTarget[] = [];
+  const targets: TrelloOnlySessionTarget[] = [];
 
   const eligibleListIds = new Set([trelloReadyListId, trelloDoingListId]);
 
@@ -190,38 +226,48 @@ export const fetchAssignedIssueSessionTargets = async (options: {
     if (!card.idList || !eligibleListIds.has(card.idList)) {
       continue;
     }
-    if (!card.idLabels.includes(trelloWorkLabelId)) {
+    const labels = card.labels ?? [];
+    const hasDwpLabel = labels.some((label) => label.name === dwpLabelName);
+    if (!hasDwpLabel) {
       continue;
     }
-    const issueRef = extractIssueReference(card.desc);
-    if (!issueRef) {
+    const mapping = resolveRepoMapping(card);
+    if (!mapping) {
       if (options.verbose) {
-        console.log(`Skip Ready card without issue URL: ${card.name}`);
+        console.log(`Skip dwp card without repo label: ${card.name}`);
+      }
+      continue;
+    }
+    const cardUrl = resolveCardUrl(card);
+    if (!cardUrl) {
+      if (options.verbose) {
+        console.log(`Skip dwp card without card URL: ${card.name}`);
       }
       continue;
     }
     const alreadyHasSession = await hasSessionComment(card.id);
     if (alreadyHasSession) {
       if (options.verbose) {
-        console.log(`Skip Ready card with session comment: ${card.name}`);
+        console.log(`Skip dwp card with session comment: ${card.name}`);
       }
       continue;
     }
     targets.push({
       cardId: card.id,
-      issueUrl: issueRef.url,
-      repo: issueRef.repo,
-      issueNumber: issueRef.issueNumber,
+      cardName: card.name,
+      cardUrl,
+      repoLabel: mapping.repoLabel,
+      cloneUrl: mapping.mapping.cloneUrl,
+      workspaceRepoPath: mapping.mapping.workspacePath,
     });
   }
 
   return targets;
 };
 
-export const runAssignedIssueSessions = async (
-  targets: AssignedIssueSessionTarget[],
+export const runTrelloOnlySessions = async (
+  targets: TrelloOnlySessionTarget[],
   options: {
-    host: string;
     workspaceRoot: string;
     promptPath: string;
     dryRun: boolean;
@@ -235,18 +281,13 @@ export const runAssignedIssueSessions = async (
   const promptTemplate = await readFile(options.promptPath, "utf8");
 
   for (const target of targets) {
-    const [org, repo] = target.repo.split("/");
+    const [org, repo] = target.workspaceRepoPath.split("/");
     const bareRepoPath = join(options.workspaceRoot, org, `${repo}.git`);
-    const worktreePath = join(
-      options.workspaceRoot,
-      org,
-      repo,
-      `issue-${target.issueNumber}`,
-    );
-    const cloneUrl = `schibsted@${options.host}:${target.repo}.git`;
+    const slug = slugify(`${target.repoLabel}-${target.cardName}`);
+    const worktreePath = join(options.workspaceRoot, org, repo, slug);
 
     try {
-      await ensureBareRepo(bareRepoPath, cloneUrl, options);
+      await ensureBareRepo(bareRepoPath, target.cloneUrl, options);
       await runCommand("git", ["-C", bareRepoPath, "fetch", "origin"], {
         dryRun: options.dryRun,
         verbose: options.verbose,
@@ -274,10 +315,10 @@ export const runAssignedIssueSessions = async (
         verbose: options.verbose,
       });
 
-      const title = `Work ${target.repo}#${target.issueNumber}`;
+      const title = `Work ${slug}`;
       const prompt = promptTemplate
-        .replaceAll("[org/repo]", target.repo)
-        .replaceAll("[issue-url]", target.issueUrl);
+        .replaceAll("[org/repo]", target.repoLabel)
+        .replaceAll("[issue-url]", target.cardUrl);
       const sessionId = await runInitialOpencode({
         title,
         prompt,
@@ -286,28 +327,22 @@ export const runAssignedIssueSessions = async (
       });
       const opencodeCmd = buildOpencodeResumeCommand(sessionId);
 
-    const aoeArgs = [
-      "add",
-      worktreePath,
-      "--profile",
-      `${options.host}-issues`,
-      "--title",
-      title,
-      "--group",
-      `issues/${org}/${repo}`,
-      "--cmd",
-      opencodeCmd,
-    ];
+      const aoeArgs = [
+        "add",
+        worktreePath,
+        "--title",
+        title,
+        "--group",
+        `issues/${org}/${repo}`,
+        "--cmd",
+        opencodeCmd,
+      ];
 
       await runCommand("aoe", aoeArgs, { dryRun: options.dryRun, verbose: options.verbose });
-      await runCommand(
-        "aoe",
-        ["session", "start", "-p", `${options.host}-issues`, title],
-        {
-          dryRun: options.dryRun,
-          verbose: options.verbose,
-        },
-      );
+      await runCommand("aoe", ["session", "start", title], {
+        dryRun: options.dryRun,
+        verbose: options.verbose,
+      });
 
       await addSessionComment({
         cardId: target.cardId,
@@ -316,7 +351,7 @@ export const runAssignedIssueSessions = async (
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      console.warn(`Failed to create issue session for ${target.issueUrl}: ${message}`);
+      console.warn(`Failed to create Trello-only session for ${target.cardName}: ${message}`);
     }
   }
 };

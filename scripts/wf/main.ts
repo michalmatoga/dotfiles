@@ -11,6 +11,10 @@ import {
   fetchAssignedIssueSessionTargets,
   runAssignedIssueSessions,
 } from "./lib/assigned-issue-sessions";
+import {
+  fetchTrelloOnlySessionTargets,
+  runTrelloOnlySessions,
+} from "./lib/trello-only-sessions";
 import { runAssignedIssuesSync } from "./lib/workflow-assigned-issues";
 import { runReviewRequestSync } from "./lib/workflow-review-requests";
 import {
@@ -22,6 +26,7 @@ const ghHost = "schibsted.ghe.com";
 const ghUser = "michal-matoga";
 const promptPath = "scripts/wf/prompts/review.md";
 const workspaceRoot = join(process.env.HOME ?? "", "g", ghHost);
+const trelloWorkspaceRoot = join(process.env.HOME ?? "", "g", "github.com");
 
 const parseArgs = (args: string[]) => {
   const flags = new Set(args);
@@ -54,6 +59,7 @@ const main = async () => {
   if (mode === "sessions") {
     const targets = await fetchSessionTargets({ host: ghHost, verbose });
     const issueTargets = await fetchAssignedIssueSessionTargets({ verbose });
+    const trelloOnlyTargets = await fetchTrelloOnlySessionTargets({ verbose });
     await runReviewSessionsTargets(
       targets,
       {
@@ -81,6 +87,12 @@ const main = async () => {
       dryRun,
       verbose,
     });
+    await runTrelloOnlySessions(trelloOnlyTargets, {
+      workspaceRoot: trelloWorkspaceRoot,
+      promptPath: "scripts/wf/prompts/issue.md",
+      dryRun,
+      verbose,
+    });
     return;
   }
 
@@ -104,6 +116,7 @@ const main = async () => {
 
   const sessionTargets = await fetchSessionTargets({ host: ghHost, verbose });
   const issueTargets = await fetchAssignedIssueSessionTargets({ verbose });
+  const trelloOnlyTargets = await fetchTrelloOnlySessionTargets({ verbose });
   await runReviewSessionsTargets(
     sessionTargets,
     {
@@ -124,6 +137,12 @@ const main = async () => {
   await runAssignedIssueSessions(issueTargets, {
     host: ghHost,
     workspaceRoot,
+    promptPath: "scripts/wf/prompts/issue.md",
+    dryRun,
+    verbose,
+  });
+  await runTrelloOnlySessions(trelloOnlyTargets, {
+    workspaceRoot: trelloWorkspaceRoot,
     promptPath: "scripts/wf/prompts/issue.md",
     dryRun,
     verbose,
