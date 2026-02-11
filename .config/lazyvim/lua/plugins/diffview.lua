@@ -46,6 +46,18 @@ return {
         callback = apply_diff_highlights,
       })
 
+      vim.o.autoread = true
+
+      create_autocmd({ "BufEnter", "CursorHold", "FocusGained" }, {
+        callback = function()
+          vim.cmd("checktime")
+          local ok, lib = pcall(require, "diffview.lib")
+          if ok and lib.get_current_view() then
+            vim.cmd("DiffviewRefresh")
+          end
+        end,
+      })
+
       local map = vim.keymap.set
 
       local function get_default_branch_name()
