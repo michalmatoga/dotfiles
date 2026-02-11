@@ -141,6 +141,73 @@ const ensureWorktree = async (options: {
   }
 };
 
+const branchExists = async (options: {
+  bareRepoPath: string;
+  branchName: string;
+  dryRun: boolean;
+}): Promise<boolean> => {
+  if (options.dryRun) {
+    return false;
+  }
+  try {
+    await runCommandCapture("git", [
+      "-C",
+      options.bareRepoPath,
+      "show-ref",
+      "--verify",
+      `refs/heads/${options.branchName}`,
+    ]);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const ensureBranchWorktree = async (options: {
+  bareRepoPath: string;
+  worktreePath: string;
+  baseRef: string;
+  branchName: string;
+  dryRun: boolean;
+  verbose: boolean;
+}) => {
+  await mkdir(options.worktreePath, { recursive: true });
+  const hasBranch = await branchExists({
+    bareRepoPath: options.bareRepoPath,
+    branchName: options.branchName,
+    dryRun: options.dryRun,
+  });
+  const args = [
+    "-C",
+    options.bareRepoPath,
+    "worktree",
+    "add",
+    "--force",
+    options.worktreePath,
+  ];
+  if (hasBranch) {
+    args.push(options.branchName);
+  } else {
+    args.push("-b", options.branchName, options.baseRef);
+  }
+  await runCommand("git", args, {
+    dryRun: options.dryRun,
+    verbose: options.verbose,
+    allowFailure: true,
+  });
+  if (options.dryRun) {
+    return;
+  }
+  const gitPath = join(options.worktreePath, ".git");
+  const hasGit = await access(gitPath).then(
+    () => true,
+    () => false,
+  );
+  if (!hasGit) {
+    throw new Error(`Worktree missing .git at ${options.worktreePath}`);
+  }
+};
+
 const resolveBaseRef = async (options: {
   bareRepoPath: string;
   dryRun: boolean;
@@ -259,10 +326,11 @@ export const runAssignedIssueSessions = async (
       const baseBranch = baseRef.split("/").pop() ?? "main";
       const baseWorktreePath = join(options.workspaceRoot, org, repo, baseBranch);
 
-      await ensureWorktree({
+      await ensureBranchWorktree({
         bareRepoPath,
         worktreePath,
-        ref: baseRef,
+        baseRef,
+        branchName: `issue-${target.issueNumber}`,
         dryRun: options.dryRun,
         verbose: options.verbose,
       });
