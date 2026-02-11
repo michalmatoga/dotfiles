@@ -55,6 +55,8 @@ if [ -f "$DOTFILES_DIR/.env" ]; then
   . "$DOTFILES_DIR/.env"
 fi
 
-export PATH="$HOME/.cache/npm/global/bin:$HOME/.nix-profile/bin:$HOME/.local/state/nix/profile/bin:$PATH"
+export PATH="$HOME/.cache/npm/global/bin:$HOME/.nix-profile/bin:$HOME/.local/state/nix/profile/bin:/run/current-system/sw/bin:/etc/profiles/per-user/$USER/bin:$PATH"
+
+cd "$DOTFILES_DIR"
 
 exec npx --yes tsx "$DOTFILES_DIR/scripts/wf/main.ts"
