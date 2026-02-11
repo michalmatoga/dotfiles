@@ -150,6 +150,15 @@ in
     };
   };
 
+  programs.gh = {
+    enable = true;
+    settings = {
+      aliases = {
+        recent-open-issues = ''!d=$(date -d "7 days ago" +%Y-%m-%d); wsl-open "https://schibsted.ghe.com/issues?q=(org%3Asvp%20OR%20org%3Avgtv)%20is%3Aissue%20is%3Aopen%20created%3A%3E%3D''${d}"'';
+      };
+    };
+  };
+
   programs.zsh = {
     enable = true;
     enableCompletion = true;
