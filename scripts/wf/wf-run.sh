@@ -50,4 +50,11 @@ if ! dotfiles_remote_ok "$DOTFILES_DIR"; then
   exit 1
 fi
 
+if [ -f "$DOTFILES_DIR/.env" ]; then
+  # shellcheck disable=SC1090
+  . "$DOTFILES_DIR/.env"
+fi
+
+export PATH="$HOME/.cache/npm/global/bin:$HOME/.nix-profile/bin:$HOME/.local/state/nix/profile/bin:$PATH"
+
 exec npx --yes tsx "$DOTFILES_DIR/scripts/wf/main.ts"
