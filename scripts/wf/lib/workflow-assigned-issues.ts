@@ -6,6 +6,7 @@ const trelloBoardId = "HZ7hcWZy";
 const trelloNewListId = "6694f3249e46f9e9aec6db3b";
 const trelloWorkLabelId = "6694db7c23e5de7bec1b7489";
 const trelloEnvFile = ".env";
+const trelloCodeReviewLabelId = "686cbf33add233ccba380f46";
 
 const issueUrlRegex = /https:\/\/schibsted\.ghe\.com\/[^\s)]+\/issues\/\d+/g;
 
@@ -100,6 +101,9 @@ export const runAssignedIssuesSync = async (options: {
     }
     processedCardIds.add(card.id);
     if (!card.idLabels.includes(trelloWorkLabelId)) {
+      continue;
+    }
+    if (card.idLabels.includes(trelloCodeReviewLabelId)) {
       continue;
     }
     const urls = extractIssueUrls(card.desc);
