@@ -221,7 +221,7 @@ export const runReviewSessionsTargets = async (
       "add",
       worktreePath,
       "--profile",
-      `${options.host}-reviews`,
+      "work",
       "--title",
       title,
       "--group",
@@ -234,14 +234,10 @@ export const runReviewSessionsTargets = async (
       dryRun: options.dryRun,
       verbose: options.verbose,
     });
-    await runCommand(
-      "aoe",
-      ["session", "start", "-p", `${options.host}-reviews`, title],
-      {
-        dryRun: options.dryRun,
-        verbose: options.verbose,
-      },
-    );
+    await runCommand("aoe", ["session", "start", "-p", "work", title], {
+      dryRun: options.dryRun,
+      verbose: options.verbose,
+    });
 
     if (onSessionCreated) {
       await onSessionCreated({ target, sessionId });

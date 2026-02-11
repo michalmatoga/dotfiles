@@ -13,7 +13,7 @@ const trelloCodeReviewLabelId = "686cbf33add233ccba380f46";
 const trelloWorkLabelId = "6694db7c23e5de7bec1b7489";
 const trelloEnvFile = ".env";
 const ghHost = "schibsted.ghe.com";
-const aoeReviewProfile = "schibsted.ghe.com-reviews";
+const aoeReviewProfile = "work";
 
 export const prUrlRegex = /https:\/\/schibsted\.ghe\.com\/[^\s)]+\/pull\/\d+/g;
 

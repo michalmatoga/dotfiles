@@ -359,7 +359,7 @@ export const runAssignedIssueSessions = async (
       "add",
       worktreePath,
       "--profile",
-      `${options.host}-issues`,
+      "work",
       "--title",
       title,
       "--group",
@@ -369,14 +369,10 @@ export const runAssignedIssueSessions = async (
     ];
 
       await runCommand("aoe", aoeArgs, { dryRun: options.dryRun, verbose: options.verbose });
-      await runCommand(
-        "aoe",
-        ["session", "start", "-p", `${options.host}-issues`, title],
-        {
-          dryRun: options.dryRun,
-          verbose: options.verbose,
-        },
-      );
+      await runCommand("aoe", ["session", "start", "-p", "work", title], {
+        dryRun: options.dryRun,
+        verbose: options.verbose,
+      });
 
       await addSessionComment({
         cardId: target.cardId,

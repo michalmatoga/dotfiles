@@ -199,6 +199,8 @@ in
       meetings = "dotfiles_require; bash \"$DOTFILES_DIR/scripts/meetings.sh\"";
       nag = "dotfiles_require; bash \"$DOTFILES_DIR/scripts/nag.sh\"";
       oc = "opencode --port";
+      aoe-work = "aoe -p work";
+      aoe-personal = "aoe -p personal";
       ody = "dotfiles_require; npx tsx \"$DOTFILES_DIR/scripts/hg/ody.ts\"";
       odyr = "pkill -f ody.ts && tmux send-keys -t ody:1 'ody' C-m";
       paste = "powershell.exe get-clipboard";

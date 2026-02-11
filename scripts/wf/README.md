@@ -107,7 +107,7 @@ automation sessions.
 - Creates a worktree at `~/g/[GH_HOST]/[org]/[repo]/[pr-<number>]`.
 - Creates a worktree for the base branch at `~/g/[GH_HOST]/[org]/[repo]/[base-branch]`.
 - Runs opencode review sessions against `main`.
-- Creates an AoE session for review management under profile `${GH_HOST}-reviews` in group `reviews/[org]/[repo]`.
+- Creates an AoE session for review management under profile `work` in group `reviews/[org]/[repo]`.
 - Adds a Trello comment containing `opencode -s <sessionId>` after both sessions succeed.
 
 ### Defaults
@@ -147,7 +147,7 @@ Creates work sessions for Ready cards with the Schibsted label and an issue URL.
 - Creates a worktree at `~/g/[GH_HOST]/[org]/[repo]/issue-<number>`.
 - Creates a base worktree at `~/g/[GH_HOST]/[org]/[repo]/main`.
 - Runs opencode work sessions with `scripts/wf/prompts/issue.md`.
-- Creates an AoE session for work tracking under profile `${GH_HOST}-issues` in group `issues/[org]/[repo]`.
+- Creates an AoE session for work tracking under profile `work` in group `issues/[org]/[repo]`.
 - Adds a Trello comment containing `opencode -s <sessionId>` after success.
 
 ## Trello-only Tasks Sessions
@@ -166,7 +166,14 @@ Creates work sessions from Trello cards without GitHub queries.
 - Creates a worktree at `~/g/github.com/[org]/[repo]/<slug>`.
 - Creates a base worktree at `~/g/github.com/[org]/[repo]/<base-branch>`.
 - Runs opencode sessions with `scripts/wf/prompts/issue.md`.
-- Creates an AoE session in the default profile under group `issues/[org]/[repo]`.
+- Creates an AoE session under profile `personal` in group `issues/[org]/[repo]`.
+
+### AoE Profiles
+
+- `work`: review and assigned issue sessions.
+- `personal`: Trello-only sessions.
+
+Group naming remains unchanged (for example, `reviews/<org>/<repo>` and `issues/<org>/<repo>`).
 - Adds a Trello comment containing `opencode -s <sessionId>` after success.
 
 ### Required Environment

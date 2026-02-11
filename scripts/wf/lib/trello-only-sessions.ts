@@ -399,6 +399,8 @@ export const runTrelloOnlySessions = async (
       const aoeArgs = [
         "add",
         worktreePath,
+        "--profile",
+        "personal",
         "--title",
         title,
         "--group",
@@ -408,7 +410,7 @@ export const runTrelloOnlySessions = async (
       ];
 
       await runCommand("aoe", aoeArgs, { dryRun: options.dryRun, verbose: options.verbose });
-      await runCommand("aoe", ["session", "start", title], {
+      await runCommand("aoe", ["session", "start", "-p", "personal", title], {
         dryRun: options.dryRun,
         verbose: options.verbose,
       });

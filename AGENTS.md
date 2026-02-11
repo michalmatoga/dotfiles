@@ -16,7 +16,7 @@ Follow these notes before making changes or running commands.
 - Preferred shell: `zsh` with dotfiles-provided aliases (see `home.nix`).
 - Use Nix: run `sudo nixos-rebuild switch` for system and dotfile updates; run in WSL context.
 - If flakes are not present, avoid `--flake` and use `sudo nixos-rebuild switch`.
-- Home-manager integrates via flake; still apply changes with `sudo nixos-rebuild switch`.
+- Home-manager does not use `home-manager switch --flake` in this setup; apply changes with `sudo nixos-rebuild switch` instead.
 - `corepack_24` and `nodejs_24` are installed through Nix; no extra Node install.
 - Enable direnv if available; `.config/direnv/direnv.toml` sets `load_dotenv = true`.
 - `.env` is restored from `secrets.json`; avoid committing generated secrets.
@@ -27,7 +27,7 @@ Follow these notes before making changes or running commands.
 
 - **Nix flake evaluation** (only if `flake.nix` exists): `sudo nixos-rebuild switch --flake .#nixos`.
 - **Non-flake rebuild**: `sudo nixos-rebuild switch`.
-- **Home-manager reapply only**: `home-manager switch --flake .#nixos` (if available).
+- **Home-manager reapply only**: do not use `home-manager switch --flake`; reapply via `sudo nixos-rebuild switch`.
 - **Node dependencies**: run `npm install --prefix scripts` to restore TS toolchain.
 - **TypeScript execution**: `npx --yes tsx scripts/<file>.ts` (use alias when defined).
 - **ESLint**: `npx --yes eslint "scripts/**/*.{ts,js}" --max-warnings=0`.
