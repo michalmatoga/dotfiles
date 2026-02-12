@@ -114,9 +114,9 @@ automation sessions.
 
 - Opencode prompt: `scripts/wf/prompts/review.md`.
 - opencode CLI invocation:
-  - `opencode run --format json --title "Review org/repo#<number>" --share "<prompt>"`.
+  - `opencode run --format json --title "PR<number>: <title>" --share "<prompt>"`.
 - AoE CLI command:
-  - `aoe add <worktree-path> --title "Review org/repo#<number>" --group "reviews/[GH_HOST]/org/repo" --cmd "opencode run --format json --title \"Review org/repo#<number>\" --share \"<prompt>\"" --launch`.
+  - `aoe add <worktree-path> --title "PR<number>: <title>" --group "reviews/[GH_HOST]/org/repo" --cmd "opencode run --format json --title \"PR<number>: <title>\" --share \"<prompt>\"" --launch`.
 
 ## Assigned Issues to Trello
 

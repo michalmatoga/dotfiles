@@ -205,7 +205,8 @@ export const runReviewSessionsTargets = async (
       verbose: options.verbose,
     });
 
-    const title = `Review ${request.repo}#${prNumber}`;
+    const prTitle = request.title?.trim() || request.repo || request.url;
+    const title = `PR${prNumber}: ${prTitle}`;
     const prompt = promptTemplate
       .replaceAll("[org/repo]", request.repo)
       .replaceAll("[pr-url]", request.url);

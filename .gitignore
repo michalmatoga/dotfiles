@@ -2,3 +2,4 @@ node_modules
 repolist.txt
 .env
 /dist/
+scripts/wo/state/
