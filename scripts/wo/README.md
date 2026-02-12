@@ -86,6 +86,7 @@ Flags:
 - `--dry-run` prints actions without mutating Trello/GitHub.
 - `--verbose` prints extra diagnostics.
 - `--init-board` creates the Trello board, lists, and labels.
+- `--full-refresh` clears local project sync state and forces a full refresh.
 
 ## State & idempotency
 
@@ -93,6 +94,7 @@ Flags:
 - `wf-events.jsonl` stores append-only events.
 - `wf-snapshots.jsonl` stores the latest snapshot for conflict resolution.
 - Trello wins if a card was moved since the last snapshot.
+- Project sync runs incrementally using `updatedAt`, with a daily full refresh.
 
 ## Troubleshooting
 

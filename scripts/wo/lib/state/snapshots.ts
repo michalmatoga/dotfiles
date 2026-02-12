@@ -1,8 +1,23 @@
 import { appendJsonl, readLastJsonlEntry } from "./jsonl";
 
+export type ProjectMetaSnapshot = {
+  projectId: string;
+  statusFieldId: string;
+  statusOptions: Record<string, string>;
+  fetchedAt: string;
+};
+
+export type ProjectSnapshot = {
+  lastSyncAt?: string | null;
+  fullRefreshAt?: string | null;
+  items?: Record<string, { updatedAt: string }>
+  meta?: ProjectMetaSnapshot | null;
+};
+
 export type Snapshot = {
   ts: string;
-  trello: Record<string, { listId: string; labels: string[]; syncUrl?: string | null }>;
+  trello?: Record<string, { listId: string; labels: string[]; syncUrl?: string | null }>;
+  project?: ProjectSnapshot | null;
 };
 
 const snapshotPath = "scripts/wo/state/wf-snapshots.jsonl";

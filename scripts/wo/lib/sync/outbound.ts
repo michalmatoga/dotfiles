@@ -3,7 +3,11 @@ import { loadBoardContext } from "../trello/context";
 import { labelNames, listAliases, listToGhStatusName } from "../policy/mapping";
 import { parseSyncMetadata, formatSyncMetadata, updateDescriptionWithSync } from "./metadata";
 import { fetchProjectConfig, updateProjectItemStatus } from "../gh/project";
-import { readLatestSnapshot, writeSnapshot } from "../state/snapshots";
+import {
+  readLatestSnapshot,
+  writeSnapshot,
+  type ProjectMetaSnapshot,
+} from "../state/snapshots";
 import { writeEvent } from "../state/events";
 
 export const syncOutbound = async (options: {
@@ -25,11 +29,29 @@ export const syncOutbound = async (options: {
     throw new Error("Missing schibsted label in Trello board");
   }
 
-  const projectConfig = await fetchProjectConfig({
-    host: options.host,
-    owner: options.owner,
-    number: options.projectNumber,
-  });
+  const meta = snapshot?.project?.meta ?? null;
+  const metaIsFresh = meta
+    ? Date.now() - new Date(meta.fetchedAt).getTime() < 24 * 60 * 60 * 1000
+    : false;
+  const projectConfig = metaIsFresh
+    ? {
+        projectId: meta!.projectId,
+        statusFieldId: meta!.statusFieldId,
+        statusOptions: meta!.statusOptions,
+      }
+    : await fetchProjectConfig({
+        host: options.host,
+        owner: options.owner,
+        number: options.projectNumber,
+      });
+  const projectMeta: ProjectMetaSnapshot = metaIsFresh
+    ? meta!
+    : {
+        projectId: projectConfig.projectId,
+        statusFieldId: projectConfig.statusFieldId,
+        statusOptions: projectConfig.statusOptions,
+        fetchedAt: now,
+      };
 
   for (const card of cards) {
     if (!card.idLabels.includes(schibstedLabelId)) {
@@ -96,6 +118,10 @@ export const syncOutbound = async (options: {
         },
       ]),
     ),
+    project: {
+      ...(snapshot?.project ?? {}),
+      meta: projectMeta,
+    },
   };
   await writeSnapshot(nextSnapshot);
 };

@@ -17,12 +17,13 @@ const parseArgs = (args: string[]) => {
   return {
     dryRun: flags.has("--dry-run"),
     verbose: flags.has("--verbose"),
+    fullRefresh: flags.has("--full-refresh"),
     mode,
   };
 };
 
 const main = async () => {
-  const { dryRun, verbose, mode } = parseArgs(process.argv.slice(2));
+  const { dryRun, verbose, fullRefresh, mode } = parseArgs(process.argv.slice(2));
   await loadEnvFile(".env");
 
   if (mode === "init") {
@@ -37,7 +38,7 @@ const main = async () => {
 
   requireEnv("TRELLO_BOARD_ID_WO");
 
-  await syncWorkItemsUseCase({ dryRun, verbose });
+  await syncWorkItemsUseCase({ dryRun, verbose, fullRefresh });
   await syncReviewRequestsUseCase({ dryRun, verbose });
   await syncTrelloToGithubUseCase({ dryRun, verbose });
   await reconcileReviewsUseCase({ dryRun, verbose });
