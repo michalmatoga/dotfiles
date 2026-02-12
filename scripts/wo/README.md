@@ -75,6 +75,8 @@ Required env vars (from `.env`):
 - `TRELLO_TOKEN`
 - `TRELLO_BOARD_ID_WO`
 
+Board identifiers and tokens live in `.env` (do not hardcode them in the repo).
+
 ## Run
 
 ```bash
@@ -95,6 +97,25 @@ Flags:
 - `wf-snapshots.jsonl` stores the latest snapshot for conflict resolution.
 - Trello wins if a card was moved since the last snapshot.
 - Project sync runs incrementally using `updatedAt`, with a daily full refresh.
+
+## Linked PR behavior
+
+- PRs with closing keywords are folded into their issue cards (no separate PR card).
+- Issue cards move from Waiting to Ready when any approval or changes requested exists.
+- Moves triggered by linked PRs only apply when the card is already in Waiting.
+- When a linked PR moves a card to Ready, it is positioned at the top of the list.
+
+## WIP limits
+
+- Ready cap: 5
+- Doing cap: 3
+- Limits only apply to new cards; existing cards are not auto-moved.
+
+## Incremental sync
+
+- Project items are fetched via GraphQL paging (host limit: 100 items per page).
+- Uses project item `updatedAt` for incremental runs.
+- Cached project metadata TTL: 24 hours.
 
 ## Troubleshooting
 
