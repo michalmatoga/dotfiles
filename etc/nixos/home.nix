@@ -2,6 +2,7 @@
 
 let
   unstablePackages = with unstable; [
+    gwq
     pulumi
     pulumiPackages.pulumi-nodejs
     postgresql_18
@@ -95,7 +96,6 @@ in
     gcc
     gh
     ghq
-    gwq
     git-crypt
     gnumake
     gnupg
