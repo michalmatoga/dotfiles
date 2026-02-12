@@ -90,6 +90,14 @@ Flags:
 - `--init-board` creates the Trello board, lists, and labels.
 - `--full-refresh` clears local project sync state and forces a full refresh.
 
+## Worktree automation
+
+- Worktrees are managed with `gwq` and stored under `~/gwq` using `host/owner/repo/branch`.
+- Config lives in the repo at `.config/gwq/config.toml` and is synced to `~/.config/gwq/config.toml`.
+- Missing repos are auto-cloned with `ghq` using SSH: `schibsted@schibsted.ghe.com:org/repo.git`.
+- Trello list moves trigger actions; `Doing` creates worktrees and `Done` removes them (skipped if dirty).
+- Worktree actions only run for cards with GitHub issue/PR URLs.
+
 ## State & idempotency
 
 - JSONL state lives in `scripts/wo/state/` (git-ignored).

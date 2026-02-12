@@ -18,6 +18,7 @@ export type Snapshot = {
   ts: string;
   trello?: Record<string, { listId: string; labels: string[]; syncUrl?: string | null }>;
   project?: ProjectSnapshot | null;
+  worktrees?: { lastEventTs?: string | null } | null;
 };
 
 const snapshotPath = "scripts/wo/state/wf-snapshots.jsonl";

@@ -1,6 +1,6 @@
 import { fetchBoardCards, updateCard } from "../trello/cards";
 import { loadBoardContext } from "../trello/context";
-import { labelNames, listNames } from "../policy/mapping";
+import { labelNames, listAliases, listNames } from "../policy/mapping";
 import { parseSyncMetadata } from "./metadata";
 import { hasApprovedReview } from "../gh/reviews";
 import { writeEvent } from "../state/events";
@@ -37,6 +37,9 @@ export const reconcileReviewLifecycle = async (options: {
     if (card.idList === doneList.id) {
       continue;
     }
+    const fromList = context.lists.find((list) => list.id === card.idList) ?? null;
+    const fromListName = fromList ? listAliases[fromList.name] ?? fromList.name : null;
+    const toListName = listAliases[doneList.name] ?? doneList.name;
     if (options.verbose) {
       console.log(`Moving review card ${card.id} to Done (approved).`);
     }
@@ -48,5 +51,19 @@ export const reconcileReviewLifecycle = async (options: {
       type: "trello.review.done",
       payload: { cardId: card.id, url },
     });
+    if (!options.dryRun) {
+      await writeEvent({
+        ts: new Date().toISOString(),
+        type: "trello.card.moved",
+        payload: {
+          cardId: card.id,
+          url,
+          itemId: meta?.itemId ?? null,
+          fromList: fromListName,
+          toList: toListName,
+          labels: card.idLabels,
+        },
+      });
+    }
   }
 };

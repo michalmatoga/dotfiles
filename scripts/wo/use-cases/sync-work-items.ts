@@ -126,5 +126,6 @@ export const syncWorkItemsUseCase = async (options: {
     ts: now.toISOString(),
     trello: snapshot?.trello,
     project: nextProject,
+    worktrees: snapshot?.worktrees ?? null,
   });
 };

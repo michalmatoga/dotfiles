@@ -72,6 +72,10 @@ export const syncOutbound = async (options: {
       continue;
     }
     const listName = listAliases[list.name] ?? list.name;
+    const prevList = prev?.listId
+      ? context.lists.find((item) => item.id === prev.listId)
+      : null;
+    const prevListName = prevList ? listAliases[prevList.name] ?? prevList.name : null;
     const isReview = card.idLabels.includes(context.labelByName.get(labelNames.review)?.id ?? "");
     const statusName = listToGhStatusName({ listName, isReview });
     const statusOptionId = projectConfig.statusOptions[statusName];
@@ -104,6 +108,21 @@ export const syncOutbound = async (options: {
       type: "github.project.status.updated",
       payload: { itemId: meta.itemId, status: statusName, cardId: card.id },
     });
+
+    if (!options.dryRun) {
+      await writeEvent({
+        ts: now,
+        type: "trello.card.moved",
+        payload: {
+          cardId: card.id,
+          url: meta.url ?? null,
+          itemId: meta.itemId ?? null,
+          fromList: prevListName,
+          toList: listName,
+          labels: card.idLabels,
+        },
+      });
+    }
   }
 
   const nextSnapshot = {
@@ -122,6 +141,7 @@ export const syncOutbound = async (options: {
       ...(snapshot?.project ?? {}),
       meta: projectMeta,
     },
+    worktrees: snapshot?.worktrees ?? null,
   };
   await writeSnapshot(nextSnapshot);
 };

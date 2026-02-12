@@ -72,6 +72,11 @@ in
     source = ../../.config/direnv;
   };
 
+  home.file.".config/gwq" = {
+    recursive = true;
+    source = ../../.config/gwq;
+  };
+
   home.packages = with pkgs; [
     # fzf # A command-line fuzzy finder
     awscli2
@@ -90,6 +95,7 @@ in
     gcc
     gh
     ghq
+    gwq
     git-crypt
     gnumake
     gnupg

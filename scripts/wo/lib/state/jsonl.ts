@@ -30,3 +30,16 @@ export const readLastJsonlEntry = async <T,>(filePath: string): Promise<T | null
     throw error;
   }
 };
+
+export const readJsonlEntries = async <T,>(filePath: string): Promise<T[]> => {
+  try {
+    const content = await readFile(filePath, "utf8");
+    const lines = content.split("\n").filter((line) => line.trim().length > 0);
+    return lines.map((line) => JSON.parse(line) as T);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return [];
+    }
+    throw error;
+  }
+};
