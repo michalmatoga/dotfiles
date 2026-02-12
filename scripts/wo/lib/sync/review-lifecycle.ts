@@ -27,7 +27,7 @@ export const reconcileReviewLifecycle = async (options: {
     }
     const meta = parseSyncMetadata(card.desc);
     const url = meta?.url;
-    if (!url) {
+    if (!url || !url.includes("/pull/")) {
       continue;
     }
     const approved = await hasApprovedReview({ host: options.host, url, user: options.user });

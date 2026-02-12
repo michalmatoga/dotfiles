@@ -13,7 +13,7 @@ export type WorkItemStatus =
 export type WorkItem = {
   id: string;
   source: "ghe-project" | "ghe-review";
-  type: "issue" | "review" | "task";
+  type: "issue" | "review" | "task" | "pr";
   title: string;
   url: string;
   repo: string | null;
@@ -30,10 +30,11 @@ export const normalizeProjectItem = (item: ProjectItem): WorkItem | null => {
   }
 
   const status = normalizeStatus(item.status ?? null);
+  const type = item.content?.type === "PullRequest" ? "pr" : "issue";
   return {
     id: item.id,
     source: "ghe-project",
-    type: "issue",
+    type,
     title,
     url,
     repo: item.content?.repository ?? null,

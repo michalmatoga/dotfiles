@@ -1,9 +1,11 @@
 import { requireEnv } from "../lib/env";
+import { fetchAuthoredOpenPrs } from "../lib/gh/authored-prs";
 import { fetchAssignedProjectItemsGraphql } from "../lib/gh/project";
 import { normalizeProjectItem, type WorkItem } from "../lib/normalize";
 import { readLatestSnapshot, writeSnapshot } from "../lib/state/snapshots";
 import { moveClosedItemsToDone } from "../lib/sync/closed-items";
 import { syncInbound } from "../lib/sync/inbound";
+import { syncLinkedPrs } from "../lib/sync/linked-prs";
 
 const ghHost = "schibsted.ghe.com";
 const ghUser = "michal-matoga";
@@ -53,6 +55,9 @@ export const syncWorkItemsUseCase = async (options: {
     }
   }
 
+  const openIssueItems = openItems.filter((item) => item.type !== "pr");
+  const openPrItems = openItems.filter((item) => item.type === "pr");
+
   await moveClosedItemsToDone({
     boardId,
     items: closedItems,
@@ -61,10 +66,47 @@ export const syncWorkItemsUseCase = async (options: {
   });
   await syncInbound({
     boardId,
-    items: openItems,
+    items: openIssueItems,
     dryRun: options.dryRun,
     verbose: options.verbose,
   });
+
+  const handledPrs = await syncLinkedPrs({
+    boardId,
+    host: ghHost,
+    currentUser: ghUser,
+    prUrls: openPrItems.map((item) => item.url),
+    dryRun: options.dryRun,
+    verbose: options.verbose,
+  });
+
+  const authoredPrs = await fetchAuthoredOpenPrs({
+    host: ghHost,
+    user: ghUser,
+    limit: 100,
+  });
+  const authoredPrUrls = authoredPrs.map((pr) => pr.url);
+  const handledAuthored = await syncLinkedPrs({
+    boardId,
+    host: ghHost,
+    currentUser: ghUser,
+    prUrls: authoredPrUrls,
+    dryRun: options.dryRun,
+    verbose: options.verbose,
+  });
+  for (const url of handledAuthored) {
+    handledPrs.add(url);
+  }
+
+  const remainingPrs = openPrItems.filter((item) => !handledPrs.has(item.url));
+  if (remainingPrs.length > 0) {
+    await syncInbound({
+      boardId,
+      items: remainingPrs,
+      dryRun: options.dryRun,
+      verbose: options.verbose,
+    });
+  }
 
   const nextProject = {
     ...previousProject,
