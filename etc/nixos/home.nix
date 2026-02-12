@@ -1,8 +1,19 @@
 { config, pkgs, unstable, ... }:
 
 let
+  gwq = pkgs.buildGoModule {
+    pname = "gwq";
+    version = "0.0.13";
+    src = pkgs.fetchFromGitHub {
+      owner = "d-kuro";
+      repo = "gwq";
+      rev = "v0.0.13";
+      hash = "sha256-10An8tKs7z2NNnI+KU+tjL7ZUS97m4gxglQ3Z5WiyeQ=";
+    };
+    vendorHash = "sha256-XoI6tu4Giy9IMDql4VmSP74FXaVD3nizOedmfPwIRCA=";
+    subPackages = ["cmd/gwq"];
+  };
   unstablePackages = with unstable; [
-    gwq
     pulumi
     pulumiPackages.pulumi-nodejs
     postgresql_18
@@ -96,6 +107,7 @@ in
     gcc
     gh
     ghq
+    gwq
     git-crypt
     gnumake
     gnupg
