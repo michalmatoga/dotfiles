@@ -418,8 +418,9 @@ in
       Type = "oneshot";
       Environment = [
         "PATH=${pkgs.nodejs_24}/bin:/run/current-system/sw/bin"
+        "DOTFILES_DIR=%h/ghq/github.com/michalmatoga/dotfiles"
       ];
-      ExecStart = "${pkgs.nodejs_24}/bin/npx --yes tsx %h/ghq/github.com/michalmatoga/dotfiles/scripts/copilot-ghe-auth.ts refresh";
+      ExecStart = "${pkgs.bash}/bin/bash -c '${pkgs.nodejs_24}/bin/npx --yes tsx \"$DOTFILES_DIR/scripts/copilot-ghe-auth.ts\" refresh'";
       StandardOutput = "journal";
       StandardError = "journal";
     };
