@@ -66,7 +66,7 @@ const fetchTitle = async (url: string, info: UrlInfo): Promise<string> => {
 };
 
 const buildPrompt = async (info: UrlInfo, url: string) => {
-  const promptPath = info.kind === "pr" ? "scripts/wf/prompts/review.md" : "scripts/wf/prompts/issue.md";
+  const promptPath = info.kind === "pr" ? "scripts/wo/prompts/review.md" : "scripts/wo/prompts/issue.md";
   const template = await readFile(promptPath, "utf8");
   const repoLabel = `${info.owner}/${info.repo}`;
   if (info.kind === "pr") {
