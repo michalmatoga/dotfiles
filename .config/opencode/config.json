@@ -46,6 +46,28 @@
           "name": "GPT-5.2 Codex (OpenAI)"
         }
       }
+    },
+    "copilot-ghe": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "GitHub Copilot (GHE)",
+      "options": {
+        "baseURL": "https://copilot-api.schibsted.ghe.com",
+        "headers": {
+          "Editor-Version": "vscode/1.85.0",
+          "Editor-Plugin-Version": "copilot-chat/0.12.0"
+        }
+      },
+      "models": {
+        "claude-opus-4.6": {
+          "name": "Claude Opus 4.6 (Copilot)"
+        },
+        "gpt-5.2-codex": {
+          "name": "GPT-5.2 Codex (Copilot)"
+        },
+        "gpt-4o": {
+          "name": "GPT-4o (Copilot)"
+        }
+      }
     }
   }
 }
