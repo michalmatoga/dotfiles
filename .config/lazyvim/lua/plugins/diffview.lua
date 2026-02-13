@@ -9,10 +9,15 @@ return {
       local create_autocmd = vim.api.nvim_create_autocmd
 
       local function apply_diff_highlights()
-        set_hl(0, "DiffAdd", { bg = "#1f442d" })
-        set_hl(0, "DiffDelete", { bg = "#512026" })
-        set_hl(0, "DiffChange", { bg = "#1f314d" })
-        set_hl(0, "DiffText", { bg = "#2d4b6b", bold = true })
+        -- Catppuccin Latte palette-based diff colors
+        -- Green tint for additions (using green #40a02b with light bg)
+        set_hl(0, "DiffAdd", { bg = "#d4f0d4" })
+        -- Red tint for deletions (using red #d20f39 with light bg)
+        set_hl(0, "DiffDelete", { bg = "#f5d5d8" })
+        -- Blue tint for changes (using blue #1e66f5 with light bg)
+        set_hl(0, "DiffChange", { bg = "#dce5f5" })
+        -- Darker blue for changed text highlight
+        set_hl(0, "DiffText", { bg = "#b8d4f0", bold = true })
       end
 
       require("diffview").setup({

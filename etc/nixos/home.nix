@@ -10,6 +10,7 @@ let
       rev = "v0.0.13";
       hash = "sha256-10An8tKs7z2NNnI+KU+tjL7ZUS97m4gxglQ3Z5WiyeQ=";
     };
+    patches = [ ./patches/gwq-ssh-url.patch ];
     vendorHash = "sha256-XoI6tu4Giy9IMDql4VmSP74FXaVD3nizOedmfPwIRCA=";
     subPackages = ["cmd/gwq"];
   };
@@ -63,8 +64,13 @@ in
     source = ../../.config/opencode/config.json;
   };
 
-  home.file.".config/k9s/skins/catppuccin-frappe.yaml" = {
-    source = ../../.config/k9s/skins/catppuccin-frappe.yaml;
+  home.file.".config/opencode/themes" = {
+    recursive = true;
+    source = ../../.config/opencode/themes;
+  };
+
+  home.file.".config/k9s/skins/catppuccin-latte.yaml" = {
+    source = ../../.config/k9s/skins/catppuccin-latte.yaml;
   };
 
   home.file.".markdownlint.json" = {
@@ -322,7 +328,7 @@ in
           headless = true;
           logoless = true;
           noIcons = true;
-          skin = "catppuccin-frappe";
+          skin = "catppuccin-latte";
         };
       };
     };
@@ -338,7 +344,20 @@ in
     enable = true;
     plugins = with pkgs;
       [
-        tmuxPlugins.catppuccin
+        {
+          plugin = tmuxPlugins.catppuccin;
+          extraConfig = ''
+            set -g @catppuccin_flavor "latte"
+            set -g @catppuccin_window_status_style "rounded"
+            set -g @catppuccin_window_number_position "right"
+            set -g @catppuccin_window_text " #W"
+            set -g @catppuccin_window_current_text " #W"
+            set -g @catppuccin_window_flags "icon"
+            set -g @catppuccin_status_left_separator "█"
+            set -g @catppuccin_status_right_separator "█"
+            set -g @catppuccin_date_time_text " %H:%M"
+          '';
+        }
         tmuxPlugins.continuum
         tmuxPlugins.jump
         tmuxPlugins.resurrect
@@ -353,7 +372,6 @@ in
       set-option -g focus-events on
       set -ag terminal-overrides ",xterm-256color:RGB"
       set -sa terminal-features 'xterm-256color:RGB'
-      set -g @catppuccin_flavour "frappe"
       set -g base-index 1
       setw -g pane-base-index 1
       setw -g mouse on
@@ -362,7 +380,7 @@ in
       set-option -g prefix C-f
 
       bind-key -Tcopy-mode-vi 'v' send -X begin-selection
-      bind-key -r o run-shell "tmux neww npx --yes tsx ''${DOTFILES_DIR:?DOTFILES_DIR is required}/scripts/wo/bin/tmux-wo-sessionizer.ts"
+      bind-key -r o run-shell "tmux neww npx --yes tsx $DOTFILES_DIR/scripts/wo/bin/tmux-wo-sessionizer.ts"
 
       set -g @thumbs-command 'echo -n {} | clip.exe && tmux display-message \"Copied {}\"'
       set -g @thumbs-upcase-command 'wsl-open {}'
@@ -371,6 +389,12 @@ in
       set -g @continuum-save-interval '10'
       set -g @resurrect-capture-pane-contents 'on'
       set -g @resurrect-strategy-nvim 'session'
+
+      # Status bar configuration using catppuccin modules
+      set -g status-left-length 100
+      set -g status-right-length 100
+      set -g status-left "#{E:@catppuccin_status_session}"
+      set -g status-right "#{E:@catppuccin_status_directory}#{E:@catppuccin_status_date_time}"
     '';
   };
 

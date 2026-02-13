@@ -1,0 +1,19 @@
+--- a/internal/url/url.go
++++ b/internal/url/url.go
+@@ -63,10 +63,12 @@ func GenerateWorktreePath(baseDir string, repoInfo *RepositoryInfo, branch strin
+ 
+ // normalizeURL converts various git URL formats to a standard HTTP(S) format for parsing.
+ func normalizeURL(repoURL string) string {
+-	// Convert SSH format to HTTPS format for easier parsing
+-	if strings.HasPrefix(repoURL, "git@") {
+-		// git@github.com:user/repo.git -> https://github.com/user/repo.git
+-		if host, path, found := strings.Cut(repoURL, ":"); found {
++	// Convert SSH format (user@host:path) to HTTPS format for easier parsing
++	// Handles any SSH user: git@host:path, schibsted@host:path, etc.
++	if atIdx := strings.Index(repoURL, "@"); atIdx > 0 && !strings.HasPrefix(repoURL, "http") && !strings.HasPrefix(repoURL, "ssh://") {
++		// user@github.com:owner/repo.git -> https://github.com/owner/repo.git
++		afterAt := repoURL[atIdx+1:]
++		if host, path, found := strings.Cut(afterAt, ":"); found {
+ 			host = strings.TrimPrefix(host, "git@")
+ 			repoURL = fmt.Sprintf("https://%s/%s", host, path)
+ 		}

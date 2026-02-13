@@ -1,5 +1,11 @@
 return {
-  -- Configure LazyVim to load gruvbox
+  {
+    "catppuccin/nvim",
+    name = "catppuccin",
+    opts = {
+      flavour = "latte",
+    },
+  },
   {
     "LazyVim/LazyVim",
     opts = {
