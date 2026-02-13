@@ -419,7 +419,7 @@ in
       Environment = [
         "PATH=${pkgs.nodejs_24}/bin:/run/current-system/sw/bin"
       ];
-      ExecStart = "${pkgs.nodejs_24}/bin/npx --yes tsx %h/gwq/github.com/michalmatoga/dotfiles/scripts/copilot-ghe-auth.ts refresh";
+      ExecStart = "${pkgs.nodejs_24}/bin/npx --yes tsx %h/ghq/github.com/michalmatoga/dotfiles/scripts/copilot-ghe-auth.ts refresh";
       StandardOutput = "journal";
       StandardError = "journal";
     };
