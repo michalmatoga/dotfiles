@@ -410,5 +410,33 @@ in
     };
   };
 
+  systemd.user.services.copilot-ghe-refresh = {
+    Unit = {
+      Description = "Refresh GitHub Copilot GHE session token";
+    };
+    Service = {
+      Type = "oneshot";
+      Environment = [
+        "PATH=${pkgs.nodejs_24}/bin:/run/current-system/sw/bin"
+      ];
+      ExecStart = "${pkgs.nodejs_24}/bin/npx --yes tsx %h/gwq/github.com/michalmatoga/dotfiles/scripts/copilot-ghe-auth.ts refresh";
+      StandardOutput = "journal";
+      StandardError = "journal";
+    };
+  };
+
+  systemd.user.timers.copilot-ghe-refresh = {
+    Unit = {
+      Description = "Refresh Copilot GHE token every 20 minutes";
+    };
+    Timer = {
+      OnCalendar = "*:0/20";
+      Persistent = true;
+    };
+    Install = {
+      WantedBy = [ "timers.target" ];
+    };
+  };
+
   home.stateVersion = "23.11";
 }
