@@ -362,7 +362,7 @@ in
       set-option -g prefix C-f
 
       bind-key -Tcopy-mode-vi 'v' send -X begin-selection
-      bind-key -r o run-shell "tmux neww ''${DOTFILES_DIR:?DOTFILES_DIR is required}/scripts/tmux-sessionizer.sh"
+      bind-key -r o run-shell "tmux neww npx --yes tsx ''${DOTFILES_DIR:?DOTFILES_DIR is required}/scripts/wo/bin/tmux-wo-sessionizer.ts"
 
       set -g @thumbs-command 'echo -n {} | clip.exe && tmux display-message \"Copied {}\"'
       set -g @thumbs-upcase-command 'wsl-open {}'
