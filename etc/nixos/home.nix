@@ -1,4 +1,4 @@
-{ config, pkgs, unstable, ... }:
+{ config, pkgs, lib, unstable, ... }:
 
 let
   gwq = pkgs.buildGoModule {
@@ -79,10 +79,6 @@ in
 
   home.file.".editorconfig" = {
     source = ../../.config/.editorconfig;
-  };
-
-  home.file.".npmrc" = {
-    source = ../../.config/.npmrc;
   };
 
   home.file.".config/direnv" = {
@@ -462,6 +458,39 @@ in
       WantedBy = [ "timers.target" ];
     };
   };
+
+  # Generate per-host .npmrc and .envrc for Schibsted repos from secrets.json
+  # Uses direnv to activate the correct npm config per directory
+  home.activation.generateNpmrc = lib.hm.dag.entryAfter ["writeBoundary"] ''
+    SECRETS_FILE="$HOME/ghq/github.com/michalmatoga/dotfiles/secrets.json"
+    if [ -f "$SECRETS_FILE" ]; then
+      NPMRC_CONTENT=$(${pkgs.jq}/bin/jq -r '.npmrc_sch // empty' "$SECRETS_FILE" | ${pkgs.coreutils}/bin/base64 -d 2>/dev/null)
+      if [ -n "$NPMRC_CONTENT" ]; then
+        # Add prefix to npmrc content
+        FULL_NPMRC="$NPMRC_CONTENT
+prefix = \"/home/nixos/.cache/npm/global\""
+
+        # Generate for ghq/schibsted.ghe.com
+        GHQ_DIR="$HOME/ghq/schibsted.ghe.com"
+        mkdir -p "$GHQ_DIR"
+        echo "$FULL_NPMRC" > "$GHQ_DIR/.npmrc"
+        echo "export NPM_CONFIG_USERCONFIG=$GHQ_DIR/.npmrc" > "$GHQ_DIR/.envrc"
+        ${pkgs.direnv}/bin/direnv allow "$GHQ_DIR" 2>/dev/null || true
+
+        # Generate for gwq/schibsted.ghe.com
+        GWQ_DIR="$HOME/gwq/schibsted.ghe.com"
+        mkdir -p "$GWQ_DIR"
+        echo "$FULL_NPMRC" > "$GWQ_DIR/.npmrc"
+        echo "export NPM_CONFIG_USERCONFIG=$GWQ_DIR/.npmrc" > "$GWQ_DIR/.envrc"
+        ${pkgs.direnv}/bin/direnv allow "$GWQ_DIR" 2>/dev/null || true
+
+        echo "Generated .npmrc and .envrc for schibsted.ghe.com (ghq and gwq)"
+      fi
+    fi
+
+    # Ensure global ~/.npmrc only has prefix (no registry)
+    echo 'prefix = "/home/nixos/.cache/npm/global"' > "$HOME/.npmrc"
+  '';
 
   home.stateVersion = "23.11";
 }
