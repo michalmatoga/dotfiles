@@ -93,10 +93,15 @@ Flags:
 ## Worktree automation
 
 - Worktrees are managed with `gwq` and stored under `~/gwq` using `host/owner/repo/<number>-<slug>` (slug from GitHub issue/PR title).
+- Worktree branch names mirror the path segment (`<number>-<slug>`); if a name collision is detected, `issue-` or `pr-` is prefixed.
 - Config lives in the repo at `.config/gwq/config.toml` and is synced to `~/.config/gwq/config.toml`.
 - Missing repos are auto-cloned with `ghq` using SSH: `schibsted@schibsted.ghe.com:org/repo.git`.
 - Trello list moves trigger actions; `Doing` creates worktrees and `Done` removes them (skipped if dirty).
 - Worktree actions only run for cards with GitHub issue/PR URLs.
+- When a worktree is created for `Doing`, a detached tmux session is initialized and the right pane runs `opencode -s <sessionId>`.
+- Session prompts use `scripts/wf/prompts/review.md` for PRs and `scripts/wf/prompts/issue.md` for issues.
+- Set `WO_SESSION_TRIGGER_LISTS` to customize which lists auto-initialize sessions (default: `Doing`).
+- When a worktree is removed (card moved to `Done`), the corresponding tmux session is also killed if it exists.
 
 ## Tmux sessionizer
 

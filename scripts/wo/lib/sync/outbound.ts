@@ -58,14 +58,8 @@ export const syncOutbound = async (options: {
       continue;
     }
     const meta = parseSyncMetadata(card.desc);
-    if (!meta?.itemId) {
-      continue;
-    }
-
     const prev = previous[card.id];
-    if (prev?.listId === card.idList) {
-      continue;
-    }
+    const listChanged = prev?.listId !== card.idList;
 
     const list = context.lists.find((item) => item.id === card.idList);
     if (!list) {
@@ -76,6 +70,29 @@ export const syncOutbound = async (options: {
       ? context.lists.find((item) => item.id === prev.listId)
       : null;
     const prevListName = prevList ? listAliases[prevList.name] ?? prevList.name : null;
+
+    // Emit trello.card.moved for all cards with URLs that changed lists
+    if (listChanged && meta?.url && !options.dryRun) {
+      await writeEvent({
+        ts: now,
+        type: "trello.card.moved",
+        payload: {
+          cardId: card.id,
+          url: meta.url ?? null,
+          itemId: meta.itemId ?? null,
+          fromList: prevListName,
+          toList: listName,
+          labels: card.idLabels,
+          name: card.name,
+        },
+      });
+    }
+
+    // Skip GH Project update for cards without itemId
+    if (!meta?.itemId || !listChanged) {
+      continue;
+    }
+
     const isReview = card.idLabels.includes(context.labelByName.get(labelNames.review)?.id ?? "");
     const statusName = listToGhStatusName({ listName, isReview });
     const statusOptionId = projectConfig.statusOptions[statusName];
@@ -108,22 +125,6 @@ export const syncOutbound = async (options: {
       type: "github.project.status.updated",
       payload: { itemId: meta.itemId, status: statusName, cardId: card.id },
     });
-
-    if (!options.dryRun) {
-      await writeEvent({
-        ts: now,
-        type: "trello.card.moved",
-        payload: {
-          cardId: card.id,
-          url: meta.url ?? null,
-          itemId: meta.itemId ?? null,
-          fromList: prevListName,
-          toList: listName,
-          labels: card.idLabels,
-          name: card.name,
-        },
-      });
-    }
   }
 
   const nextSnapshot = {

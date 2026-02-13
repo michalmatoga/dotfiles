@@ -3,7 +3,8 @@ import { readJsonlEntries } from "../lib/state/jsonl";
 import { readLatestSnapshot, writeSnapshot } from "../lib/state/snapshots";
 import { writeEvent } from "../lib/state/events";
 import { ghJson } from "../lib/gh/gh";
-import { buildWorktreePath, ensureWorktreeForUrl, removeWorktreeForUrl } from "../lib/worktrees/worktrees";
+import { ensureWorktreeForUrl, removeWorktreeForUrl } from "../lib/worktrees/worktrees";
+import { cleanupWorkSession, initializeWorkSession } from "../lib/sessions/tmux";
 
 type TrelloMovedEvent = {
   ts: string;
@@ -21,6 +22,10 @@ type TrelloMovedEvent = {
 
 const eventsPath = "scripts/wo/state/wf-events.jsonl";
 const titleCache = new Map<string, string | null>();
+const sessionTriggerLists = (process.env.WO_SESSION_TRIGGER_LISTS ?? listNames.doing)
+  .split(",")
+  .map((value) => value.trim())
+  .filter((value) => value.length > 0);
 
 const extractNumber = (url: string) => {
   const match = url.match(/\/(issues|pull)\/(\d+)$/);
@@ -70,15 +75,6 @@ const fetchTitle = async (url: string): Promise<string | null> => {
   }
 };
 
-const slugify = (value: string) => {
-  const lowered = value.toLowerCase();
-  const cleaned = lowered.replace(/[^a-z0-9]+/g, "-");
-  const trimmed = cleaned.replace(/^-+/, "").replace(/-+$/, "");
-  if (!trimmed) {
-    return "work";
-  }
-  return trimmed.length > 50 ? trimmed.slice(0, 50) : trimmed;
-};
 
 const isAfter = (ts: string, last: string | null) => {
   if (!last) {
@@ -116,14 +112,11 @@ export const syncWorktreesUseCase = async (options: { dryRun: boolean; verbose: 
     }
 
     const title = (await fetchTitle(url)) ?? name ?? "work";
-    const slug = slugify(title);
-    const segment = `${extractNumber(url)}-${slug}`;
-    const worktreePath = buildWorktreePath(url, segment);
 
     if (toList === listNames.doing) {
       const result = await ensureWorktreeForUrl({
         url,
-        path: worktreePath,
+        title,
         dryRun: options.dryRun,
         verbose: options.verbose,
       });
@@ -144,14 +137,64 @@ export const syncWorktreesUseCase = async (options: { dryRun: boolean; verbose: 
           payload: { cardId, url, branch: result.branch, path: result.worktreePath },
         });
         worktreeMap[url] = result.worktreePath;
+        if (result.fallbackUsed) {
+          await writeEvent({
+            ts: event.ts,
+            type: "worktree.name.fallback",
+            payload: {
+              cardId,
+              url,
+              branch: result.branch,
+              path: result.worktreePath,
+              reason: result.fallbackReason,
+            },
+          });
+        }
+      }
+
+      if (!options.dryRun && sessionTriggerLists.includes(toList)) {
+        const session = await initializeWorkSession({
+          url,
+          worktreePath: result.worktreePath,
+          verbose: options.verbose,
+        });
+        const eventType = session.status === "exists" ? "tmux.session.exists" : "tmux.session.created";
+        await writeEvent({
+          ts: new Date().toISOString(),
+          type: eventType,
+          payload: {
+            cardId,
+            url,
+            sessionName: session.sessionName,
+            sessionId: session.sessionId,
+            title: session.title,
+            kind: session.kind,
+            worktreePath: result.worktreePath,
+          },
+        });
+        if (session.sessionId) {
+          await writeEvent({
+            ts: new Date().toISOString(),
+            type: "opencode.session.created",
+            payload: {
+              cardId,
+              url,
+              sessionId: session.sessionId,
+              title: session.title,
+              kind: session.kind,
+              worktreePath: result.worktreePath,
+            },
+          });
+        }
       }
       continue;
     }
 
     if (toList === listNames.done) {
-      const mappedPath = worktreeMap[url] ?? worktreePath;
+      const mappedPath = worktreeMap[url];
       const result = await removeWorktreeForUrl({
         url,
+        title,
         path: mappedPath,
         dryRun: options.dryRun,
         verbose: options.verbose,
@@ -183,6 +226,35 @@ export const syncWorktreesUseCase = async (options: { dryRun: boolean; verbose: 
           payload: { cardId, url, branch: result.branch, path: result.worktreePath },
         });
         delete worktreeMap[url];
+        if (result.fallbackUsed) {
+          await writeEvent({
+            ts: event.ts,
+            type: "worktree.name.fallback",
+            payload: {
+              cardId,
+              url,
+              branch: result.branch,
+              path: result.worktreePath,
+              reason: result.fallbackReason,
+            },
+          });
+        }
+        const cleanup = await cleanupWorkSession({
+          worktreePath: result.worktreePath,
+          verbose: options.verbose,
+        });
+        if (cleanup.status === "removed") {
+          await writeEvent({
+            ts: new Date().toISOString(),
+            type: "tmux.session.removed",
+            payload: {
+              cardId,
+              url,
+              sessionName: cleanup.sessionName,
+              worktreePath: result.worktreePath,
+            },
+          });
+        }
       }
     }
   }
