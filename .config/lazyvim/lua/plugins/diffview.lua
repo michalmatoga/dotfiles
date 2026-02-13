@@ -48,7 +48,7 @@ return {
 
       vim.o.autoread = true
 
-      create_autocmd({ "BufEnter", "CursorHold", "FocusGained" }, {
+      create_autocmd({ "FocusGained" }, {
         callback = function()
           vim.cmd("checktime")
           local ok, lib = pcall(require, "diffview.lib")

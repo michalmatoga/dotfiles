@@ -3,18 +3,18 @@
   "agent": {
     "build": {
       "mode": "primary",
-      "model": "copilot-ghe/claude-opus-4.6"
+      "model": "litellm/bedrock-claude-opus-4-5"
     },
     "plan": {
       "mode": "primary",
-      "model": "copilot-ghe/claude-opus-4.6",
+      "model": "litellm/bedrock-claude-opus-4-5",
       "tools": { "edit": true },
       "permission": { "edit": "ask" }
     },
     "code-reviewer": {
       "description": "Reviews code for best practices and potential issues",
       "mode": "subagent",
-      "model": "copilot-ghe/claude-opus-4.6",
+      "model": "litellm/bedrock-claude-opus-4-5",
       "prompt": "You are a code reviewer. Focus on security, performance, and maintainability.",
       "tools": {
         "write": false,
