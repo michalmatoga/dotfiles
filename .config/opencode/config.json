@@ -3,18 +3,18 @@
   "agent": {
     "build": {
       "mode": "primary",
-      "model": "litellm/bedrock-claude-opus-4-5"
+      "model": "copilot-ghe/claude-opus-4.6"
     },
     "plan": {
       "mode": "primary",
-      "model": "litellm/bedrock-claude-opus-4-5",
+      "model": "copilot-ghe/claude-opus-4.6",
       "tools": { "edit": true },
       "permission": { "edit": "ask" }
     },
     "code-reviewer": {
       "description": "Reviews code for best practices and potential issues",
       "mode": "subagent",
-      "model": "litellm/bedrock-claude-opus-4-5",
+      "model": "copilot-ghe/claude-opus-4.6",
       "prompt": "You are a code reviewer. Focus on security, performance, and maintainability.",
       "tools": {
         "write": false,
@@ -61,8 +61,14 @@
         "claude-opus-4.6": {
           "name": "Claude Opus 4.6 (Copilot)"
         },
-        "gpt-5.2-codex": {
-          "name": "GPT-5.2 Codex (Copilot)"
+        "gpt-5": {
+          "name": "GPT-5 (Copilot)"
+        },
+        "gpt-5-mini": {
+          "name": "GPT-5 Mini (Copilot)"
+        },
+        "claude-sonnet-4": {
+          "name": "Claude Sonnet 4 (Copilot)"
         },
         "gpt-4o": {
           "name": "GPT-4o (Copilot)"
