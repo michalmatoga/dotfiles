@@ -12,6 +12,10 @@ type Entry = {
   kind: EntryKind;
   url?: string | null;
   title?: string | null;
+  host?: string | null;
+  owner?: string | null;
+  repo?: string | null;
+  leaf?: string | null;
 };
 
 type CacheEntry = {
@@ -52,9 +56,14 @@ const run = (command: string, commandArgs: string[], options: { input?: string; 
   return (result.stdout ?? "").toString();
 };
 
-const runOptional = (command: string, commandArgs: string[]) => {
+const runOptional = (
+  command: string,
+  commandArgs: string[],
+  input?: string,
+  env?: NodeJS.ProcessEnv,
+) => {
   try {
-    return run(command, commandArgs);
+    return run(command, commandArgs, { input, env });
   } catch {
     return "";
   }
@@ -70,6 +79,27 @@ const pathToSessionName = (path: string) => {
   const home = homedir();
   const rel = path.startsWith(home) ? relative(home, path) : path;
   return rel.replace(/[/.]/g, "_");
+};
+
+const normalizePath = (value: string) => value.replace(/\/+$/, "");
+
+const formatPathLabel = (entry: Entry) => {
+  if (!entry.host || !entry.owner || !entry.repo) {
+    return entry.path;
+  }
+  return `${entry.host} › ${entry.owner} › ${entry.repo}`;
+};
+
+const formatWorktreeLabel = (entry: Entry, title: string | null) => {
+  const base = entry.leaf ?? entry.path;
+  if (!entry.url) {
+    return base;
+  }
+  const info = parseUrlInfo(entry.url);
+  if (!info || !title) {
+    return base;
+  }
+  return `${base}  #${info.number} ${title}`;
 };
 
 const loadCache = (): CacheFile => {
@@ -123,7 +153,7 @@ const loadWorktreeUrlMap = () => {
       const path = event.payload?.path;
       const url = event.payload?.url;
       if (path && url) {
-        map.set(path, url);
+        map.set(normalizePath(path), url);
       }
     } catch {
       continue;
@@ -161,57 +191,108 @@ const fetchTitle = (url: string, cache: CacheFile): string | null => {
   }
 };
 
+const ensureFzfPath = () => {
+  const fzfDir = join(homedir(), ".fzf", "bin");
+  const current = process.env.PATH ?? "";
+  if (current.split(":").includes(fzfDir)) {
+    return current;
+  }
+  return `${fzfDir}:${current}`;
+};
+
 const gatherEntries = () => {
   const entries: Entry[] = [];
   const worktreeUrlMap = loadWorktreeUrlMap();
 
-  const gwqDirs = readLines(runOptional("fd", ["-d", "4", "--min-depth", "4", "-t", "d", ".", join(homedir(), "gwq")]))
+  const gwqRoot = join(homedir(), "gwq");
+  const ghqRoot = join(homedir(), "ghq");
+  const gwqDirs = readLines(runOptional("fd", ["-d", "4", "--min-depth", "4", "-t", "d", ".", gwqRoot]))
     .map((path) => path.trim());
   for (const path of gwqDirs) {
     if (!path) {
       continue;
     }
-    entries.push({ path, kind: "worktree", url: worktreeUrlMap.get(path) ?? null });
+    const normalized = normalizePath(path);
+    const rel = relative(gwqRoot, normalized).split("/");
+    entries.push({
+      path: normalized,
+      kind: "worktree",
+      url: worktreeUrlMap.get(normalized) ?? null,
+      host: rel[0] ?? null,
+      owner: rel[1] ?? null,
+      repo: rel[2] ?? null,
+      leaf: rel.slice(3).join("/") || null,
+    });
   }
 
   if (includeGhq) {
-    const ghqDirs = readLines(runOptional("fd", ["-d", "3", "--min-depth", "3", "-t", "d", ".", join(homedir(), "ghq")]))
+    const ghqDirs = readLines(runOptional("fd", ["-d", "3", "--min-depth", "3", "-t", "d", ".", ghqRoot]))
       .map((path) => path.trim());
     for (const path of ghqDirs) {
       if (!path) {
         continue;
       }
-      entries.push({ path, kind: "repo" });
+      const normalized = normalizePath(path);
+      const rel = relative(ghqRoot, normalized).split("/");
+      entries.push({
+        path: normalized,
+        kind: "repo",
+        host: rel[0] ?? null,
+        owner: rel[1] ?? null,
+        repo: rel[2] ?? null,
+      });
     }
   }
 
   return entries;
 };
 
-const formatEntry = (entry: Entry, sessionNames: Set<string>, cache: CacheFile) => {
+const formatEntry = (entry: Entry, sessionNames: Set<string>, cache: CacheFile, showGroup: boolean) => {
   const sessionName = pathToSessionName(entry.path);
   const existing = sessionNames.has(sessionName);
   const prefix = existing ? "\u001b[32m*\u001b[0m " : "  ";
-  const tag = entry.kind === "worktree" ? "[wt]" : "[repo]";
-  let label = `${prefix}${tag} ${entry.path}`;
-  if (entry.kind === "worktree" && entry.url) {
-    const info = parseUrlInfo(entry.url);
-    const title = fetchTitle(entry.url, cache);
-    if (info?.number && title) {
-      label += `  #${info.number} ${title}`;
-    }
+  if (entry.kind === "repo") {
+    const label = `${prefix}${formatPathLabel(entry)}`;
+    return `${label}${delimiter}${entry.path}`;
   }
+  const title = entry.url ? fetchTitle(entry.url, cache) : null;
+  const base = formatWorktreeLabel(entry, title);
+  const label = showGroup ? `  ${prefix}${base}` : `${prefix}${formatPathLabel(entry)} › ${base}`;
   return `${label}${delimiter}${entry.path}`;
 };
 
 const pickEntry = (entries: Entry[]) => {
   const sessionNames = new Set(readLines(runOptional("tmux", ["list-sessions", "-F", "#{session_name}"])));
   const cache = loadCache();
-  const lines = entries.map((entry) => formatEntry(entry, sessionNames, cache));
+  const grouped = new Map<string, { repo?: Entry; worktrees: Entry[] }>();
+  for (const entry of entries) {
+    const key = `${entry.host ?? ""}/${entry.owner ?? ""}/${entry.repo ?? ""}`;
+    const current = grouped.get(key) ?? { repo: undefined, worktrees: [] };
+    if (entry.kind === "repo") {
+      current.repo = entry;
+    } else {
+      current.worktrees.push(entry);
+    }
+    grouped.set(key, current);
+  }
+  const lines: string[] = [];
+  for (const group of grouped.values()) {
+    if (group.repo) {
+      lines.push(formatEntry(group.repo, sessionNames, cache, false));
+    }
+    for (const worktree of group.worktrees) {
+      lines.push(formatEntry(worktree, sessionNames, cache, true));
+    }
+  }
   if (lines.length === 0) {
     return null;
   }
-  const selected = runOptional("fzf", ["--ansi", "--delimiter", delimiter, "--with-nth", "1"], lines.join("\n"));
+  const selected = runOptional(
+    "fzf",
+    ["--ansi", "--delimiter", delimiter, "--with-nth", "1"],
+    lines.join("\n"),
+    { ...process.env, PATH: ensureFzfPath() },
+  );
   saveCache(cache);
   const chosenLine = selected.trim();
   if (!chosenLine) {
