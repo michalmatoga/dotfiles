@@ -62,6 +62,7 @@ export const reconcileReviewLifecycle = async (options: {
           fromList: fromListName,
           toList: toListName,
           labels: card.idLabels,
+          name: card.name,
         },
       });
     }

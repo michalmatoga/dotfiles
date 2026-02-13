@@ -120,6 +120,7 @@ export const syncOutbound = async (options: {
           fromList: prevListName,
           toList: listName,
           labels: card.idLabels,
+          name: card.name,
         },
       });
     }

@@ -41,8 +41,8 @@ const sanitizeBranch = (branch: string) => branch.replace(/\//g, "-");
 const resolveRepoPath = (parsed: ParsedUrl) =>
   join(homedir(), "ghq", parsed.host, parsed.owner, parsed.repo);
 
-const resolveWorktreePath = (parsed: ParsedUrl, branch: string) =>
-  join(homedir(), "gwq", parsed.host, parsed.owner, parsed.repo, sanitizeBranch(branch));
+const resolveWorktreePath = (parsed: ParsedUrl, segment: string) =>
+  join(homedir(), "gwq", parsed.host, parsed.owner, parsed.repo, sanitizeBranch(segment));
 
 const pathExists = async (path: string): Promise<boolean> => {
   try {
@@ -144,8 +144,17 @@ const isDirty = async (worktreePath: string): Promise<boolean> => {
   }
 };
 
+export const buildWorktreePath = (url: string, segment: string): string | null => {
+  const parsed = parseGitHubUrl(url);
+  if (!parsed) {
+    return null;
+  }
+  return resolveWorktreePath(parsed, segment);
+};
+
 export const ensureWorktreeForUrl = async (options: {
   url: string;
+  path?: string | null;
   dryRun: boolean;
   verbose: boolean;
 }): Promise<WorktreeResult | null> => {
@@ -165,12 +174,16 @@ export const ensureWorktreeForUrl = async (options: {
     await ensurePrBranch(repoPath, parsed.number, branch, options);
   }
 
-  const worktreePath = resolveWorktreePath(parsed, branch);
+  const worktreePath = options.path ?? resolveWorktreePath(parsed, branch);
   if (await pathExists(worktreePath)) {
     return { branch, worktreePath };
   }
 
-  await runCommand("gwq", ["add", branch], {
+  const args = ["add", branch];
+  if (worktreePath) {
+    args.push(worktreePath);
+  }
+  await runCommand("gwq", args, {
     cwd: repoPath,
     dryRun: options.dryRun,
     verbose: options.verbose,
@@ -181,6 +194,7 @@ export const ensureWorktreeForUrl = async (options: {
 
 export const removeWorktreeForUrl = async (options: {
   url: string;
+  path?: string | null;
   dryRun: boolean;
   verbose: boolean;
 }): Promise<WorktreeResult | "dirty" | null> => {
@@ -193,7 +207,7 @@ export const removeWorktreeForUrl = async (options: {
     parsed.kind === "issue"
       ? `wo/issue-${parsed.number}`
       : (await resolvePrBranch(options.url, parsed.host)) ?? `pr-${parsed.number}`;
-  const worktreePath = resolveWorktreePath(parsed, branch);
+  const worktreePath = options.path ?? resolveWorktreePath(parsed, branch);
 
   if (!(await pathExists(worktreePath))) {
     return null;
@@ -203,7 +217,7 @@ export const removeWorktreeForUrl = async (options: {
     return "dirty";
   }
 
-  const args = ["remove", branch];
+  const args = ["remove", worktreePath];
   if (branch.startsWith("wo/issue-")) {
     args.splice(1, 0, "-b");
   }

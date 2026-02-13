@@ -92,11 +92,17 @@ Flags:
 
 ## Worktree automation
 
-- Worktrees are managed with `gwq` and stored under `~/gwq` using `host/owner/repo/branch`.
+- Worktrees are managed with `gwq` and stored under `~/gwq` using `host/owner/repo/<number>-<slug>` (slug from GitHub issue/PR title).
 - Config lives in the repo at `.config/gwq/config.toml` and is synced to `~/.config/gwq/config.toml`.
 - Missing repos are auto-cloned with `ghq` using SSH: `schibsted@schibsted.ghe.com:org/repo.git`.
 - Trello list moves trigger actions; `Doing` creates worktrees and `Done` removes them (skipped if dirty).
 - Worktree actions only run for cards with GitHub issue/PR URLs.
+
+## Tmux sessionizer
+
+- `scripts/wo/bin/tmux-wo-sessionizer.js` is a compiled picker for `~/gwq` worktrees and `~/ghq` repos.
+- Shows GH issue/PR titles when available and caches them in `scripts/wo/state/wo-sessionizer-cache.json`.
+- Run: `node scripts/wo/bin/tmux-wo-sessionizer.js`.
 
 ## State & idempotency
 
