@@ -19,7 +19,7 @@ const TIMEOUT_MS = 15000;
 const SKIP_PATTERNS = [
   /openai\/gpt-3/,
   /openai\/gpt-4/,
-  /openai\/o1/,
+  /openai\/o[134]/,
   /\/text-embedding/,
 ];
 
