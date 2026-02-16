@@ -311,32 +311,7 @@ in
       OPENCODE_MODELS_CACHE="''${XDG_CACHE_HOME:-$HOME/.cache}/opencode-models"
 
       # ocmc: test all models and cache working ones
-      ocmc() {
-        local models model cache_file
-        cache_file="$OPENCODE_MODELS_CACHE"
-        models=$(opencode models 2>/dev/null)
-        if [ -z "$models" ]; then
-          echo "Failed to fetch models from opencode" >&2
-          return 1
-        fi
-
-        echo "Testing models... (this may take a while)"
-        : > "$cache_file"  # truncate cache
-
-        echo "$models" | while read -r model; do
-          printf "Testing %-50s " "$model"
-          if timeout 30 opencode run -m "$model" "respond with ok" >/dev/null 2>&1; then
-            echo "$model" >> "$cache_file"
-            echo "OK"
-          else
-            echo "FAIL"
-          fi
-        done
-
-        local count
-        count=$(wc -l < "$cache_file" | tr -d ' ')
-        echo "Cached $count working models to $cache_file"
-      }
+      alias ocmc="dotfiles_require; npx tsx \"$DOTFILES_DIR/scripts/ocmc.ts\" \"$OPENCODE_MODELS_CACHE\""
 
       # ocm: select from cached models (or all if no cache)
       ocm() {
