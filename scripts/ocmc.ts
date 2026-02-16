@@ -96,6 +96,7 @@ async function main() {
 
   console.log("");
   console.log(`Done. Cached ${working}/${total} working models to ${CACHE_FILE}`);
+  process.exit(0);
 }
 
 main().catch((err) => {
