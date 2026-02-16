@@ -24,7 +24,17 @@ const parseArgs = (args: string[]) => {
 
 const main = async () => {
   const { verbose, fullRefresh, mode } = parseArgs(process.argv.slice(2));
-  await loadEnvFile(".env");
+  // Load .env if present; fall back to .env.local for personal installs.
+  try {
+    await loadEnvFile(".env");
+  } catch {
+    try {
+      await loadEnvFile(".env.local");
+      console.log("[wo] Loaded .env.local as fallback");
+    } catch {
+      // No env file present; continue with existing environment variables
+    }
+  }
 
   if (mode === "init") {
     await setupBoardUseCase({
