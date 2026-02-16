@@ -43,6 +43,10 @@ function testModel(model: string): Promise<boolean> {
 
     const proc = spawn("opencode", ["run", "-m", model, "respond with ok"], {
       stdio: ["ignore", "pipe", "pipe"],
+      env: {
+        ...process.env,
+        XDG_DATA_HOME: "/tmp/ocmc-data",
+      },
     });
 
     proc.on("close", (code) => {
