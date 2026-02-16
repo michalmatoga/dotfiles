@@ -8,5 +8,7 @@ export default defineConfig({
     setupFiles: ["wo/__tests__/acceptance/setup.ts"],
     testTimeout: 30000, // 30s for acceptance tests hitting real backends
     hookTimeout: 30000,
+    // Run test files sequentially to avoid state file conflicts
+    fileParallelism: false,
   },
 });

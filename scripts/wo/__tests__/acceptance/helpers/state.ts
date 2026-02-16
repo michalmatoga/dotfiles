@@ -73,7 +73,12 @@ export const writeTestEvent = async <T>(event: T): Promise<void> => {
  * Seed test state with initial events.
  */
 export const seedTestEvents = async <T>(events: T[]): Promise<void> => {
+  await fs.mkdir(TEST_STATE_DIR, { recursive: true });
   const filePath = path.join(TEST_STATE_DIR, "wf-events.jsonl");
+  if (events.length === 0) {
+    await fs.writeFile(filePath, "");
+    return;
+  }
   const content = events.map((e) => JSON.stringify(e)).join("\n") + "\n";
   await fs.writeFile(filePath, content);
 };
@@ -82,6 +87,7 @@ export const seedTestEvents = async <T>(events: T[]): Promise<void> => {
  * Seed test state with a snapshot.
  */
 export const seedTestSnapshot = async <T>(snapshot: T): Promise<void> => {
+  await fs.mkdir(TEST_STATE_DIR, { recursive: true });
   const filePath = path.join(TEST_STATE_DIR, "wf-snapshots.jsonl");
   await fs.writeFile(filePath, JSON.stringify(snapshot) + "\n");
 };
