@@ -53,6 +53,13 @@ fi
 if [ -f "$DOTFILES_DIR/.env" ]; then
   # shellcheck disable=SC1090
   . "$DOTFILES_DIR/.env"
+elif [ -f "$DOTFILES_DIR/.env.local" ]; then
+  # Fall back to .env.local when .env is not present (useful for personal installs)
+  # shellcheck disable=SC1090
+  . "$DOTFILES_DIR/.env.local"
+else
+  # No env file found; continue without loading but log a warning
+  echo "[wo-run] Warning: no .env or .env.local found in $DOTFILES_DIR — running with current environment"
 fi
 
 export PATH="$HOME/.cache/npm/global/bin:$HOME/.nix-profile/bin:$HOME/.local/state/nix/profile/bin:/run/current-system/sw/bin:/etc/profiles/per-user/$USER/bin:$PATH"
