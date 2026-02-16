@@ -32,6 +32,7 @@ function getModels(): string[] {
 function testModel(model: string): Promise<boolean> {
   return new Promise((resolve) => {
     let resolved = false;
+    let stdout = "";
 
     const timeout = setTimeout(() => {
       if (!resolved) {
@@ -49,11 +50,17 @@ function testModel(model: string): Promise<boolean> {
       },
     });
 
+    proc.stdout?.on("data", (data) => {
+      stdout += data.toString();
+    });
+
     proc.on("close", (code) => {
       clearTimeout(timeout);
       if (!resolved) {
         resolved = true;
-        resolve(code === 0);
+        // Check exit code AND that we got actual output (not just the header)
+        const hasResponse = stdout.trim().length > 0;
+        resolve(code === 0 && hasResponse);
       }
     });
 
