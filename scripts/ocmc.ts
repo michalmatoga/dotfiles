@@ -15,6 +15,13 @@ const CACHE_FILE =
 
 const TIMEOUT_MS = 15000;
 
+// Filter out older generation models
+const SKIP_PATTERNS = [
+  /openai\/gpt-3/,
+  /openai\/gpt-4(?!\.)/,  // gpt-4, gpt-4-turbo, gpt-4o but not gpt-4.1
+  /\/text-embedding/,
+];
+
 function getModels(): string[] {
   try {
     const output = execSync("opencode models", {
@@ -22,7 +29,8 @@ function getModels(): string[] {
       stdio: ["pipe", "pipe", "pipe"],
       timeout: 10000,
     });
-    return output.trim().split("\n").filter(Boolean);
+    const allModels = output.trim().split("\n").filter(Boolean);
+    return allModels.filter(model => !SKIP_PATTERNS.some(pattern => pattern.test(model)));
   } catch (err) {
     console.error("Failed to fetch models from opencode:", err);
     process.exit(1);
