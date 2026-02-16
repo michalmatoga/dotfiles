@@ -2,7 +2,6 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
 // State files used by wo system
-const STATE_DIR = path.join(__dirname, "..", "..", "..", "state");
 const STATE_FILES = ["wf-events.jsonl", "wf-snapshots.jsonl"];
 
 // Test-specific state directory (isolated from production state)

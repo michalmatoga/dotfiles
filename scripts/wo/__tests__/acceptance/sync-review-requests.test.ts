@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { createTestCard, fetchTestBoardCards, getListIdByName } from "./helpers/trello";
 import { buildTestPRUrl, buildTestIssueUrl } from "./helpers/github";
-import { getRunCommandCalls } from "./cache/cli";
 
 // Import gh adapter to test CLI caching
 import { ghJson } from "../../lib/gh/gh";

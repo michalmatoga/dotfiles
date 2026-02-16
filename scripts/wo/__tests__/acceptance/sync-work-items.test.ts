@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { seedTestSnapshot, readTestEvents } from "./helpers/state";
-import { createTestCard, fetchTestBoardCards, getListIdByName } from "./helpers/trello";
+import { seedTestSnapshot } from "./helpers/state";
+import { createTestCard, getListIdByName } from "./helpers/trello";
 import { buildTestIssueUrl } from "./helpers/github";
 
 /**
@@ -121,7 +121,7 @@ describe("sync-work-items", () => {
       const doneId = await getListIdByName("Done");
       
       // Create a card in Ready (simulating open item)
-      const card = await createTestCard({
+      await createTestCard({
         listName: "Ready",
         name: "Issue that got closed",
         desc: buildTestIssueUrl(200),

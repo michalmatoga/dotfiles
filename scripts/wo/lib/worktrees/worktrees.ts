@@ -3,7 +3,6 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 import { runCommand, runCommandCapture } from "../command";
-import { ghJson } from "../gh/gh";
 
 type ParsedUrl = {
   host: string;
@@ -147,18 +146,6 @@ const ensureIssueBranch = async (repoPath: string, branch: string, options: { ve
     ["-C", repoPath, "branch", branch, `origin/${defaultBranch}`],
     { verbose: options.verbose },
   );
-};
-
-const resolvePrBranch = async (url: string, host: string): Promise<string | null> => {
-  try {
-    const response = await ghJson<{ headRefName: string }>(
-      ["pr", "view", url, "--json", "headRefName"],
-      { host },
-    );
-    return response.headRefName || null;
-  } catch {
-    return null;
-  }
 };
 
 const ensurePrBranch = async (

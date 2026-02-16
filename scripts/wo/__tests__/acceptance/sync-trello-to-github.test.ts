@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createTestCard, moveTestCard, getListIdByName, fetchTestBoardCards } from "./helpers/trello";
+import { createTestCard, moveTestCard, getListIdByName } from "./helpers/trello";
 import { buildTestIssueUrl } from "./helpers/github";
 import { seedTestSnapshot } from "./helpers/state";
 
@@ -129,7 +129,6 @@ describe("sync-trello-to-github", () => {
       // to update its status field
       
       const issueUrl = buildTestIssueUrl(302);
-      const projectItemId = "PVTI_12345"; // Example project item ID
       
       // syncUrl in snapshot maps card to project item
       await seedTestSnapshot({
