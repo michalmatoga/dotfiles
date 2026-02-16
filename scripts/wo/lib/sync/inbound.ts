@@ -12,11 +12,6 @@ import {
 import type { WorkItem } from "../normalize";
 import { writeEvent } from "../state/events";
 
-const wipLimits = {
-  ready: 5,
-  doing: 3,
-};
-
 const extractUrlFromDesc = (desc: string): string | null => {
   const match = desc.match(/https:\/\/\S+/);
   return match?.[0] ?? null;
@@ -43,22 +38,6 @@ const buildBaseDescription = (item: WorkItem): string =>
 
 const contentHash = (value: string): string =>
   createHash("sha256").update(value, "utf8").digest("hex");
-
-const applyWip = (targetList: string, listCounts: Map<string, number>): string => {
-  if (targetList === listNames.doing) {
-    const current = listCounts.get(targetList) ?? 0;
-    if (current >= wipLimits.doing) {
-      return listNames.triage;
-    }
-  }
-  if (targetList === listNames.ready) {
-    const current = listCounts.get(targetList) ?? 0;
-    if (current >= wipLimits.ready) {
-      return listNames.triage;
-    }
-  }
-  return targetList;
-};
 
 const ensureLabelIds = (labelIds: string[], currentLabels: string[]) => {
   const set = new Set(currentLabels);
@@ -116,23 +95,13 @@ export const syncInbound = async (options: {
     }
   }
 
-  const listCounts = new Map<string, number>();
-  for (const card of cards) {
-    const list = context.lists.find((listItem) => listItem.id === card.idList);
-    if (!list) {
-      continue;
-    }
-    const name = list.name;
-    listCounts.set(name, (listCounts.get(name) ?? 0) + 1);
-  }
-
   for (const item of options.items) {
     const now = new Date().toISOString();
     const baseList = item.type === "review" ? listNames.ready : workStatusToList(item.status);
     const card = item.projectItemId
       ? cardByItemId.get(item.projectItemId) ?? cardByUrl.get(item.url)
       : cardByUrl.get(item.url);
-    const targetList = card ? baseList : applyWip(baseList, listCounts);
+    const targetList = baseList;
     const list = context.listByName.get(targetList);
     if (!list) {
       throw new Error(`Missing Trello list mapping for ${targetList}`);
@@ -195,7 +164,6 @@ export const syncInbound = async (options: {
         type: "trello.card.created",
         payload: { url: item.url, list: list.name },
       });
-      listCounts.set(targetList, (listCounts.get(targetList) ?? 0) + 1);
       continue;
     }
 
