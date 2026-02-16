@@ -1,0 +1,11 @@
+# Dependencies
+node_modules/
+
+# Test fixtures (auto-generated, contain real API responses)
+wo/__tests__/acceptance/fixtures/
+
+# Test environment (contains credentials)
+wo/__tests__/acceptance/.env.test
+
+# Test state (ephemeral per-test)
+wo/__tests__/acceptance/state/
