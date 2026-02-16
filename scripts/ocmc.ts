@@ -13,7 +13,7 @@ const CACHE_FILE =
   process.argv[2] ||
   join(process.env.XDG_CACHE_HOME || join(homedir(), ".cache"), "opencode-models");
 
-const TIMEOUT_MS = 30000;
+const TIMEOUT_MS = 5000;
 
 function getModels(): string[] {
   try {
