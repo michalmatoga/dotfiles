@@ -1,5 +1,16 @@
-import { beforeAll, afterAll, beforeEach, afterEach } from "vitest";
+import { vi, beforeAll, afterAll, beforeEach, afterEach } from "vitest";
 import * as path from "node:path";
+
+// Mock the command module BEFORE any imports that use it
+// This must be hoisted to module level
+vi.mock("../../lib/command", async () => {
+  const { cachedRunCommandCapture, mockRunCommand } = await import("./cache/cli");
+  return {
+    runCommandCapture: cachedRunCommandCapture,
+    runCommand: mockRunCommand,
+  };
+});
+
 import { initializeCache } from "./cache/index";
 import { startHttpCache, stopHttpCache, resetHttpCache } from "./cache/http";
 import { resetCliCache } from "./cache/cli";
@@ -33,6 +44,7 @@ beforeAll(async () => {
   // Start MSW server for HTTP interception
   startHttpCache();
   console.log("[setup] MSW server started");
+  console.log("[setup] CLI commands mocked");
 });
 
 /**
