@@ -5,7 +5,7 @@
  */
 
 import { execSync, spawn } from "node:child_process";
-import { writeFileSync, appendFileSync } from "node:fs";
+import { writeFileSync, appendFileSync, copyFileSync, mkdirSync, existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -14,6 +14,24 @@ const CACHE_FILE =
   join(process.env.XDG_CACHE_HOME || join(homedir(), ".cache"), "opencode-models");
 
 const TIMEOUT_MS = 15000;
+
+// Temp data dir for isolated sessions (avoids polluting main session history)
+const TEMP_DATA_HOME = "/tmp/ocmc-data";
+const TEMP_OPENCODE_DIR = join(TEMP_DATA_HOME, "opencode");
+
+// Copy auth.json to temp dir so models that need API keys work
+function setupTempAuth() {
+  const sourceAuth = join(
+    process.env.XDG_DATA_HOME || join(homedir(), ".local/share"),
+    "opencode/auth.json"
+  );
+  const destAuth = join(TEMP_OPENCODE_DIR, "auth.json");
+
+  if (existsSync(sourceAuth)) {
+    mkdirSync(TEMP_OPENCODE_DIR, { recursive: true });
+    copyFileSync(sourceAuth, destAuth);
+  }
+}
 
 // Filter out older generation models
 const SKIP_PATTERNS = [
@@ -84,6 +102,8 @@ function testModel(model: string): Promise<boolean> {
 }
 
 async function main() {
+  setupTempAuth();
+
   const models = getModels();
   const total = models.length;
 
