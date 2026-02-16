@@ -398,14 +398,14 @@ in
     enable = true;
   };
 
-  home.file.".local/bin/wf-run" = {
-    source = ../../scripts/wf/wf-run.sh;
+  home.file.".local/bin/wo-run" = {
+    source = ../../scripts/wo/wo-run.sh;
     executable = true;
   };
 
-  systemd.user.services.review-requests-to-trello = {
+  systemd.user.services.wo-sync = {
     Unit = {
-      Description = "Sync GitHub review requests to Trello";
+      Description = "Sync work items via wo workflow";
     };
     Service = {
       Type = "oneshot";
@@ -413,13 +413,13 @@ in
         "PATH=${pkgs.dash}/bin:${pkgs.bash}/bin:${pkgs.nodejs_24}/bin:${pkgs.gh}/bin:/run/current-system/sw/bin"
         "SHELL=${pkgs.bash}/bin/bash"
       ];
-      ExecStart = "%h/.local/bin/wf-run";
+      ExecStart = "%h/.local/bin/wo-run";
     };
   };
 
-  systemd.user.timers.review-requests-to-trello = {
+  systemd.user.timers.wo-sync = {
     Unit = {
-      Description = "GitHub review requests to Trello every 5 minutes";
+      Description = "Run wo-sync every 5 minutes";
     };
     Timer = {
       OnCalendar = "*:0/5";

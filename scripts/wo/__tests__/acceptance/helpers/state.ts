@@ -2,7 +2,7 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
 // State files used by wo system
-const STATE_FILES = ["wf-events.jsonl", "wf-snapshots.jsonl"];
+const STATE_FILES = ["wo-events.jsonl", "wo-snapshots.jsonl"];
 
 // Test-specific state directory (isolated from production state)
 const TEST_STATE_DIR = path.join(__dirname, "..", "state");
@@ -33,7 +33,7 @@ export const getTestStatePath = (filename: string): string => {
  * Read events from test state file.
  */
 export const readTestEvents = async <T>(): Promise<T[]> => {
-  const filePath = path.join(TEST_STATE_DIR, "wf-events.jsonl");
+  const filePath = path.join(TEST_STATE_DIR, "wo-events.jsonl");
   try {
     const content = await fs.readFile(filePath, "utf-8");
     return content
@@ -49,7 +49,7 @@ export const readTestEvents = async <T>(): Promise<T[]> => {
  * Read latest snapshot from test state file.
  */
 export const readTestSnapshot = async <T>(): Promise<T | null> => {
-  const filePath = path.join(TEST_STATE_DIR, "wf-snapshots.jsonl");
+  const filePath = path.join(TEST_STATE_DIR, "wo-snapshots.jsonl");
   try {
     const content = await fs.readFile(filePath, "utf-8");
     const lines = content.split("\n").filter((line) => line.trim());
@@ -64,7 +64,7 @@ export const readTestSnapshot = async <T>(): Promise<T | null> => {
  * Write a test event to state file.
  */
 export const writeTestEvent = async <T>(event: T): Promise<void> => {
-  const filePath = path.join(TEST_STATE_DIR, "wf-events.jsonl");
+  const filePath = path.join(TEST_STATE_DIR, "wo-events.jsonl");
   await fs.appendFile(filePath, JSON.stringify(event) + "\n");
 };
 
@@ -73,7 +73,7 @@ export const writeTestEvent = async <T>(event: T): Promise<void> => {
  */
 export const seedTestEvents = async <T>(events: T[]): Promise<void> => {
   await fs.mkdir(TEST_STATE_DIR, { recursive: true });
-  const filePath = path.join(TEST_STATE_DIR, "wf-events.jsonl");
+  const filePath = path.join(TEST_STATE_DIR, "wo-events.jsonl");
   if (events.length === 0) {
     await fs.writeFile(filePath, "");
     return;
@@ -87,6 +87,6 @@ export const seedTestEvents = async <T>(events: T[]): Promise<void> => {
  */
 export const seedTestSnapshot = async <T>(snapshot: T): Promise<void> => {
   await fs.mkdir(TEST_STATE_DIR, { recursive: true });
-  const filePath = path.join(TEST_STATE_DIR, "wf-snapshots.jsonl");
+  const filePath = path.join(TEST_STATE_DIR, "wo-snapshots.jsonl");
   await fs.writeFile(filePath, JSON.stringify(snapshot) + "\n");
 };

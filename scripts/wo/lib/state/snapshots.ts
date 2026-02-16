@@ -21,7 +21,7 @@ export type Snapshot = {
   worktrees?: { lastEventTs?: string | null; byUrl?: Record<string, string> } | null;
 };
 
-const snapshotPath = "scripts/wo/state/wf-snapshots.jsonl";
+const snapshotPath = "scripts/wo/state/wo-snapshots.jsonl";
 
 export const readLatestSnapshot = async (): Promise<Snapshot | null> =>
   readLastJsonlEntry<Snapshot>(snapshotPath);

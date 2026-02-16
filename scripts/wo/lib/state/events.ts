@@ -6,6 +6,6 @@ export type EventRecord = {
   payload: Record<string, unknown>;
 };
 
-const eventsPath = "scripts/wo/state/wf-events.jsonl";
+const eventsPath = "scripts/wo/state/wo-events.jsonl";
 
 export const writeEvent = async (record: EventRecord) => appendJsonl(eventsPath, record);

@@ -10,8 +10,8 @@ export type SyncMetadata = {
   contentHash?: string | null;
 };
 
-const blockStart = "[wf-sync]";
-const blockEnd = "[/wf-sync]";
+const blockStart = "[wo-sync]";
+const blockEnd = "[/wo-sync]";
 
 export const parseSyncMetadata = (desc: string): SyncMetadata | null => {
   const start = desc.indexOf(blockStart);

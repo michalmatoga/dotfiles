@@ -32,7 +32,7 @@ const scriptDir = __dirname;
 const repoRoot = join(scriptDir, "../../..");
 const stateDir = join(repoRoot, "scripts/wo/state");
 const cachePath = join(stateDir, "wo-sessionizer-cache.json");
-const eventsPath = join(stateDir, "wf-events.jsonl");
+const eventsPath = join(stateDir, "wo-events.jsonl");
 
 const args = process.argv.slice(2);
 const argPath = args.find((arg) => !arg.startsWith("--")) ?? null;

@@ -10,8 +10,6 @@ import { ghJson } from "../../lib/gh/gh";
  * 
  * These tests verify the behavior of syncing GitHub review requests to Trello.
  * They use VCR-style caching - first run hits real backends, subsequent runs use cache.
- * 
- * Based on scenarios from: scripts/wf/features/review-requests.feature
  */
 describe("sync-review-requests", () => {
   describe("basic Trello operations", () => {

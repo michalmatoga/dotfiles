@@ -99,21 +99,21 @@ Flags:
 - Trello list moves trigger actions; `Doing` creates worktrees and `Done` removes them (skipped if dirty).
 - Worktree actions only run for cards with GitHub issue/PR URLs.
 - When a worktree is created for `Doing`, a detached tmux session is initialized and the right pane runs `opencode -s <sessionId>`.
-- Session prompts use `scripts/wf/prompts/review.md` for PRs and `scripts/wf/prompts/issue.md` for issues.
+- Session prompts use `scripts/wo/prompts/review.md` for PRs and `scripts/wo/prompts/issue.md` for issues.
 - Set `WO_SESSION_TRIGGER_LISTS` to customize which lists auto-initialize sessions (default: `Doing`).
 - When a worktree is removed (card moved to `Done`), the corresponding tmux session is also killed if it exists.
 
 ## Tmux sessionizer
 
-- `scripts/wo/bin/tmux-wo-sessionizer.js` is a compiled picker for `~/gwq` worktrees and `~/ghq` repos.
+- `scripts/wo/bin/tmux-wo-sessionizer.ts` is a picker for `~/gwq` worktrees and `~/ghq` repos.
 - Shows GH issue/PR titles when available and caches them in `scripts/wo/state/wo-sessionizer-cache.json`.
-- Run: `node scripts/wo/bin/tmux-wo-sessionizer.js`.
+- Run: `npx --yes tsx scripts/wo/bin/tmux-wo-sessionizer.ts`.
 
 ## State & idempotency
 
 - JSONL state lives in `scripts/wo/state/` (git-ignored).
-- `wf-events.jsonl` stores append-only events.
-- `wf-snapshots.jsonl` stores the latest snapshot for conflict resolution.
+- `wo-events.jsonl` stores append-only events.
+- `wo-snapshots.jsonl` stores the latest snapshot for conflict resolution.
 - Trello wins if a card was moved since the last snapshot.
 - Project sync runs incrementally using `updatedAt`, with a daily full refresh.
 

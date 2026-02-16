@@ -20,7 +20,7 @@ type TrelloMovedEvent = {
   };
 };
 
-const eventsPath = "scripts/wo/state/wf-events.jsonl";
+const eventsPath = "scripts/wo/state/wo-events.jsonl";
 const titleCache = new Map<string, string | null>();
 const sessionTriggerLists = (process.env.WO_SESSION_TRIGGER_LISTS ?? listNames.doing)
   .split(",")

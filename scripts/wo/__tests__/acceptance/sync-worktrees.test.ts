@@ -12,8 +12,6 @@ import { getRunCommandCalls } from "./cache/cli";
  * - Creates worktrees when cards move to "Doing"
  * - Removes worktrees when cards move to "Done"
  * - Initializes tmux sessions for worktrees
- * 
- * Based on scenarios from: scripts/wf/features/assigned-issues-sessions.feature
  */
 describe("sync-worktrees", () => {
   describe("event processing", () => {
