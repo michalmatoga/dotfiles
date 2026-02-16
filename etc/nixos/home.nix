@@ -306,6 +306,61 @@ in
         source "''${DOTFILES_DIR}/scripts/humioctl-wrapper.zsh"
       fi
 
+      # OpenCode model switcher
+      export OPENCODE_MODEL="''${OPENCODE_MODEL:-litellm/bedrock-claude-opus-4-5}"
+      OPENCODE_MODELS_CACHE="''${XDG_CACHE_HOME:-$HOME/.cache}/opencode-models"
+
+      # ocmc: test all models and cache working ones
+      ocmc() {
+        local models model cache_file
+        cache_file="$OPENCODE_MODELS_CACHE"
+        models=$(opencode models 2>/dev/null)
+        if [ -z "$models" ]; then
+          echo "Failed to fetch models from opencode" >&2
+          return 1
+        fi
+
+        echo "Testing models... (this may take a while)"
+        : > "$cache_file"  # truncate cache
+
+        echo "$models" | while read -r model; do
+          printf "Testing %-50s " "$model"
+          if timeout 30 opencode run -m "$model" "respond with ok" >/dev/null 2>&1; then
+            echo "$model" >> "$cache_file"
+            echo "OK"
+          else
+            echo "FAIL"
+          fi
+        done
+
+        local count
+        count=$(wc -l < "$cache_file" | tr -d ' ')
+        echo "Cached $count working models to $cache_file"
+      }
+
+      # ocm: select from cached models (or all if no cache)
+      ocm() {
+        local models selected cache_file
+        cache_file="$OPENCODE_MODELS_CACHE"
+
+        if [ -f "$cache_file" ] && [ -s "$cache_file" ]; then
+          models=$(cat "$cache_file")
+        else
+          models=$(opencode models 2>/dev/null)
+          if [ -z "$models" ]; then
+            echo "Failed to fetch models from opencode" >&2
+            return 1
+          fi
+          echo "No cache found. Run 'ocmc' to test and cache working models." >&2
+        fi
+
+        selected=$(echo "$models" | fzf --header="Select OpenCode model (current: $OPENCODE_MODEL)")
+        if [ -n "$selected" ]; then
+          export OPENCODE_MODEL="$selected"
+          echo "OPENCODE_MODEL set to: $OPENCODE_MODEL"
+        fi
+      }
+
       alias PWD='pwd' # necessary for compatibility with sourced script below
       if [ -f "''${DOTFILES_DIR}/dist/gtm-terminal-plugin/gtm-plugin.sh" ]; then
         source "''${DOTFILES_DIR}/dist/gtm-terminal-plugin/gtm-plugin.sh"

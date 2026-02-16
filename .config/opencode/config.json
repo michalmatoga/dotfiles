@@ -4,18 +4,18 @@
   "agent": {
     "build": {
       "mode": "primary",
-      "model": "litellm/bedrock-claude-opus-4-5"
+      "model": "{env:OPENCODE_MODEL}"
     },
     "plan": {
       "mode": "primary",
-      "model": "litellm/bedrock-claude-opus-4-5",
+      "model": "{env:OPENCODE_MODEL}",
       "tools": { "edit": true },
       "permission": { "edit": "ask" }
     },
     "code-reviewer": {
       "description": "Reviews code for best practices and potential issues",
       "mode": "subagent",
-      "model": "litellm/bedrock-claude-opus-4-5",
+      "model": "{env:OPENCODE_MODEL}",
       "prompt": "You are a code reviewer. Focus on security, performance, and maintainability.",
       "tools": {
         "write": false,
