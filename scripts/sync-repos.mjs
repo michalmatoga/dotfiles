@@ -26,8 +26,7 @@ const providerApiMap = {
     fullNameKey: "full_name",
   },
   "schibsted.ghe.com": {
-    urlTemplate:
-      "https://api.schibsted.ghe.com/orgs/ORG_ID/repos?per_page=100",
+    urlTemplate: "https://api.schibsted.ghe.com/orgs/ORG_ID/repos?per_page=100",
     headers: { Authorization: `token ${secrets.ghec_pat_sch}` },
     fullNameKey: "full_name",
   },
@@ -50,29 +49,6 @@ async function fetchAllOrgRepos(provider, org) {
 
   return await response.json();
 }
-
-
-function setupDirenv() {
-  const rootDir = "~/ghq/github.schibsted.io";
-  execSync(
-    `echo 'prefix = "/home/nixos/.cache/npm/global"' > ${rootDir}/.npmrc`,
-  );
-  execSync(
-    `cat ${__dirname}/../secrets.json | jq -r '.npmrc_sch' | base64 -d >> ${rootDir}/.npmrc`,
-  );
-  const vars = [
-    `NPM_CONFIG_USERCONFIG=${rootDir}/.npmrc`,
-    `GH_USER="michal-matoga"`,
-    "VAULT_ADDR=https://vault.int.vgnett.no",
-    "VAULT_SKIP_VERIFY=1",
-  ];
-  execSync(
-    `echo -e '${vars
-      .map((v) => `export ${v}`)
-      .join("\n")}' > ${rootDir}/.envrc && direnv allow ${rootDir}`,
-  );
-}
-
 (async () => {
   const repos = [];
   for (const { provider, fetch } of fetchConfig) {
@@ -115,5 +91,4 @@ function setupDirenv() {
     execSync(`rm -rf ${rmParams}`);
     execSync('find ~/ghq -type d -empty -not -path "*.git*" -delete');
   }
-  setupDirenv();
 })();

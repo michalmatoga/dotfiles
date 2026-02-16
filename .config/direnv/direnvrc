@@ -1,0 +1,35 @@
+# ~/.config/direnv/direnvrc
+# Recursively load .env files from .envrc location down to current directory
+# Order: parent first → child overrides
+
+load_dotenvs_recursive() {
+  local envrc_dir
+  envrc_dir="$(dirname "$DIRENV_FILE")"
+
+  local target="$PWD"
+
+  # If PWD is not under envrc_dir, just load the root .env
+  if [[ "$target" != "$envrc_dir"* ]]; then
+    dotenv_if_exists "$envrc_dir/.env"
+    return
+  fi
+
+  # Collect directories from envrc_dir to PWD
+  local -a dirs=()
+  local path="$target"
+
+  while [[ "$path" != "$envrc_dir" && "$path" != "/" ]]; do
+    dirs=("$path" "${dirs[@]}")
+    path="$(dirname "$path")"
+  done
+
+  # Load root .env first (parent)
+  dotenv_if_exists "$envrc_dir/.env"
+
+  # Then load each child directory's .env (children override parents)
+  for dir in "${dirs[@]}"; do
+    dotenv_if_exists "$dir/.env"
+  done
+}
+
+load_dotenvs_recursive

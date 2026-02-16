@@ -490,32 +490,53 @@ in
     };
   };
 
-  # Generate per-host .npmrc and .envrc for Schibsted repos from secrets.json
-  # Uses direnv to activate the correct npm config per directory
+  # Generate per-host .npmrc and .env files for Schibsted repos from secrets.json
+  # Uses direnv with recursive .env loading (see .config/direnv/direnvrc)
   home.activation.generateNpmrc = lib.hm.dag.entryAfter ["writeBoundary"] ''
     SECRETS_FILE="$HOME/ghq/github.com/michalmatoga/dotfiles/secrets.json"
     if [ -f "$SECRETS_FILE" ]; then
       NPMRC_CONTENT=$(${pkgs.jq}/bin/jq -r '.npmrc_sch // empty' "$SECRETS_FILE" | ${pkgs.coreutils}/bin/base64 -d 2>/dev/null)
       if [ -n "$NPMRC_CONTENT" ]; then
-        # Add prefix to npmrc content
         FULL_NPMRC="$NPMRC_CONTENT
 prefix = \"/home/nixos/.cache/npm/global\""
 
-        # Generate for ghq/schibsted.ghe.com
-        GHQ_DIR="$HOME/ghq/schibsted.ghe.com"
-        mkdir -p "$GHQ_DIR"
-        echo "$FULL_NPMRC" > "$GHQ_DIR/.npmrc"
-        echo "export NPM_CONFIG_USERCONFIG=$GHQ_DIR/.npmrc" > "$GHQ_DIR/.envrc"
-        ${pkgs.direnv}/bin/direnv allow "$GHQ_DIR" 2>/dev/null || true
+        # Create root directories and .envrc triggers
+        GHQ_ROOT="$HOME/ghq"
+        GWQ_ROOT="$HOME/gwq"
+        mkdir -p "$GHQ_ROOT" "$GWQ_ROOT"
 
-        # Generate for gwq/schibsted.ghe.com
-        GWQ_DIR="$HOME/gwq/schibsted.ghe.com"
-        mkdir -p "$GWQ_DIR"
-        echo "$FULL_NPMRC" > "$GWQ_DIR/.npmrc"
-        echo "export NPM_CONFIG_USERCONFIG=$GWQ_DIR/.npmrc" > "$GWQ_DIR/.envrc"
-        ${pkgs.direnv}/bin/direnv allow "$GWQ_DIR" 2>/dev/null || true
+        echo "# direnv trigger - see .env files in subdirectories" > "$GHQ_ROOT/.envrc"
+        echo "# direnv trigger - see .env files in subdirectories" > "$GWQ_ROOT/.envrc"
+        ${pkgs.direnv}/bin/direnv allow "$GHQ_ROOT" 2>/dev/null || true
+        ${pkgs.direnv}/bin/direnv allow "$GWQ_ROOT" 2>/dev/null || true
 
-        echo "Generated .npmrc and .envrc for schibsted.ghe.com (ghq and gwq)"
+        # Personal defaults at root level
+        echo 'GH_USER=michalmatoga
+GH_HOST=github.com' > "$GHQ_ROOT/.env"
+        echo 'GH_USER=michalmatoga
+GH_HOST=github.com' > "$GWQ_ROOT/.env"
+
+        # Schibsted work overrides (ghq)
+        GHQ_SCH="$HOME/ghq/schibsted.ghe.com"
+        mkdir -p "$GHQ_SCH"
+        echo "$FULL_NPMRC" > "$GHQ_SCH/.npmrc"
+        echo "NPM_CONFIG_USERCONFIG=$GHQ_SCH/.npmrc
+GH_USER=michal-matoga
+GH_HOST=schibsted.ghe.com
+KUBECONFIG=$HOME/ghq/github.schibsted.io/svp/infrastructure/linode/stream-kubeconfig.yaml" > "$GHQ_SCH/.env"
+        rm -f "$GHQ_SCH/.envrc"
+
+        # Schibsted work overrides (gwq)
+        GWQ_SCH="$HOME/gwq/schibsted.ghe.com"
+        mkdir -p "$GWQ_SCH"
+        echo "$FULL_NPMRC" > "$GWQ_SCH/.npmrc"
+        echo "NPM_CONFIG_USERCONFIG=$GWQ_SCH/.npmrc
+GH_USER=michal-matoga
+GH_HOST=schibsted.ghe.com
+KUBECONFIG=$HOME/ghq/github.schibsted.io/svp/infrastructure/linode/stream-kubeconfig.yaml" > "$GWQ_SCH/.env"
+        rm -f "$GWQ_SCH/.envrc"
+
+        echo "Generated .envrc triggers and .env files for ghq and gwq"
       fi
     fi
 
