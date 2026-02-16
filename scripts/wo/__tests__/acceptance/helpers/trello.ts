@@ -20,11 +20,13 @@ const createdCardIds: string[] = [];
 
 /**
  * Get the test board ID from environment.
+ * In normal test runs, this uses cached fixtures so no real API calls are made.
+ * Only when NO_CACHE=true will real API calls occur.
  */
 export const getTestBoardId = (): string => {
   const boardId = process.env.TRELLO_BOARD_ID_WO;
   if (!boardId) {
-    throw new Error("TRELLO_BOARD_ID_WO not set in .env.test");
+    throw new Error("TRELLO_BOARD_ID_WO not set");
   }
   return boardId;
 };

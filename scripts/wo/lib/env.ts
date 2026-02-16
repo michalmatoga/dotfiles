@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 
-export const loadEnvFile = async (filePath: string) => {
+export const loadEnvFile = async (filePath: string, options: { override?: boolean } = {}) => {
   const content = await readFile(filePath, "utf8");
   for (const rawLine of content.split("\n")) {
     const line = rawLine.trim();
@@ -13,7 +13,7 @@ export const loadEnvFile = async (filePath: string) => {
     }
     const [, key, valueRaw] = match;
     const value = valueRaw.replace(/^['"]|['"]$/g, "");
-    if (!process.env[key]) {
+    if (options.override || !process.env[key]) {
       process.env[key] = value;
     }
   }

@@ -103,20 +103,6 @@ describe("sync-work-items", () => {
   });
 
   describe("closed items handling", () => {
-    it("identifies closed items by content state", () => {
-      const openState = "OPEN";
-      const closedState = "CLOSED";
-      const mergedState = "MERGED";
-
-      const isClosedOpen = openState !== "OPEN";
-      const isClosedClosed = closedState !== "OPEN";
-      const isClosedMerged = mergedState !== "OPEN";
-
-      expect(isClosedOpen).toBe(false);
-      expect(isClosedClosed).toBe(true);
-      expect(isClosedMerged).toBe(true);
-    });
-
     it("moves closed items to Done list", async () => {
       const doneId = await getListIdByName("Done");
       

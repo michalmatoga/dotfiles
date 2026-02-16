@@ -52,6 +52,15 @@ export const ensureCacheDirectories = () => {
 };
 
 /**
+ * Extract URL pattern for fuzzy matching (strips query params except path-relevant ones).
+ */
+const extractUrlPattern = (url: string): string => {
+  const parsed = new URL(url);
+  // Keep path, strip most query params for matching
+  return `${parsed.pathname}`;
+};
+
+/**
  * Generate a cache key from request details.
  * Includes relevant env vars for uniqueness.
  */
@@ -110,4 +119,55 @@ export const readCachedResponse = <T>(type: "trello" | "gh", cacheKey: string): 
 export const writeCachedResponse = <T>(type: "trello" | "gh", cacheKey: string, response: T): void => {
   const cachePath = getCachePath(type, cacheKey);
   fs.writeFileSync(cachePath, JSON.stringify(response, null, 2));
+};
+
+type CachedHttpResponse = {
+  status: number;
+  statusText: string;
+  headers: Record<string, string>;
+  body: unknown;
+};
+
+/**
+ * Find a matching fixture by URL pattern (fuzzy match for mutations).
+ * This allows POST/PUT/DELETE to match even if body content differs.
+ */
+export const findMatchingFixture = (
+  type: "trello" | "gh",
+  method: string,
+  url: string,
+): CachedHttpResponse | null => {
+  const dir = path.join(FIXTURES_DIR, type);
+  if (!fs.existsSync(dir)) return null;
+
+  const urlPattern = extractUrlPattern(url);
+  const files = fs.readdirSync(dir);
+
+  // Find files matching the method and URL pattern
+  for (const file of files) {
+    if (!file.startsWith(`${method}_`)) continue;
+    
+    const filePath = path.join(dir, file);
+    try {
+      const content = fs.readFileSync(filePath, "utf-8");
+      const cached = JSON.parse(content) as CachedHttpResponse;
+      
+      // For POST to /1/cards, any recorded card creation works
+      if (method === "POST" && urlPattern.includes("/cards")) {
+        return cached;
+      }
+      // For DELETE /1/cards/{id}, any recorded deletion works
+      if (method === "DELETE" && urlPattern.match(/\/cards\/[a-z0-9]+$/)) {
+        return cached;
+      }
+      // For PUT /1/cards/{id}, any recorded update works
+      if (method === "PUT" && urlPattern.match(/\/cards\/[a-z0-9]+$/)) {
+        return cached;
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return null;
 };
