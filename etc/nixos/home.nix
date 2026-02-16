@@ -309,30 +309,31 @@ in
       # OpenCode model switcher
       export OPENCODE_MODEL="''${OPENCODE_MODEL:-litellm/bedrock-claude-opus-4-5}"
       OPENCODE_MODELS_CACHE="''${XDG_CACHE_HOME:-$HOME/.cache}/opencode-models"
+      OPENCODE_MODELS_LRU="''${XDG_CACHE_HOME:-$HOME/.cache}/opencode-models-lru.json"
 
       # ocmc: test all models and cache working ones
       alias ocmc="dotfiles_require; npx tsx \"$DOTFILES_DIR/scripts/ocmc.ts\" \"$OPENCODE_MODELS_CACHE\""
 
-      # ocm: select from cached models (or all if no cache)
+      # ocm: select from cached models with LRU sorting
       ocm() {
-        local models selected cache_file
-        cache_file="$OPENCODE_MODELS_CACHE"
+        dotfiles_require || return 1
+        local models selected
 
-        if [ -f "$cache_file" ] && [ -s "$cache_file" ]; then
-          models=$(cat "$cache_file")
-        else
-          models=$(opencode models 2>/dev/null)
-          if [ -z "$models" ]; then
-            echo "Failed to fetch models from opencode" >&2
-            return 1
-          fi
-          echo "No cache found. Run 'ocmc' to test and cache working models." >&2
+        models=$(npx tsx "$DOTFILES_DIR/scripts/ocm-sort.ts" "$OPENCODE_MODELS_CACHE" "$OPENCODE_MODELS_LRU" 2>/dev/null)
+        if [ -z "$models" ]; then
+          echo "No models available. Run 'ocmc' to test and cache working models." >&2
+          return 1
         fi
 
         selected=$(echo "$models" | fzf --header="Select OpenCode model (current: $OPENCODE_MODEL)")
         if [ -n "$selected" ]; then
+          # Strip ★ prefix if present
+          selected=$(echo "$selected" | sed 's/^★ //')
           export OPENCODE_MODEL="$selected"
           echo "OPENCODE_MODEL set to: $OPENCODE_MODEL"
+
+          # Update LRU
+          npx tsx "$DOTFILES_DIR/scripts/ocm-lru.ts" "$OPENCODE_MODELS_LRU" "$selected"
         fi
       }
 
