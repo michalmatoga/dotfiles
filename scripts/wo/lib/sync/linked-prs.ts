@@ -108,7 +108,6 @@ export const syncLinkedPrs = async (options: {
   host: string;
   currentUser: string;
   prUrls: string[];
-  dryRun: boolean;
   verbose: boolean;
 }): Promise<Set<string>> => {
   if (options.prUrls.length === 0) {
@@ -165,9 +164,7 @@ export const syncLinkedPrs = async (options: {
         lastTrelloMove: meta?.lastTrelloMove ?? null,
       });
       const desc = updateDescriptionWithSync(updatedBase, syncBlock);
-      if (!options.dryRun) {
-        await updateCard({ cardId: card.id, desc });
-      }
+      await updateCard({ cardId: card.id, desc });
     }
   }
 
@@ -204,17 +201,15 @@ export const syncLinkedPrs = async (options: {
     if (options.verbose) {
       console.log(`Moving linked issue card ${card.id} to ${desiredList}`);
     }
-    if (!options.dryRun) {
-      await updateCard({
-        cardId: card.id,
-        listId: list.id,
-        desc,
-        pos: desiredList === listNames.ready ? "top" : undefined,
-        labelIds: reviewLabelId
-          ? Array.from(new Set([...card.idLabels, reviewLabelId]))
-          : undefined,
-      });
-    }
+    await updateCard({
+      cardId: card.id,
+      listId: list.id,
+      desc,
+      pos: desiredList === listNames.ready ? "top" : undefined,
+      labelIds: reviewLabelId
+        ? Array.from(new Set([...card.idLabels, reviewLabelId]))
+        : undefined,
+    });
     await writeEvent({
       ts: new Date().toISOString(),
       type: "trello.card.moved.linked-pr",

@@ -13,7 +13,6 @@ const projectOwner = "svp";
 const projectNumber = 5;
 
 export const syncWorkItemsUseCase = async (options: {
-  dryRun: boolean;
   verbose: boolean;
   fullRefresh: boolean;
 }) => {
@@ -61,13 +60,11 @@ export const syncWorkItemsUseCase = async (options: {
   await moveClosedItemsToDone({
     boardId,
     items: closedItems,
-    dryRun: options.dryRun,
     verbose: options.verbose,
   });
   await syncInbound({
     boardId,
     items: openIssueItems,
-    dryRun: options.dryRun,
     verbose: options.verbose,
   });
 
@@ -76,7 +73,6 @@ export const syncWorkItemsUseCase = async (options: {
     host: ghHost,
     currentUser: ghUser,
     prUrls: openPrItems.map((item) => item.url),
-    dryRun: options.dryRun,
     verbose: options.verbose,
   });
 
@@ -91,7 +87,6 @@ export const syncWorkItemsUseCase = async (options: {
     host: ghHost,
     currentUser: ghUser,
     prUrls: authoredPrUrls,
-    dryRun: options.dryRun,
     verbose: options.verbose,
   });
   for (const url of handledAuthored) {
@@ -103,7 +98,6 @@ export const syncWorkItemsUseCase = async (options: {
     await syncInbound({
       boardId,
       items: remainingPrs,
-      dryRun: options.dryRun,
       verbose: options.verbose,
     });
   }

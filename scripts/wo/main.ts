@@ -16,7 +16,6 @@ const parseArgs = (args: string[]) => {
       ? "sync"
       : "all";
   return {
-    dryRun: flags.has("--dry-run"),
     verbose: flags.has("--verbose"),
     fullRefresh: flags.has("--full-refresh"),
     mode,
@@ -24,14 +23,13 @@ const parseArgs = (args: string[]) => {
 };
 
 const main = async () => {
-  const { dryRun, verbose, fullRefresh, mode } = parseArgs(process.argv.slice(2));
+  const { verbose, fullRefresh, mode } = parseArgs(process.argv.slice(2));
   await loadEnvFile(".env");
 
   if (mode === "init") {
     await setupBoardUseCase({
       boardName: "LSS",
       existingBoardShortLink: "HZ7hcWZy",
-      dryRun,
       verbose,
     });
     return;
@@ -39,11 +37,11 @@ const main = async () => {
 
   requireEnv("TRELLO_BOARD_ID_WO");
 
-  await syncWorkItemsUseCase({ dryRun, verbose, fullRefresh });
-  await syncReviewRequestsUseCase({ dryRun, verbose });
-  await syncTrelloToGithubUseCase({ dryRun, verbose });
-  await reconcileReviewsUseCase({ dryRun, verbose });
-  await syncWorktreesUseCase({ dryRun, verbose });
+  await syncWorkItemsUseCase({ verbose, fullRefresh });
+  await syncReviewRequestsUseCase({ verbose });
+  await syncTrelloToGithubUseCase({ verbose });
+  await reconcileReviewsUseCase({ verbose });
+  await syncWorktreesUseCase({ verbose });
 };
 
 main().catch((error) => {

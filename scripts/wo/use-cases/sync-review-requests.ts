@@ -8,7 +8,6 @@ const ghHost = "schibsted.ghe.com";
 const ghUser = "michal-matoga";
 
 export const syncReviewRequestsUseCase = async (options: {
-  dryRun: boolean;
   verbose: boolean;
 }) => {
   const boardId = requireEnv("TRELLO_BOARD_ID_WO");
@@ -19,7 +18,6 @@ export const syncReviewRequestsUseCase = async (options: {
     host: ghHost,
     currentUser: ghUser,
     prUrls: normalized.map((item) => item.url),
-    dryRun: options.dryRun,
     verbose: options.verbose,
   });
   const remaining = normalized.filter((item) => !handledPrs.has(item.url));
@@ -27,7 +25,6 @@ export const syncReviewRequestsUseCase = async (options: {
     await syncInbound({
       boardId,
       items: remaining,
-      dryRun: options.dryRun,
       verbose: options.verbose,
     });
   }

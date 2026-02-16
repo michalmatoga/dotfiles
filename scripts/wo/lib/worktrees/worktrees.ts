@@ -59,7 +59,7 @@ const pathExists = async (path: string): Promise<boolean> => {
   }
 };
 
-const ensureRepoCloned = async (parsed: ParsedUrl, options: { dryRun: boolean; verbose: boolean }) => {
+const ensureRepoCloned = async (parsed: ParsedUrl, options: { verbose: boolean }) => {
   const repoPath = resolveRepoPath(parsed);
   if (await pathExists(repoPath)) {
     return repoPath;
@@ -67,7 +67,6 @@ const ensureRepoCloned = async (parsed: ParsedUrl, options: { dryRun: boolean; v
   const sshUser = sshUserForHost(parsed.host);
   const sshUrl = `${sshUser}@${parsed.host}:${parsed.owner}/${parsed.repo}.git`;
   await runCommand("ghq", ["get", sshUrl], {
-    dryRun: options.dryRun,
     verbose: options.verbose,
   });
   return repoPath;
@@ -135,7 +134,7 @@ const resolveDefaultBranch = async (repoPath: string): Promise<string> => {
   }
 };
 
-const ensureIssueBranch = async (repoPath: string, branch: string, options: { dryRun: boolean; verbose: boolean }) => {
+const ensureIssueBranch = async (repoPath: string, branch: string, options: { verbose: boolean }) => {
   if (!(await pathExists(repoPath))) {
     return;
   }
@@ -146,7 +145,7 @@ const ensureIssueBranch = async (repoPath: string, branch: string, options: { dr
   await runCommand(
     "git",
     ["-C", repoPath, "branch", branch, `origin/${defaultBranch}`],
-    { dryRun: options.dryRun, verbose: options.verbose },
+    { verbose: options.verbose },
   );
 };
 
@@ -166,14 +165,12 @@ const ensurePrBranch = async (
   repoPath: string,
   prNumber: number,
   branch: string,
-  options: { dryRun: boolean; verbose: boolean },
+  options: { verbose: boolean },
 ) => {
   await runCommand("git", ["-C", repoPath, "fetch", "origin", `pull/${prNumber}/head`], {
-    dryRun: options.dryRun,
     verbose: options.verbose,
   });
   await runCommand("git", ["-C", repoPath, "branch", "-f", branch, "FETCH_HEAD"], {
-    dryRun: options.dryRun,
     verbose: options.verbose,
   });
 };
@@ -199,7 +196,6 @@ export const ensureWorktreeForUrl = async (options: {
   url: string;
   title: string;
   path?: string | null;
-  dryRun: boolean;
   verbose: boolean;
 }): Promise<(WorktreeResult & ResolvedName) | null> => {
   const parsed = parseGitHubUrl(options.url);
@@ -237,7 +233,6 @@ export const ensureWorktreeForUrl = async (options: {
   }
   await runCommand("gwq", args, {
     cwd: repoPath,
-    dryRun: options.dryRun,
     verbose: options.verbose,
   });
 
@@ -248,7 +243,6 @@ export const removeWorktreeForUrl = async (options: {
   url: string;
   title: string;
   path?: string | null;
-  dryRun: boolean;
   verbose: boolean;
 }): Promise<(WorktreeResult & ResolvedName) | "dirty" | null> => {
   const parsed = parseGitHubUrl(options.url);
@@ -281,7 +275,6 @@ export const removeWorktreeForUrl = async (options: {
 
   await runCommand("gwq", args, {
     cwd: repoPath,
-    dryRun: options.dryRun,
     verbose: options.verbose,
   });
 

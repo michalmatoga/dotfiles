@@ -4,7 +4,6 @@ import { loadBoardContext } from "../lib/trello/context";
 export const setupBoardUseCase = async (options: {
   boardName: string;
   existingBoardShortLink: string;
-  dryRun: boolean;
   verbose: boolean;
 }) => {
   if (options.verbose) {
@@ -15,10 +14,6 @@ export const setupBoardUseCase = async (options: {
 
   if (options.verbose) {
     console.log(`Creating board ${options.boardName}`);
-  }
-
-  if (options.dryRun) {
-    return;
   }
 
   const board = await createBoard({

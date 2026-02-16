@@ -6,13 +6,10 @@ const execFileAsync = promisify(execFile);
 export const runCommand = async (
   command: string,
   args: string[],
-  options: { cwd?: string; dryRun?: boolean; verbose?: boolean; allowFailure?: boolean } = {},
+  options: { cwd?: string; verbose?: boolean; allowFailure?: boolean } = {},
 ) => {
   if (options.verbose) {
-    console.log(`${options.dryRun ? "[dry-run] " : ""}$ ${command} ${args.join(" ")}`);
-  }
-  if (options.dryRun) {
-    return;
+    console.log(`$ ${command} ${args.join(" ")}`);
   }
   await new Promise<void>((resolve, reject) => {
     const child = spawn(command, args, {

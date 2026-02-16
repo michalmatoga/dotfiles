@@ -9,7 +9,6 @@ export const reconcileReviewLifecycle = async (options: {
   boardId: string;
   host: string;
   user: string;
-  dryRun: boolean;
   verbose: boolean;
 }) => {
   const context = await loadBoardContext({ boardId: options.boardId, allowCreate: false });
@@ -43,28 +42,24 @@ export const reconcileReviewLifecycle = async (options: {
     if (options.verbose) {
       console.log(`Moving review card ${card.id} to Done (approved).`);
     }
-    if (!options.dryRun) {
-      await updateCard({ cardId: card.id, listId: doneList.id });
-    }
+    await updateCard({ cardId: card.id, listId: doneList.id });
     await writeEvent({
       ts: new Date().toISOString(),
       type: "trello.review.done",
       payload: { cardId: card.id, url },
     });
-    if (!options.dryRun) {
-      await writeEvent({
-        ts: new Date().toISOString(),
-        type: "trello.card.moved",
-        payload: {
-          cardId: card.id,
-          url,
-          itemId: meta?.itemId ?? null,
-          fromList: fromListName,
-          toList: toListName,
-          labels: card.idLabels,
-          name: card.name,
-        },
-      });
-    }
+    await writeEvent({
+      ts: new Date().toISOString(),
+      type: "trello.card.moved",
+      payload: {
+        cardId: card.id,
+        url,
+        itemId: meta?.itemId ?? null,
+        fromList: fromListName,
+        toList: toListName,
+        labels: card.idLabels,
+        name: card.name,
+      },
+    });
   }
 };

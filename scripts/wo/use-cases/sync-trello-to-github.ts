@@ -6,7 +6,6 @@ const projectOwner = "svp";
 const projectNumber = 5;
 
 export const syncTrelloToGithubUseCase = async (options: {
-  dryRun: boolean;
   verbose: boolean;
 }) => {
   const boardId = requireEnv("TRELLO_BOARD_ID_WO");
@@ -15,7 +14,6 @@ export const syncTrelloToGithubUseCase = async (options: {
     host: ghHost,
     owner: projectOwner,
     projectNumber,
-    dryRun: options.dryRun,
     verbose: options.verbose,
   });
 };

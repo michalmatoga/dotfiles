@@ -137,7 +137,7 @@ export const cachedRunCommandCapture = async (
 export const runCommandCalls: Array<{
   command: string;
   args: string[];
-  options?: { cwd?: string; dryRun?: boolean; verbose?: boolean; allowFailure?: boolean };
+  options?: { cwd?: string; verbose?: boolean; allowFailure?: boolean };
 }> = [];
 
 /**
@@ -147,7 +147,7 @@ export const runCommandCalls: Array<{
 export const mockRunCommand = async (
   command: string,
   args: string[],
-  options: { cwd?: string; dryRun?: boolean; verbose?: boolean; allowFailure?: boolean } = {},
+  options: { cwd?: string; verbose?: boolean; allowFailure?: boolean } = {},
 ): Promise<void> => {
   runCommandCalls.push({ command, args, options });
 

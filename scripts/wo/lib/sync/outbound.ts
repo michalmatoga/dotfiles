@@ -15,7 +15,6 @@ export const syncOutbound = async (options: {
   host: string;
   owner: string;
   projectNumber: number;
-  dryRun: boolean;
   verbose: boolean;
 }) => {
   const context = await loadBoardContext({ boardId: options.boardId, allowCreate: false });
@@ -72,7 +71,7 @@ export const syncOutbound = async (options: {
     const prevListName = prevList ? listAliases[prevList.name] ?? prevList.name : null;
 
     // Emit trello.card.moved for all cards with URLs that changed lists
-    if (listChanged && meta?.url && !options.dryRun) {
+    if (listChanged && meta?.url) {
       await writeEvent({
         ts: now,
         type: "trello.card.moved",
@@ -107,7 +106,6 @@ export const syncOutbound = async (options: {
       itemId: meta.itemId,
       statusFieldId: projectConfig.statusFieldId,
       statusOptionId,
-      dryRun: options.dryRun,
       verbose: options.verbose,
     });
 
@@ -116,9 +114,7 @@ export const syncOutbound = async (options: {
       lastTrelloMove: now,
     });
     const updatedDesc = updateDescriptionWithSync(card.desc, updatedMeta);
-    if (!options.dryRun) {
-      await updateCard({ cardId: card.id, desc: updatedDesc });
-    }
+    await updateCard({ cardId: card.id, desc: updatedDesc });
 
     await writeEvent({
       ts: now,

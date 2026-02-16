@@ -27,14 +27,6 @@ const sessionTriggerLists = (process.env.WO_SESSION_TRIGGER_LISTS ?? listNames.d
   .map((value) => value.trim())
   .filter((value) => value.length > 0);
 
-const extractNumber = (url: string) => {
-  const match = url.match(/\/(issues|pull)\/(\d+)$/);
-  if (!match) {
-    return "0";
-  }
-  return match[2];
-};
-
 const extractHost = (url: string) => {
   const match = url.match(/^https:\/\/([^/]+)/);
   return match ? match[1] : null;
@@ -75,7 +67,6 @@ const fetchTitle = async (url: string): Promise<string | null> => {
   }
 };
 
-
 const isAfter = (ts: string, last: string | null) => {
   if (!last) {
     return true;
@@ -83,7 +74,7 @@ const isAfter = (ts: string, last: string | null) => {
   return new Date(ts).getTime() > new Date(last).getTime();
 };
 
-export const syncWorktreesUseCase = async (options: { dryRun: boolean; verbose: boolean }) => {
+export const syncWorktreesUseCase = async (options: { verbose: boolean }) => {
   const snapshot = await readLatestSnapshot();
   const lastEventTs = snapshot?.worktrees?.lastEventTs ?? null;
   const worktreeMap = snapshot?.worktrees?.byUrl ?? {};
@@ -101,13 +92,11 @@ export const syncWorktreesUseCase = async (options: { dryRun: boolean; verbose: 
     newestTs = event.ts;
     const { url, toList, cardId, name } = event.payload;
     if (!url || !toList) {
-      if (!options.dryRun) {
-        await writeEvent({
-          ts: event.ts,
-          type: "worktree.skipped.missing-url",
-          payload: { cardId },
-        });
-      }
+      await writeEvent({
+        ts: event.ts,
+        type: "worktree.skipped.missing-url",
+        payload: { cardId },
+      });
       continue;
     }
 
@@ -117,42 +106,37 @@ export const syncWorktreesUseCase = async (options: { dryRun: boolean; verbose: 
       const result = await ensureWorktreeForUrl({
         url,
         title,
-        dryRun: options.dryRun,
         verbose: options.verbose,
       });
       if (!result) {
-        if (!options.dryRun) {
-          await writeEvent({
-            ts: event.ts,
-            type: "worktree.skipped.unmatched-url",
-            payload: { cardId, url },
-          });
-        }
-        continue;
-      }
-      if (!options.dryRun) {
         await writeEvent({
           ts: event.ts,
-          type: "worktree.added",
-          payload: { cardId, url, branch: result.branch, path: result.worktreePath },
+          type: "worktree.skipped.unmatched-url",
+          payload: { cardId, url },
         });
-        worktreeMap[url] = result.worktreePath;
-        if (result.fallbackUsed) {
-          await writeEvent({
-            ts: event.ts,
-            type: "worktree.name.fallback",
-            payload: {
-              cardId,
-              url,
-              branch: result.branch,
-              path: result.worktreePath,
-              reason: result.fallbackReason,
-            },
-          });
-        }
+        continue;
+      }
+      await writeEvent({
+        ts: event.ts,
+        type: "worktree.added",
+        payload: { cardId, url, branch: result.branch, path: result.worktreePath },
+      });
+      worktreeMap[url] = result.worktreePath;
+      if (result.fallbackUsed) {
+        await writeEvent({
+          ts: event.ts,
+          type: "worktree.name.fallback",
+          payload: {
+            cardId,
+            url,
+            branch: result.branch,
+            path: result.worktreePath,
+            reason: result.fallbackReason,
+          },
+        });
       }
 
-      if (!options.dryRun && sessionTriggerLists.includes(toList)) {
+      if (sessionTriggerLists.includes(toList)) {
         const session = await initializeWorkSession({
           url,
           worktreePath: result.worktreePath,
@@ -196,70 +180,63 @@ export const syncWorktreesUseCase = async (options: { dryRun: boolean; verbose: 
         url,
         title,
         path: mappedPath,
-        dryRun: options.dryRun,
         verbose: options.verbose,
       });
       if (result === "dirty") {
-        if (!options.dryRun) {
-          await writeEvent({
-            ts: event.ts,
-            type: "worktree.skipped.dirty",
-            payload: { cardId, url },
-          });
-        }
+        await writeEvent({
+          ts: event.ts,
+          type: "worktree.skipped.dirty",
+          payload: { cardId, url },
+        });
         continue;
       }
       if (!result) {
-        if (!options.dryRun) {
-          await writeEvent({
-            ts: event.ts,
-            type: "worktree.skipped.missing",
-            payload: { cardId, url },
-          });
-        }
-        continue;
-      }
-      if (!options.dryRun) {
         await writeEvent({
           ts: event.ts,
-          type: "worktree.removed",
-          payload: { cardId, url, branch: result.branch, path: result.worktreePath },
+          type: "worktree.skipped.missing",
+          payload: { cardId, url },
         });
-        delete worktreeMap[url];
-        if (result.fallbackUsed) {
-          await writeEvent({
-            ts: event.ts,
-            type: "worktree.name.fallback",
-            payload: {
-              cardId,
-              url,
-              branch: result.branch,
-              path: result.worktreePath,
-              reason: result.fallbackReason,
-            },
-          });
-        }
-        const cleanup = await cleanupWorkSession({
-          worktreePath: result.worktreePath,
-          verbose: options.verbose,
+        continue;
+      }
+      await writeEvent({
+        ts: event.ts,
+        type: "worktree.removed",
+        payload: { cardId, url, branch: result.branch, path: result.worktreePath },
+      });
+      delete worktreeMap[url];
+      if (result.fallbackUsed) {
+        await writeEvent({
+          ts: event.ts,
+          type: "worktree.name.fallback",
+          payload: {
+            cardId,
+            url,
+            branch: result.branch,
+            path: result.worktreePath,
+            reason: result.fallbackReason,
+          },
         });
-        if (cleanup.status === "removed") {
-          await writeEvent({
-            ts: new Date().toISOString(),
-            type: "tmux.session.removed",
-            payload: {
-              cardId,
-              url,
-              sessionName: cleanup.sessionName,
-              worktreePath: result.worktreePath,
-            },
-          });
-        }
+      }
+      const cleanup = await cleanupWorkSession({
+        worktreePath: result.worktreePath,
+        verbose: options.verbose,
+      });
+      if (cleanup.status === "removed") {
+        await writeEvent({
+          ts: new Date().toISOString(),
+          type: "tmux.session.removed",
+          payload: {
+            cardId,
+            url,
+            sessionName: cleanup.sessionName,
+            worktreePath: result.worktreePath,
+          },
+        });
       }
     }
   }
 
-  if (!options.dryRun && newestTs) {
+  if (newestTs) {
     await writeSnapshot({
       ts: newestTs,
       trello: snapshot?.trello,

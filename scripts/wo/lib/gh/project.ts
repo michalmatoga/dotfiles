@@ -52,7 +52,6 @@ export const updateProjectItemStatus = async (options: {
   itemId: string;
   statusFieldId: string;
   statusOptionId: string;
-  dryRun: boolean;
   verbose: boolean;
 }) => {
   await runCommand(
@@ -69,7 +68,7 @@ export const updateProjectItemStatus = async (options: {
       "--single-select-option-id",
       options.statusOptionId,
     ],
-    { dryRun: options.dryRun, verbose: options.verbose },
+    { verbose: options.verbose },
   );
 };
 

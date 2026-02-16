@@ -95,7 +95,6 @@ const cardNeedsUpdate = (options: {
 export const syncInbound = async (options: {
   boardId: string;
   items: WorkItem[];
-  dryRun: boolean;
   verbose: boolean;
 }) => {
   const context = await loadBoardContext({ boardId: options.boardId, allowCreate: false });
@@ -181,18 +180,16 @@ export const syncInbound = async (options: {
       if (options.verbose) {
         console.log(`Creating Trello card for ${item.url}`);
       }
-      if (!options.dryRun) {
-        const syncBlock = formatSyncMetadata({
-          source: item.source,
-          itemId: item.projectItemId ?? null,
-          url: item.url,
-          status: item.status,
-          lastSeen: now,
-          contentHash: baseHashToUse,
-        });
-        const desc = updateDescriptionWithSync(baseToUse, syncBlock);
-        await createCard({ listId: list.id, name, desc, labelIds: desiredLabels });
-      }
+      const syncBlock = formatSyncMetadata({
+        source: item.source,
+        itemId: item.projectItemId ?? null,
+        url: item.url,
+        status: item.status,
+        lastSeen: now,
+        contentHash: baseHashToUse,
+      });
+      const desc = updateDescriptionWithSync(baseToUse, syncBlock);
+      await createCard({ listId: list.id, name, desc, labelIds: desiredLabels });
       await writeEvent({
         ts: now,
         type: "trello.card.created",
@@ -219,14 +216,12 @@ export const syncInbound = async (options: {
       if (options.verbose) {
         console.log(`Updating Trello card ${card.id} for ${item.url}`);
       }
-      if (!options.dryRun) {
-        await updateCard({
-          cardId: card.id,
-          name,
-          desc,
-          labelIds: desiredLabels,
-        });
-      }
+      await updateCard({
+        cardId: card.id,
+        name,
+        desc,
+        labelIds: desiredLabels,
+      });
       await writeEvent({
         ts: now,
         type: "trello.card.updated",

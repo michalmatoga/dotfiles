@@ -5,7 +5,6 @@ const ghHost = "schibsted.ghe.com";
 const ghUser = "michal-matoga";
 
 export const reconcileReviewsUseCase = async (options: {
-  dryRun: boolean;
   verbose: boolean;
 }) => {
   const boardId = requireEnv("TRELLO_BOARD_ID_WO");
@@ -13,7 +12,6 @@ export const reconcileReviewsUseCase = async (options: {
     boardId,
     host: ghHost,
     user: ghUser,
-    dryRun: options.dryRun,
     verbose: options.verbose,
   });
 };
