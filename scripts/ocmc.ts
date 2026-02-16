@@ -18,7 +18,7 @@ const TIMEOUT_MS = 15000;
 // Filter out older generation models
 const SKIP_PATTERNS = [
   /openai\/gpt-3/,
-  /openai\/gpt-4(?!\.)/,  // gpt-4, gpt-4-turbo, gpt-4o but not gpt-4.1
+  /openai\/gpt-4/,  // all gpt-4 variants
   /\/text-embedding/,
 ];
 
