@@ -40,6 +40,28 @@ const trelloHandler = http.all("https://api.trello.com/*", async ({ request }) =
 
   const cacheKey = generateCacheKey("trello", method, url, body);
 
+  // Safety: when running in recording mode (NO_CACHE=true) require explicit
+  // opt-in and a known test board ID. This prevents accidental writes to
+  // production Trello boards during test runs.
+  if (isNoCache()) {
+    const allowRecord = process.env.ALLOW_TRELLO_RECORD === "true";
+    const boardId = process.env.TRELLO_BOARD_ID_WO;
+    // Known test board(s) used by the repo's acceptance tests
+    const ALLOWED_TEST_BOARDS = new Set(["699311b922eee0934a5f52cd"]);
+
+    if (!allowRecord || !boardId || !ALLOWED_TEST_BOARDS.has(boardId)) {
+      console.error(
+        `[safety] Recording blocked: NO_CACHE=true would hit Trello but recording is not allowed. ` +
+          `Set ALLOW_TRELLO_RECORD=true and ensure TRELLO_BOARD_ID_WO is a test board.`,
+      );
+
+      return HttpResponse.json(
+        { error: "Recording blocked (unsafe). Set ALLOW_TRELLO_RECORD=true and use a test board." },
+        { status: 412, statusText: "RecordingBlocked" },
+      );
+    }
+  }
+
   // Check exact cache match first
   if (hasCachedResponse("trello", cacheKey)) {
     const cached = readCachedResponse<CachedHttpResponse>("trello", cacheKey);
@@ -144,8 +166,10 @@ export const mswServer = setupServer(trelloHandler);
  * Start the MSW server for intercepting HTTP requests.
  */
 export const startHttpCache = () => {
+  // Fail fast on unhandled requests to avoid accidental network calls during tests.
+  // Use "error" so unhandled requests cause the test run to fail.
   mswServer.listen({
-    onUnhandledRequest: "bypass", // Let non-Trello requests through
+    onUnhandledRequest: "error",
   });
 };
 
