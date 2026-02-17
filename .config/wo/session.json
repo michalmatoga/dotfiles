@@ -1,0 +1,14 @@
+{
+  "session": {
+    "dailyLimitMinutes": 240,
+    "gracePeriodMinutes": 5,
+    "protectedSessions": ["journal", "dotfiles"]
+  },
+  "activitywatch": {
+    "host": "localhost",
+    "port": 5601
+  },
+  "journal": {
+    "path": "/home/nixos/ghq/gitlab.com/michalmatoga/journal"
+  }
+}

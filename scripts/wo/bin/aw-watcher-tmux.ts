@@ -1,0 +1,229 @@
+#!/usr/bin/env node
+
+/**
+ * aw-watcher-tmux - ActivityWatch watcher for tmux sessions
+ *
+ * Tracks active time in tmux sessions by sending heartbeats to ActivityWatch.
+ * Uses tmux hooks for pane focus changes with periodic polling as fallback.
+ *
+ * Usage:
+ *   npx tsx scripts/wo/bin/aw-watcher-tmux.ts [--poll-interval <ms>] [--pulsetime <s>]
+ *
+ * Environment:
+ *   AW_HOST - ActivityWatch server host (default: localhost)
+ *   AW_PORT - ActivityWatch server port (default: 5601)
+ */
+
+import { hostname } from "node:os";
+import { spawnSync } from "node:child_process";
+
+import { ensureBucket, heartbeat, isServerAvailable } from "../lib/sessions/activitywatch";
+
+const BUCKET_TYPE = "tmux.pane.activity";
+const CLIENT_NAME = "aw-watcher-tmux";
+const DEFAULT_POLL_INTERVAL_MS = 30_000;
+const DEFAULT_PULSETIME_S = 60;
+
+type TmuxPaneInfo = {
+  sessionName: string;
+  panePath: string;
+  paneCmd: string;
+  paneId: string;
+  windowName: string;
+};
+
+const parseArgs = () => {
+  const args = process.argv.slice(2);
+  let pollInterval = DEFAULT_POLL_INTERVAL_MS;
+  let pulsetime = DEFAULT_PULSETIME_S;
+
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "--poll-interval" && args[i + 1]) {
+      pollInterval = Number(args[i + 1]);
+      i++;
+    } else if (args[i] === "--pulsetime" && args[i + 1]) {
+      pulsetime = Number(args[i + 1]);
+      i++;
+    }
+  }
+
+  return { pollInterval, pulsetime };
+};
+
+const runTmux = (args: string[]): string | null => {
+  const result = spawnSync("tmux", args, { encoding: "utf8" });
+  if (result.status !== 0) {
+    return null;
+  }
+  return result.stdout?.trim() ?? null;
+};
+
+const isTmuxRunning = (): boolean => {
+  return runTmux(["list-sessions", "-F", "#{session_name}"]) !== null;
+};
+
+const getActivePaneInfo = (): TmuxPaneInfo | null => {
+  // Get info about the currently active pane across all clients
+  // Format: session_name|pane_current_path|pane_current_command|pane_id|window_name
+  const format = "#{session_name}|#{pane_current_path}|#{pane_current_command}|#{pane_id}|#{window_name}";
+  const output = runTmux(["display-message", "-p", format]);
+
+  if (!output) {
+    return null;
+  }
+
+  const parts = output.split("|");
+  if (parts.length < 5) {
+    return null;
+  }
+
+  return {
+    sessionName: parts[0],
+    panePath: parts[1],
+    paneCmd: parts[2],
+    paneId: parts[3],
+    windowName: parts[4],
+  };
+};
+
+const getBucketId = (): string => {
+  const host = hostname();
+  return `aw-watcher-tmux_${host}`;
+};
+
+const sendHeartbeat = async (
+  bucketId: string,
+  pane: TmuxPaneInfo,
+  pulsetime: number,
+): Promise<void> => {
+  await heartbeat({
+    bucketId,
+    pulsetime,
+    event: {
+      timestamp: new Date().toISOString(),
+      duration: 0,
+      data: {
+        session: pane.sessionName,
+        pane_path: pane.panePath,
+        pane_cmd: pane.paneCmd,
+        pane_id: pane.paneId,
+        window_name: pane.windowName,
+      },
+    },
+  });
+};
+
+const setupTmuxHooks = (scriptPath: string): void => {
+  // Set up tmux hooks to trigger heartbeats on pane focus changes
+  // These call this script with --hook flag to send a single heartbeat
+  const hookCmd = `run-shell "npx --yes tsx ${scriptPath} --hook &"`;
+
+  // Hook into pane focus events
+  runTmux(["set-hook", "-g", "pane-focus-in", hookCmd]);
+  runTmux(["set-hook", "-g", "client-session-changed", hookCmd]);
+  runTmux(["set-hook", "-g", "window-pane-changed", hookCmd]);
+};
+
+const removeTmuxHooks = (): void => {
+  runTmux(["set-hook", "-gu", "pane-focus-in"]);
+  runTmux(["set-hook", "-gu", "client-session-changed"]);
+  runTmux(["set-hook", "-gu", "window-pane-changed"]);
+};
+
+const runSingleHeartbeat = async (pulsetime: number): Promise<void> => {
+  if (!(await isServerAvailable())) {
+    return;
+  }
+
+  const pane = getActivePaneInfo();
+  if (!pane) {
+    return;
+  }
+
+  const bucketId = getBucketId();
+  await sendHeartbeat(bucketId, pane, pulsetime);
+};
+
+const runDaemon = async (pollInterval: number, pulsetime: number): Promise<void> => {
+  console.log(`aw-watcher-tmux starting (poll: ${pollInterval}ms, pulsetime: ${pulsetime}s)`);
+
+  // Wait for AW server to be available
+  let retries = 0;
+  while (!(await isServerAvailable())) {
+    retries++;
+    if (retries > 30) {
+      console.error("ActivityWatch server not available after 30 retries, exiting");
+      process.exit(1);
+    }
+    console.log(`Waiting for ActivityWatch server (attempt ${retries})...`);
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+  }
+
+  const bucketId = getBucketId();
+  console.log(`Using bucket: ${bucketId}`);
+
+  // Ensure bucket exists
+  await ensureBucket({
+    bucketId,
+    type: BUCKET_TYPE,
+    client: CLIENT_NAME,
+  });
+
+  // Set up tmux hooks for real-time tracking
+  const scriptPath = process.argv[1];
+  setupTmuxHooks(scriptPath);
+  console.log("Tmux hooks installed");
+
+  // Handle shutdown gracefully
+  const cleanup = () => {
+    console.log("\nCleaning up tmux hooks...");
+    removeTmuxHooks();
+    process.exit(0);
+  };
+  process.on("SIGINT", cleanup);
+  process.on("SIGTERM", cleanup);
+
+  // Polling loop as fallback and for initial state
+  let lastPanePath = "";
+  const poll = async () => {
+    if (!isTmuxRunning()) {
+      return;
+    }
+
+    const pane = getActivePaneInfo();
+    if (!pane) {
+      return;
+    }
+
+    // Log when pane changes
+    if (pane.panePath !== lastPanePath) {
+      console.log(`Active: ${pane.sessionName} @ ${pane.panePath} (${pane.paneCmd})`);
+      lastPanePath = pane.panePath;
+    }
+
+    try {
+      await sendHeartbeat(bucketId, pane, pulsetime);
+    } catch (error) {
+      console.error("Heartbeat failed:", error instanceof Error ? error.message : String(error));
+    }
+  };
+
+  // Initial poll
+  await poll();
+
+  // Set up polling interval
+  setInterval(poll, pollInterval);
+};
+
+(async function main() {
+  const args = parseArgs();
+  const isHook = process.argv.includes("--hook");
+
+  if (isHook) {
+    // Called from tmux hook - send single heartbeat and exit
+    await runSingleHeartbeat(args.pulsetime);
+  } else {
+    // Run as daemon
+    await runDaemon(args.pollInterval, args.pulsetime);
+  }
+})();

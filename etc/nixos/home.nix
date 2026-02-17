@@ -91,6 +91,11 @@ in
     source = ../../.config/gwq;
   };
 
+  home.file.".config/wo" = {
+    recursive = true;
+    source = ../../.config/wo;
+  };
+
   home.packages = with pkgs; [
     # fzf # A command-line fuzzy finder
     awscli2
@@ -156,6 +161,7 @@ in
     zstd
     agent-of-empires
     gogcli
+    aw-server-rust
   ] ++ unstablePackages;
 
   # starship - an customizable prompt for any shell
@@ -233,6 +239,14 @@ in
       tf = "tofu";
       update = "dotfiles_require; sudo nixos-rebuild switch && \"$DOTFILES_DIR/scripts/post-update.sh\"";
       update-npm-deps = "dotfiles_require; npx tsx \"$DOTFILES_DIR/scripts/update-npm-deps.ts\"";
+      # Work session management
+      wo-status = "cat ~/.wo/session-status 2>/dev/null || echo 'No session data'";
+      wo-journal = "dotfiles_require; npx tsx \"$DOTFILES_DIR/scripts/wo/bin/journal-write.ts\"";
+      wo-journal-dry = "dotfiles_require; npx tsx \"$DOTFILES_DIR/scripts/wo/bin/journal-write.ts\" --dry-run";
+      wo-services = "systemctl --user status aw-server aw-watcher-tmux wo-session-monitor";
+      wo-start = "systemctl --user start aw-server aw-watcher-tmux wo-session-monitor";
+      wo-stop = "systemctl --user stop wo-session-monitor aw-watcher-tmux aw-server";
+      wo-restart = "systemctl --user restart aw-server aw-watcher-tmux wo-session-monitor";
     };
     # setup some environment variables
     initContent = ''
@@ -421,7 +435,7 @@ in
       set -g status-left-length 100
       set -g status-right-length 100
       set -g status-left "#{E:@catppuccin_status_session}"
-      set -g status-right "#{E:@catppuccin_status_directory}#{E:@catppuccin_status_date_time}"
+      set -g status-right "#[fg=colour240]#(cat ~/.wo/session-status 2>/dev/null || echo '---') #[default]#{E:@catppuccin_status_directory}#{E:@catppuccin_status_date_time}"
     '';
   };
 
@@ -487,6 +501,67 @@ in
     };
     Install = {
       WantedBy = [ "timers.target" ];
+    };
+  };
+
+  systemd.user.services.aw-server = {
+    Unit = {
+      Description = "ActivityWatch server for tmux session tracking";
+    };
+    Service = {
+      Type = "simple";
+      ExecStart = "${pkgs.aw-server-rust}/bin/aw-server --port 5601 --dbpath %h/.local/share/activitywatch-wsl/aw-server-rust/sqlite.db --no-legacy-import";
+      Restart = "on-failure";
+      RestartSec = "5s";
+    };
+    Install = {
+      WantedBy = [ "default.target" ];
+    };
+  };
+
+  systemd.user.services.aw-watcher-tmux = {
+    Unit = {
+      Description = "ActivityWatch watcher for tmux sessions";
+      After = [ "aw-server.service" ];
+      Requires = [ "aw-server.service" ];
+    };
+    Service = {
+      Type = "simple";
+      Environment = [
+        "PATH=${pkgs.tmux}/bin:${pkgs.nodejs_24}/bin:/run/current-system/sw/bin"
+        "DOTFILES_DIR=%h/ghq/github.com/michalmatoga/dotfiles"
+        "AW_PORT=5601"
+      ];
+      ExecStart = "${pkgs.bash}/bin/bash -c '${pkgs.nodejs_24}/bin/npx --yes tsx \"$DOTFILES_DIR/scripts/wo/bin/aw-watcher-tmux.ts\"'";
+      Restart = "on-failure";
+      RestartSec = "10s";
+    };
+    Install = {
+      WantedBy = [ "default.target" ];
+    };
+  };
+
+  systemd.user.services.wo-session-monitor = {
+    Unit = {
+      Description = "Work session monitor with shutdown ritual";
+      After = [ "aw-watcher-tmux.service" ];
+    };
+    Service = {
+      Type = "simple";
+      Environment = [
+        "PATH=${pkgs.tmux}/bin:${pkgs.nodejs_24}/bin:${pkgs.git}/bin:/run/current-system/sw/bin"
+        "DOTFILES_DIR=%h/ghq/github.com/michalmatoga/dotfiles"
+        "AW_PORT=5601"
+        "WO_SESSION_LIMIT_MINUTES=240"
+        "WO_SESSION_GRACE_MINUTES=5"
+        "WO_SESSION_PROTECTED=journal,dotfiles"
+      ];
+      ExecStart = "${pkgs.bash}/bin/bash -c '${pkgs.nodejs_24}/bin/npx --yes tsx \"$DOTFILES_DIR/scripts/wo/bin/session-monitor.ts\"'";
+      Restart = "on-failure";
+      RestartSec = "30s";
+    };
+    Install = {
+      WantedBy = [ "default.target" ];
     };
   };
 
