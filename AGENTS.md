@@ -157,6 +157,7 @@ Follow these notes before making changes or running commands.
 - `scripts/wo/bin/tmux-wo-sessionizer.ts`: fzf picker for worktrees and repos.
 - `scripts/wo/bin/aw-watcher-tmux.ts`: sends tmux activity heartbeats to ActivityWatch.
 - `scripts/wo/bin/session-monitor.ts`: aggregates session time, triggers shutdown ritual.
+- `scripts/wo/bin/aw-pane-report.ts`: exports pane-path summary + timeline from ActivityWatch.
 - `scripts/wo/bin/journal-write.ts`: generates hourly commit breakdown for journal.
 - `scripts/wo/lib/sessions/activitywatch.ts`: REST client for ActivityWatch API.
 - `scripts/wo/lib/sessions/journal.ts`: journal formatting helpers.

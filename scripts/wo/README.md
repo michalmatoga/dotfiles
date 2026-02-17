@@ -211,6 +211,29 @@ The status bar shows session time: `2h15m / 4h00m (56%)`
 
 Refresh interval: 15 seconds (tmux default).
 
+## Pane Path Reports
+
+Use the ActivityWatch web UI to create grouped reports for each pane path. In the **Queries** tab:
+
+1. Select the `aw-watcher-tmux_nixos` bucket (it is created automatically).
+2. Paste a query like:
+
+```javascript
+events = query_bucket("aw-watcher-tmux_nixos");
+events = merge_events_by_keys(events, ["data", "pane_path"]);
+RETURN = sort_by_duration(events);
+```
+
+This shows a duration-ranked summary per pane path. Switch the visualization to the timeline chart to see each group rendered as a separate band.
+
+If you prefer scripts, run `npx --yes tsx scripts/wo/bin/aw-pane-report.ts` to print:
+
+- The total tmux time tracked today
+- Each pane path with total duration, event count, and hourly buckets
+- A simple textual timeline where `▇` marks active hours
+
+The script uses the same bucket as the UI and is safe to run in WSL (no secrets required).
+
 ## Troubleshooting
 
 - Ensure `gh auth login` is configured for `schibsted.ghe.com`.
