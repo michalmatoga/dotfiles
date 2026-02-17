@@ -63,10 +63,49 @@ const isTmuxRunning = (): boolean => {
 };
 
 const getActivePaneInfo = (): TmuxPaneInfo | null => {
-  // Get info about the currently active pane across all clients
-  // Format: session_name|pane_current_path|pane_current_command|pane_id|window_name
+  // First try to get the most recently active client's session
+  const clientOutput = runTmux([
+    "list-clients",
+    "-F",
+    "#{client_activity}|#{session_name}",
+  ]);
+
+  let targetSession: string | null = null;
+
+  if (clientOutput) {
+    // Find the most recently active client
+    const clients = clientOutput
+      .split("\n")
+      .filter((line) => line.trim().length > 0)
+      .map((line) => {
+        const [activity, session] = line.split("|");
+        return { activity: Number(activity), session };
+      })
+      .sort((a, b) => b.activity - a.activity);
+
+    if (clients.length > 0 && clients[0].session) {
+      targetSession = clients[0].session;
+    }
+  }
+
+  // Fallback: use the first session if no clients attached
+  if (!targetSession) {
+    const sessionsOutput = runTmux(["list-sessions", "-F", "#{session_name}"]);
+    if (sessionsOutput) {
+      const sessions = sessionsOutput.split("\n").filter((s) => s.trim().length > 0);
+      if (sessions.length > 0) {
+        targetSession = sessions[0];
+      }
+    }
+  }
+
+  if (!targetSession) {
+    return null;
+  }
+
+  // Get info about the active pane in the target session
   const format = "#{session_name}|#{pane_current_path}|#{pane_current_command}|#{pane_id}|#{window_name}";
-  const output = runTmux(["display-message", "-p", format]);
+  const output = runTmux(["display-message", "-t", targetSession, "-p", format]);
 
   if (!output) {
     return null;

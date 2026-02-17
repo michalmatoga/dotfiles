@@ -531,6 +531,7 @@ in
         "PATH=${pkgs.tmux}/bin:${pkgs.nodejs_24}/bin:/run/current-system/sw/bin"
         "DOTFILES_DIR=%h/ghq/github.com/michalmatoga/dotfiles"
         "AW_PORT=5601"
+        "TMUX_TMPDIR=%t"
       ];
       ExecStart = "${pkgs.bash}/bin/bash -c '${pkgs.nodejs_24}/bin/npx --yes tsx \"$DOTFILES_DIR/scripts/wo/bin/aw-watcher-tmux.ts\"'";
       Restart = "on-failure";
