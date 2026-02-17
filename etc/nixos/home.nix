@@ -326,14 +326,14 @@ in
       OPENCODE_MODELS_LRU="''${XDG_CACHE_HOME:-$HOME/.cache}/opencode-models-lru.json"
 
       # ocmc: test all models and cache working ones
-      alias ocmc="dotfiles_require; npx tsx \"$DOTFILES_DIR/scripts/ocmc.ts\" \"$OPENCODE_MODELS_CACHE\""
+      alias ocmc="dotfiles_require; (cd \"$DOTFILES_DIR\" && npx --yes tsx \"$DOTFILES_DIR/scripts/ocmc.ts\" \"$OPENCODE_MODELS_CACHE\")"
 
       # ocm: select from cached models with LRU sorting
       ocm() {
         dotfiles_require || return 1
         local models selected
 
-        models=$(npx tsx "$DOTFILES_DIR/scripts/ocm-sort.ts" "$OPENCODE_MODELS_CACHE" "$OPENCODE_MODELS_LRU" 2>/dev/null)
+        models=$( (cd "$DOTFILES_DIR" && npx --yes tsx "$DOTFILES_DIR/scripts/ocm-sort.ts" "$OPENCODE_MODELS_CACHE" "$OPENCODE_MODELS_LRU") 2>/dev/null )
         if [ -z "$models" ]; then
           echo "No models available. Run 'ocmc' to test and cache working models." >&2
           return 1
@@ -347,7 +347,7 @@ in
           echo "OPENCODE_MODEL set to: $OPENCODE_MODEL"
 
           # Update LRU
-          npx tsx "$DOTFILES_DIR/scripts/ocm-lru.ts" "$OPENCODE_MODELS_LRU" "$selected"
+          (cd "$DOTFILES_DIR" && npx --yes tsx "$DOTFILES_DIR/scripts/ocm-lru.ts" "$OPENCODE_MODELS_LRU" "$selected")
         fi
       }
 
