@@ -283,8 +283,8 @@ in
       dotfiles_set_dir
       dotfiles_require
 
-      if [ -f "''${DOTFILES_DIR}/.env" ]; then
-        source "''${DOTFILES_DIR}/.env"
+      if [ -f "''${DOTFILES_DIR}/.env.local" ]; then
+        source "''${DOTFILES_DIR}/.env.local"
       fi
 
       if [ -f "''${DOTFILES_DIR}/secrets.json" ]; then
@@ -515,6 +515,8 @@ prefix = \"/home/nixos/.cache/npm/global\""
 GH_HOST=github.com' > "$GHQ_ROOT/.env"
         echo 'GH_USER=michalmatoga
 GH_HOST=github.com' > "$GWQ_ROOT/.env"
+        ${pkgs.direnv}/bin/direnv allow "$GHQ_ROOT/.env" 2>/dev/null || true
+        ${pkgs.direnv}/bin/direnv allow "$GWQ_ROOT/.env" 2>/dev/null || true
 
         # Schibsted work overrides (ghq)
         GHQ_SCH="$HOME/ghq/schibsted.ghe.com"
@@ -524,6 +526,7 @@ GH_HOST=github.com' > "$GWQ_ROOT/.env"
 GH_USER=michal-matoga
 GH_HOST=schibsted.ghe.com
 KUBECONFIG=$HOME/ghq/github.schibsted.io/svp/infrastructure/linode/stream-kubeconfig.yaml" > "$GHQ_SCH/.env"
+        ${pkgs.direnv}/bin/direnv allow "$GHQ_SCH/.env" 2>/dev/null || true
         rm -f "$GHQ_SCH/.envrc"
 
         # Schibsted work overrides (gwq)
@@ -534,6 +537,7 @@ KUBECONFIG=$HOME/ghq/github.schibsted.io/svp/infrastructure/linode/stream-kubeco
 GH_USER=michal-matoga
 GH_HOST=schibsted.ghe.com
 KUBECONFIG=$HOME/ghq/github.schibsted.io/svp/infrastructure/linode/stream-kubeconfig.yaml" > "$GWQ_SCH/.env"
+        ${pkgs.direnv}/bin/direnv allow "$GWQ_SCH/.env" 2>/dev/null || true
         rm -f "$GWQ_SCH/.envrc"
 
         echo "Generated .envrc triggers and .env files for ghq and gwq"

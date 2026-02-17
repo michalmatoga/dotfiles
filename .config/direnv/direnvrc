@@ -3,14 +3,22 @@
 # Order: parent first → child overrides
 
 load_dotenvs_recursive() {
+  # Find the .envrc file that triggered this evaluation
+  local envrc_path
+  envrc_path="$(find_up .envrc)"
+  
+  if [[ -z "$envrc_path" ]]; then
+    return
+  fi
+  
   local envrc_dir
-  envrc_dir="$(dirname "$DIRENV_FILE")"
+  envrc_dir="$(dirname "$envrc_path")"
 
   local target="$PWD"
 
   # If PWD is not under envrc_dir, just load the root .env
   if [[ "$target" != "$envrc_dir"* ]]; then
-    dotenv_if_exists "$envrc_dir/.env"
+    [[ -f "$envrc_dir/.env" ]] && dotenv "$envrc_dir/.env"
     return
   fi
 
@@ -24,11 +32,11 @@ load_dotenvs_recursive() {
   done
 
   # Load root .env first (parent)
-  dotenv_if_exists "$envrc_dir/.env"
+  [[ -f "$envrc_dir/.env" ]] && dotenv "$envrc_dir/.env"
 
   # Then load each child directory's .env (children override parents)
   for dir in "${dirs[@]}"; do
-    dotenv_if_exists "$dir/.env"
+    [[ -f "$dir/.env" ]] && dotenv "$dir/.env"
   done
 }
 

@@ -1,5 +1,6 @@
 node_modules
 repolist.txt
 .env
+.env.local
 /dist/
 scripts/wo/state/
