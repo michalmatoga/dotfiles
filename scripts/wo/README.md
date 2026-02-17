@@ -194,15 +194,17 @@ Written to `/home/nixos/ghq/gitlab.com/michalmatoga/journal/YYYY-MM-DD.md`:
 **Total active time:** 4h 12m
 
 ### Hourly Breakdown
+
 - 09:00-10:00: 45m - 3 commits in org/repo-a
 - 10:00-11:00: 52m - 2 commits in org/repo-a, 1 commit in org/repo-b
-...
+  ...
 
 ### Per-Worktree Summary
-| Worktree | Time | Commits |
-|----------|------|---------|
-| org/repo-a | 2h 30m | 8 |
-| org/repo-b | 1h 42m | 4 |
+
+| Worktree   | Time   | Commits |
+| ---------- | ------ | ------- |
+| org/repo-a | 2h 30m | 8       |
+| org/repo-b | 1h 42m | 4       |
 ```
 
 ### Tmux status bar
@@ -219,12 +221,10 @@ Use the ActivityWatch web UI to create grouped reports for each pane path. In th
 2. Paste a query like:
 
 ```javascript
-events = query_bucket("aw-watcher-tmux_nixos");
+events = flood(query_bucket("aw-watcher-tmux_nixos"));
 events = merge_events_by_keys(events, ["data", "pane_path"]);
 RETURN = sort_by_duration(events);
 ```
-
-This shows a duration-ranked summary per pane path. Switch the visualization to the timeline chart to see each group rendered as a separate band.
 
 If you prefer scripts, run `npx --yes tsx scripts/wo/bin/aw-pane-report.ts` to print:
 

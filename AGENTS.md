@@ -187,3 +187,8 @@ Use `systemctl --user status <service>` to check; `wo-start`/`wo-stop` aliases m
 - Ask for confirmation before altering provisioning scripts (`init.sh`, `configuration.nix`).
 - Keep improvements incremental; large refactors should be coordinated with repo owner.
 - Document any new workflow so future agents can follow your precedent.
+
+## Operational reminders
+
+- The controller may signal a plan→build mode change; at that point you can run commands and edit files, but act with precision.
+- Never auto-commit or auto-push; wait for explicit user acknowledgement before creating commits or pushing.
