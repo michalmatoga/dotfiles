@@ -151,6 +151,27 @@ Follow these notes before making changes or running commands.
 - `scripts/init.sh`: bootstrap script with destructive steps; never edit without explicit confirmation.
 - `scripts/prompts/*.md`: prompt templates consumed by automation; keep instructions concise and atomic.
 
+## Work Orchestration (wo) Scripts
+
+- `scripts/wo/main.ts`: orchestrates Trello/GitHub sync use-cases.
+- `scripts/wo/bin/tmux-wo-sessionizer.ts`: fzf picker for worktrees and repos.
+- `scripts/wo/bin/aw-watcher-tmux.ts`: sends tmux activity heartbeats to ActivityWatch.
+- `scripts/wo/bin/session-monitor.ts`: aggregates session time, triggers shutdown ritual.
+- `scripts/wo/bin/journal-write.ts`: generates hourly commit breakdown for journal.
+- `scripts/wo/lib/sessions/activitywatch.ts`: REST client for ActivityWatch API.
+- `scripts/wo/lib/sessions/journal.ts`: journal formatting helpers.
+- `scripts/wo/lib/sessions/tmux.ts`: tmux session management for worktrees.
+
+## Systemd User Services
+
+- `aw-server`: ActivityWatch server on port 5601 for tmux tracking.
+- `aw-watcher-tmux`: sends heartbeats based on active tmux pane (depends on aw-server).
+- `wo-session-monitor`: monitors time, updates status bar, triggers shutdown at limit.
+- `wo-sync`: runs `wo` sync every 5 minutes via timer.
+- `copilot-ghe-refresh`: refreshes Copilot GHE token every 20 minutes.
+
+Use `systemctl --user status <service>` to check; `wo-start`/`wo-stop` aliases manage session services.
+
 ## Pre-Commit Checklist for Agents
 
 - Run relevant formatters (`eslint`, `prettier`, `nix fmt`, `markdownlint`) for touched files.

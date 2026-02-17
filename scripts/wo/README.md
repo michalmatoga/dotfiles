@@ -136,8 +136,86 @@ Flags:
 - Uses project item `updatedAt` for incremental runs.
 - Cached project metadata TTL: 24 hours.
 
+## Work Session Management
+
+Tracks active time spent in tmux sessions using ActivityWatch, with automatic shutdown ritual when daily limit is reached.
+
+### Components
+
+- `aw-server-rust` - ActivityWatch server running on port 5601 (separate from Windows AW)
+- `aw-watcher-tmux` - Sends heartbeats based on active tmux pane
+- `wo-session-monitor` - Aggregates time, updates status bar, triggers shutdown
+
+### Systemd services
+
+All services start automatically on login:
+
+```bash
+systemctl --user status aw-server aw-watcher-tmux wo-session-monitor
+```
+
+### Shell aliases
+
+- `wo-status` - Show current session time
+- `wo-journal` - Generate and write journal entry
+- `wo-journal-dry` - Preview journal without writing
+- `wo-services` - Check all service statuses
+- `wo-start` - Start all session services
+- `wo-stop` - Stop all session services
+- `wo-restart` - Restart all session services
+
+### Configuration
+
+Environment variables (set in systemd service or shell):
+
+- `WO_SESSION_LIMIT_MINUTES` - Daily limit (default: 240 = 4h)
+- `WO_SESSION_GRACE_MINUTES` - Grace period before forced shutdown (default: 5)
+- `WO_SESSION_PROTECTED` - Comma-separated session names to preserve (default: `journal,dotfiles`)
+- `AW_PORT` - ActivityWatch server port (default: 5601)
+
+Config file at `~/.config/wo/session.json` (symlinked from repo).
+
+### How it works
+
+1. `aw-watcher-tmux` detects the active tmux pane every 30 seconds
+2. Sends heartbeats to ActivityWatch with session name, pane path, and command
+3. `wo-session-monitor` queries AW for today's events and aggregates time
+4. Status written to `~/.wo/session-status` (displayed in tmux status bar)
+5. When limit reached: popup offers extend (30m/1h) or shutdown
+6. After grace period: kills all non-protected sessions, generates journal entry
+
+### Journal format
+
+Written to `/home/nixos/ghq/gitlab.com/michalmatoga/journal/YYYY-MM-DD.md`:
+
+```markdown
+## Work Session - 2026-02-17
+
+**Total active time:** 4h 12m
+
+### Hourly Breakdown
+- 09:00-10:00: 45m - 3 commits in org/repo-a
+- 10:00-11:00: 52m - 2 commits in org/repo-a, 1 commit in org/repo-b
+...
+
+### Per-Worktree Summary
+| Worktree | Time | Commits |
+|----------|------|---------|
+| org/repo-a | 2h 30m | 8 |
+| org/repo-b | 1h 42m | 4 |
+```
+
+### Tmux status bar
+
+The status bar shows session time: `2h15m / 4h00m (56%)`
+
+Refresh interval: 15 seconds (tmux default).
+
 ## Troubleshooting
 
 - Ensure `gh auth login` is configured for `schibsted.ghe.com`.
 - Ensure Trello key/token are in `.env`.
 - Use `--dry-run --verbose` to inspect actions without side effects.
+- If session tracking shows 0m, check `systemctl --user status aw-watcher-tmux` for errors.
+- If AW server fails with "poisoned lock", restart: `systemctl --user restart aw-server`.
+- Tmux watcher requires `TMUX_TMPDIR` to find the socket; this is set automatically by the systemd service.
