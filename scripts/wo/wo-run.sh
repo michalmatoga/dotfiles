@@ -66,4 +66,4 @@ export PATH="$HOME/.cache/npm/global/bin:$HOME/.nix-profile/bin:$HOME/.local/sta
 
 cd "$DOTFILES_DIR"
 
-exec npx --yes tsx "$DOTFILES_DIR/scripts/wo/main.ts"
+exec npx --yes tsx "$DOTFILES_DIR/scripts/wo/main.ts" "$@"
