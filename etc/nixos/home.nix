@@ -321,7 +321,7 @@ in
       fi
 
       # OpenCode model switcher
-      export OPENCODE_MODEL="''${OPENCODE_MODEL:-litellm/bedrock-claude-opus-4-5}"
+      export OPENCODE_MODEL="''${OPENCODE_MODEL:-openai/gpt-5.2-codex}"
       OPENCODE_MODELS_CACHE="''${XDG_CACHE_HOME:-$HOME/.cache}/opencode-models"
       OPENCODE_MODELS_LRU="''${XDG_CACHE_HOME:-$HOME/.cache}/opencode-models-lru.json"
 

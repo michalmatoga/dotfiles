@@ -17,6 +17,7 @@
 
 import { homedir, hostname } from "node:os";
 import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
@@ -166,12 +167,61 @@ const listTmuxSessions = (): string[] => {
   return output.split("\n").filter((s) => s.length > 0);
 };
 
+const listTmuxClients = (): Array<{ name: string; isActive: boolean }> => {
+  const output = runTmux(["list-clients", "-F", "#{client_name} #{client_active}"]);
+  if (!output) {
+    return [];
+  }
+  return output
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .map((line) => {
+      const [name, active] = line.split(" ");
+      return { name, isActive: active === "1" };
+    });
+};
+
+const pickTmuxClient = (): string | null => {
+  const clients = listTmuxClients();
+  if (clients.length === 0) {
+    return null;
+  }
+  const active = clients.find((client) => client.isActive);
+  return (active ?? clients[0]).name;
+};
+
+const findFzfPath = (): string | null => {
+  const home = process.env.HOME;
+  const candidates = [
+    process.env.FZF_PATH,
+    home ? join(home, ".fzf", "bin", "fzf") : null,
+    "/run/current-system/sw/bin/fzf",
+  ];
+  for (const candidate of candidates) {
+    if (candidate && existsSync(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
+};
+
 const showPopup = async (config: Config, stats: SessionStats): Promise<string | null> => {
   const message = `Time limit reached!\\n\\nTotal: ${formatDurationFull(stats.totalSeconds)}\\nLimit: ${formatDurationFull(stats.limitSeconds)}\\n\\nSelect action:`;
 
+  const client = pickTmuxClient();
+  if (!client) {
+    console.error("No tmux client available for popup");
+    return null;
+  }
+
+  const fzfPath = findFzfPath();
+
   // Use tmux display-popup with fzf for selection
   const options = ["Extend 30 minutes", "Extend 1 hour", "Start shutdown ritual"];
-  const input = options.join("\n");
+  const popupScript = fzfPath
+    ? "printf '%s\\n\\n' \"$WO_POPUP_MESSAGE\"; printf '%s\\n' \"$WO_POPUP_OPTIONS\" | \"$WO_POPUP_FZF\" --header=\"Work Session Alert\""
+    : "printf '%s\\n\\n' \"$WO_POPUP_MESSAGE\" > /dev/tty; mapfile -t choices <<< \"$WO_POPUP_OPTIONS\"; PS3='Select action: '; select choice in \"${choices[@]}\"; do printf '%s' \"$choice\"; break; done < /dev/tty > /dev/tty";
 
   const result = spawnSync(
     "tmux",
@@ -180,12 +230,28 @@ const showPopup = async (config: Config, stats: SessionStats): Promise<string | 
       "-E",
       "-w", "50%",
       "-h", "50%",
-      `echo "${message}" && echo "" && echo "${input}" | fzf --header="Work Session Alert"`,
+      "-t", client,
+      "bash",
+      "-lc",
+      popupScript,
     ],
-    { encoding: "utf8", timeout: 60_000 },
+    {
+      encoding: "utf8",
+      timeout: 60_000,
+      env: {
+        ...process.env,
+        WO_POPUP_MESSAGE: message,
+        WO_POPUP_OPTIONS: options.join("\n"),
+        WO_POPUP_FZF: fzfPath ?? "",
+      },
+    },
   );
 
   if (result.status !== 0 || !result.stdout) {
+    const errorDetails = result.stderr?.trim();
+    if (errorDetails) {
+      console.error("Popup failed:", errorDetails);
+    }
     return null;
   }
 

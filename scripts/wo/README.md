@@ -181,7 +181,7 @@ Config file at `~/.config/wo/session.json` (symlinked from repo).
 
 ### Early shutdown on demand
 
-- Press `<prefix> + s` in tmux to open a confirmation popup.
+- Press `<prefix> + e` in tmux to open a confirmation popup.
 - The popup shows the current status from `~/.wo/session-status`.
 - Confirming sends a signal to `wo-session-monitor`, which starts the shutdown ritual.
 
