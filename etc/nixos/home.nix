@@ -421,7 +421,7 @@ in
       set-option -g prefix C-f
 
       bind-key -Tcopy-mode-vi 'v' send -X begin-selection
-      bind-key -r o run-shell "tmux neww npx --yes tsx $DOTFILES_DIR/scripts/wo/bin/tmux-wo-sessionizer.ts"
+      bind-key -r o run-shell "tmux neww sh -lc 'if [ -x \"$DOTFILES_DIR/scripts/node_modules/.bin/tsx\" ]; then \"$DOTFILES_DIR/scripts/node_modules/.bin/tsx\" \"$DOTFILES_DIR/scripts/wo/bin/tmux-wo-sessionizer.ts\"; else npx --yes tsx \"$DOTFILES_DIR/scripts/wo/bin/tmux-wo-sessionizer.ts\"; fi'"
       bind-key -r e run-shell "tmux display-popup -E -w 50% -h 50% $DOTFILES_DIR/scripts/wo/bin/tmux-shutdown-popup.sh"
 
       set -g @thumbs-command 'echo -n {} | clip.exe && tmux display-message \"Copied {}\"'

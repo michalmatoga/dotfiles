@@ -1,7 +1,17 @@
 #!/usr/bin/env node
 
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import {
+  closeSync,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  readSync,
+  readdirSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { homedir } from "node:os";
 import { join, relative } from "node:path";
 
@@ -26,6 +36,8 @@ const stateDir = join(repoRoot, "scripts/wo/state");
 const eventsPath = join(stateDir, "wo-events.jsonl");
 const opencodeLogDir = join(homedir(), ".local/share/opencode/log");
 const recentLogCount = 5;
+const opencodeDbCacheTtlMs = 10_000;
+const dirCacheTtlMs = 30_000;
 
 const args = process.argv.slice(2);
 const argPath = args.find((arg) => !arg.startsWith("--")) ?? null;
@@ -67,6 +79,28 @@ const readLines = (value: string) =>
     .split("\n")
     .map((line) => line.trim())
     .filter((line) => line.length > 0);
+
+const ensureStateDir = () => {
+  if (!existsSync(stateDir)) {
+    mkdirSync(stateDir, { recursive: true });
+  }
+};
+
+const readJsonFile = <T>(path: string): T | null => {
+  if (!existsSync(path)) {
+    return null;
+  }
+  try {
+    return JSON.parse(readFileSync(path, "utf8")) as T;
+  } catch {
+    return null;
+  }
+};
+
+const writeJsonFile = (path: string, payload: unknown) => {
+  ensureStateDir();
+  writeFileSync(path, `${JSON.stringify(payload)}\n`, "utf8");
+};
 
 const pathToSessionName = (path: string) => {
   const home = homedir();
@@ -148,6 +182,25 @@ const loadOpencodeSessionsFromEvents = () => {
 
 const loadOpencodeSessionsFromDb = () => {
   const map = new Map<string, { sessionId: string; ts: number }>();
+  const cachePath = join(stateDir, "opencode-db-cache.json");
+  const cached = readJsonFile<{
+    savedAt?: number;
+    rows?: Array<{ id?: string; directory?: string; time_updated?: number }>;
+  }>(cachePath);
+  if (cached?.savedAt && cached.rows && Date.now() - cached.savedAt < opencodeDbCacheTtlMs) {
+    for (const row of cached.rows) {
+      if (!row.id || !row.directory) {
+        continue;
+      }
+      const ts = row.time_updated ?? 0;
+      const normalized = normalizePath(row.directory);
+      const current = map.get(normalized);
+      if (!current || ts >= current.ts) {
+        map.set(normalized, { sessionId: row.id, ts });
+      }
+    }
+    return map;
+  }
   const gwqRoot = normalizePath(join(homedir(), "gwq"));
   const query = `select id, directory, time_updated from session where directory like '${gwqRoot.replace(/'/g, "''")}/%';`;
   const raw = runOptional("opencode", ["db", "--format", "json", query]);
@@ -167,6 +220,7 @@ const loadOpencodeSessionsFromDb = () => {
         map.set(normalized, { sessionId: row.id, ts });
       }
     }
+    writeJsonFile(cachePath, { savedAt: Date.now(), rows });
   } catch {
     return map;
   }
@@ -242,10 +296,65 @@ const loadOpencodeLogState = () => {
   const statusBySession = new Map<string, "idle" | "active">();
   const sessionByPath = new Map<string, string>();
   const logFiles = getRecentLogFiles();
-  let lastSessionId: string | null = null;
+  if (logFiles.length === 0) {
+    return { statusBySession, sessionByPath };
+  }
+  const cachePath = join(stateDir, "opencode-log-cache.json");
+  const cached = readJsonFile<{
+    files?: Record<string, { mtimeMs: number; size: number; offset: number; lastSessionId?: string | null }>;
+    statusBySession?: Record<string, "idle" | "active">;
+    sessionByPath?: Record<string, string>;
+  }>(cachePath);
+  const cachedFiles = cached?.files ?? null;
+  let canUseCache = Boolean(cachedFiles) && logFiles.length > 0;
+  if (cachedFiles && logFiles.length !== Object.keys(cachedFiles).length) {
+    canUseCache = false;
+  }
+  if (cached?.statusBySession) {
+    for (const [sessionId, state] of Object.entries(cached.statusBySession)) {
+      statusBySession.set(sessionId, state);
+    }
+  }
+  if (cached?.sessionByPath) {
+    for (const [path, sessionId] of Object.entries(cached.sessionByPath)) {
+      sessionByPath.set(path, sessionId);
+    }
+  }
+
+  const nextFiles: Record<string, { mtimeMs: number; size: number; offset: number; lastSessionId?: string | null }> = {};
 
   for (const logFile of logFiles) {
-    const content = readFileSync(logFile, "utf8");
+    const stats = statSync(logFile);
+    const cachedEntry = cachedFiles?.[logFile];
+    if (!cachedEntry) {
+      canUseCache = false;
+    }
+    if (cachedEntry && (stats.mtimeMs < cachedEntry.mtimeMs || stats.size < cachedEntry.offset)) {
+      canUseCache = false;
+    }
+  }
+
+  for (const logFile of logFiles) {
+    const stats = statSync(logFile);
+    const cachedEntry = cachedFiles?.[logFile];
+    const shouldUseCache = canUseCache && cachedEntry;
+    const startOffset = shouldUseCache ? cachedEntry.offset : 0;
+    let lastSessionId = (shouldUseCache ? cachedEntry.lastSessionId : null) ?? null;
+    let content = "";
+    if (stats.size > startOffset) {
+      const fd = openSync(logFile, "r");
+      try {
+        const toRead = stats.size - startOffset;
+        const buffer = Buffer.alloc(toRead);
+        const bytes = readSync(fd, buffer, 0, toRead, startOffset);
+        content = buffer.subarray(0, bytes).toString("utf8");
+      } finally {
+        closeSync(fd);
+      }
+    }
+    if (!content && !shouldUseCache) {
+      content = readFileSync(logFile, "utf8");
+    }
     for (const line of readLines(content)) {
       const sessionId = extractSessionId(line);
       const directory = extractDirectory(line);
@@ -266,7 +375,19 @@ const loadOpencodeLogState = () => {
         statusBySession.set(sessionId, "active");
       }
     }
+    nextFiles[logFile] = {
+      mtimeMs: stats.mtimeMs,
+      size: stats.size,
+      offset: stats.size,
+      lastSessionId,
+    };
   }
+
+  writeJsonFile(cachePath, {
+    files: nextFiles,
+    statusBySession: Object.fromEntries(statusBySession.entries()),
+    sessionByPath: Object.fromEntries(sessionByPath.entries()),
+  });
 
   return { statusBySession, sessionByPath };
 };
@@ -435,8 +556,33 @@ const gatherEntries = () => {
 
   const gwqRoot = join(homedir(), "gwq");
   const ghqRoot = join(homedir(), "ghq");
-  const gwqDirs = readLines(runOptional("fd", ["-d", "4", "--min-depth", "4", "-t", "d", ".", gwqRoot]))
-    .map((path) => path.trim());
+  const loadDirCache = (name: string, root: string, depth: number, minDepth: number) => {
+    if (!existsSync(root)) {
+      return [] as string[];
+    }
+    const cachePath = join(stateDir, `${name}-dir-cache.json`);
+    const cached = readJsonFile<{ root?: string; rootMtimeMs?: number; savedAt?: number; dirs?: string[] }>(cachePath);
+    const rootStats = statSync(root);
+    const isFresh =
+      cached?.root === root &&
+      cached.rootMtimeMs === rootStats.mtimeMs &&
+      cached.savedAt &&
+      Date.now() - cached.savedAt < dirCacheTtlMs &&
+      Array.isArray(cached.dirs);
+    if (isFresh && cached.dirs) {
+      return cached.dirs;
+    }
+    const dirs = readLines(runOptional("fd", ["-d", `${depth}`, "--min-depth", `${minDepth}`, "-t", "d", ".", root]))
+      .map((path) => path.trim());
+    writeJsonFile(cachePath, {
+      root,
+      rootMtimeMs: rootStats.mtimeMs,
+      savedAt: Date.now(),
+      dirs,
+    });
+    return dirs;
+  };
+  const gwqDirs = loadDirCache("gwq", gwqRoot, 4, 4);
   for (const path of gwqDirs) {
     if (!path) {
       continue;
@@ -455,8 +601,7 @@ const gatherEntries = () => {
   }
 
   if (includeGhq) {
-    const ghqDirs = readLines(runOptional("fd", ["-d", "3", "--min-depth", "3", "-t", "d", ".", ghqRoot]))
-      .map((path) => path.trim());
+    const ghqDirs = loadDirCache("ghq", ghqRoot, 3, 3);
     for (const path of ghqDirs) {
       if (!path) {
         continue;
