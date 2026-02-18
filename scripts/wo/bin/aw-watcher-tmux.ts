@@ -142,6 +142,7 @@ const sendHeartbeat = async (
       timestamp: new Date().toISOString(),
       duration: 0,
       data: {
+        app: `tmux:${pane.sessionName}`,
         session: pane.sessionName,
         pane_path: pane.panePath,
         pane_cmd: pane.paneCmd,

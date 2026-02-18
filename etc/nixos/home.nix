@@ -422,6 +422,7 @@ in
 
       bind-key -Tcopy-mode-vi 'v' send -X begin-selection
       bind-key -r o run-shell "tmux neww npx --yes tsx $DOTFILES_DIR/scripts/wo/bin/tmux-wo-sessionizer.ts"
+      bind-key -r e run-shell "tmux display-popup -E -w 50% -h 50% $DOTFILES_DIR/scripts/wo/bin/tmux-shutdown-popup.sh"
 
       set -g @thumbs-command 'echo -n {} | clip.exe && tmux display-message \"Copied {}\"'
       set -g @thumbs-upcase-command 'wsl-open {}'

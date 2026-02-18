@@ -91,6 +91,14 @@ const formatDurationFull = (seconds: number): string => {
   return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
 };
 
+const createFallbackStats = (config: Config): SessionStats => ({
+  totalSeconds: 0,
+  byWorktree: new Map(),
+  limitSeconds: config.limitMinutes * 60,
+  remainingSeconds: config.limitMinutes * 60,
+  isOverLimit: false,
+});
+
 const getBucketId = (): string => {
   const host = hostname();
   return `aw-watcher-tmux_${host}`;
@@ -249,6 +257,7 @@ const startShutdownRitual = async (config: Config, stats: SessionStats): Promise
 
 let alertShown = false;
 let extendedMinutes = 0;
+let shutdownInProgress = false;
 
 const runMonitor = async (config: Config): Promise<void> => {
   const effectiveLimitMinutes = config.limitMinutes + extendedMinutes;
@@ -270,6 +279,18 @@ const runMonitor = async (config: Config): Promise<void> => {
   }
 
   console.log("Connected to ActivityWatch server");
+
+  const startShutdownNow = async () => {
+    if (shutdownInProgress) {
+      return;
+    }
+    shutdownInProgress = true;
+    await clearAlertFile();
+    console.log("\n=== On-demand Shutdown Requested ===\n");
+    const stats = (await fetchTodayStats(effectiveConfig)) ?? createFallbackStats(effectiveConfig);
+    await startShutdownRitual(config, stats);
+    process.exit(0);
+  };
 
   const tick = async () => {
     const stats = await fetchTodayStats(effectiveConfig);
@@ -330,6 +351,9 @@ const runMonitor = async (config: Config): Promise<void> => {
   };
   process.on("SIGINT", cleanup);
   process.on("SIGTERM", cleanup);
+  process.on("SIGUSR1", () => {
+    void startShutdownNow();
+  });
 
   // Initial tick
   await tick();

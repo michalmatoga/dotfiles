@@ -124,12 +124,6 @@ Flags:
 - Moves triggered by linked PRs only apply when the card is already in Waiting.
 - When a linked PR moves a card to Ready, it is positioned at the top of the list.
 
-## WIP limits
-
-- Ready cap: 5
-- Doing cap: 3
-- Limits only apply to new cards; existing cards are not auto-moved.
-
 ## Incremental sync
 
 - Project items are fetched via GraphQL paging (host limit: 100 items per page).
@@ -184,6 +178,12 @@ Config file at `~/.config/wo/session.json` (symlinked from repo).
 5. When limit reached: popup offers extend (30m/1h) or shutdown
 6. After grace period: kills all non-protected sessions, generates journal entry
 
+### Early shutdown on demand
+
+- Press `<prefix> + s` in tmux to open a confirmation popup.
+- The popup shows the current status from `~/.wo/session-status`.
+- Confirming sends a signal to `wo-session-monitor`, which starts the shutdown ritual.
+
 ### Journal format
 
 Written to `/home/nixos/ghq/gitlab.com/michalmatoga/journal/YYYY-MM-DD.md`:
@@ -222,7 +222,7 @@ Use the ActivityWatch web UI to create grouped reports for each pane path. In th
 
 ```javascript
 events = flood(query_bucket("aw-watcher-tmux_nixos"));
-events = merge_events_by_keys(events, ["data", "pane_path"]);
+events = merge_events_by_keys(events, ["app", "pane_path"]);
 RETURN = sort_by_duration(events);
 ```
 
