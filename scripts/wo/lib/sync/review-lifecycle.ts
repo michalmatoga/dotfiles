@@ -2,8 +2,13 @@ import { fetchBoardCards, updateCard } from "../trello/cards";
 import { loadBoardContext } from "../trello/context";
 import { labelNames, listAliases, listNames } from "../policy/mapping";
 import { parseSyncMetadata } from "./metadata";
-import { hasApprovedReview } from "../gh/reviews";
+import { fetchPrDetails } from "../gh/pr-details";
 import { writeEvent } from "../state/events";
+
+const extractPrUrl = (desc: string): string | null => {
+  const match = desc.match(/https:\/\/[^\s]+\/pull\/\d+/);
+  return match?.[0] ?? null;
+};
 
 export const reconcileReviewLifecycle = async (options: {
   boardId: string;
@@ -25,12 +30,32 @@ export const reconcileReviewLifecycle = async (options: {
       continue;
     }
     const meta = parseSyncMetadata(card.desc);
-    const url = meta?.url;
-    if (!url || !url.includes("/pull/")) {
+    const metaUrl = meta?.url ?? null;
+    const url = metaUrl && metaUrl.includes("/pull/") ? metaUrl : extractPrUrl(card.desc);
+    if (!url) {
       continue;
     }
-    const approved = await hasApprovedReview({ host: options.host, url, user: options.user });
-    if (!approved) {
+    const details = await fetchPrDetails({ host: options.host, url });
+    const reviewedByUser = details.reviews.some((review) => review.author === options.user);
+    const approvedByUser = details.reviews.some(
+      (review) => review.author === options.user && review.state === "APPROVED",
+    );
+    const closed = details.merged || details.state === "CLOSED" || details.state === "MERGED";
+
+    if (closed && !reviewedByUser && card.idList !== doneList.id) {
+      if (options.verbose) {
+        console.log(`Archiving review card ${card.id} (merged/closed without review).`);
+      }
+      await updateCard({ cardId: card.id, closed: true });
+      await writeEvent({
+        ts: new Date().toISOString(),
+        type: "trello.review.archived.merged",
+        payload: { cardId: card.id, url },
+      });
+      continue;
+    }
+
+    if (!approvedByUser) {
       continue;
     }
     if (card.idList === doneList.id) {

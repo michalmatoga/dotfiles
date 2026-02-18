@@ -39,6 +39,7 @@ export const updateCard = async (options: {
   listId?: string;
   labelIds?: string[];
   pos?: string | number;
+  closed?: boolean;
 }): Promise<TrelloCard> =>
   trelloRequest<TrelloCard>(
     `cards/${options.cardId}`,
@@ -48,6 +49,7 @@ export const updateCard = async (options: {
       idList: options.listId,
       idLabels: options.labelIds ? options.labelIds.join(",") : undefined,
       pos: options.pos,
+      closed: options.closed,
     },
     { method: "PUT" },
   );

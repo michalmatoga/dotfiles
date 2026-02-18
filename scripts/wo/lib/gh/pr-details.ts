@@ -8,6 +8,7 @@ export type PrDetails = {
   updatedAt: string | null;
   mergeable: string | null;
   merged: boolean;
+  state: string | null;
   reviewRequests: string[];
   reviews: Array<{ author: string; state: string; submittedAt: string | null }>;
 };
@@ -47,6 +48,7 @@ export const fetchPrDetails = async (options: {
     updatedAt: response.updatedAt ?? null,
     mergeable: response.mergeable ?? null,
     merged: Boolean(response.mergedAt) || response.state === "MERGED",
+    state: response.state ?? null,
     author: response.author?.login ?? null,
     reviewRequests: response.reviewRequests
       .map((request) => request?.login)
