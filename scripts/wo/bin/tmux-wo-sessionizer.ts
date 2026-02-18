@@ -31,7 +31,7 @@ const args = process.argv.slice(2);
 const argPath = args.find((arg) => !arg.startsWith("--")) ?? null;
 const includeGhq = !args.includes("--gwq-only");
 const dryRun = args.includes("--dry-run");
-const paneDelimiter = "\u001e";
+const paneDelimiter = "\t";
 
 const run = (command: string, commandArgs: string[], options: { input?: string; env?: NodeJS.ProcessEnv } = {}) => {
   const result = spawnSync(command, commandArgs, {
@@ -203,9 +203,40 @@ const extractDirectory = (line: string): string | null => {
   return match ? match[1] : null;
 };
 
+const opencodeInternalRunPrefix = join(homedir(), ".local/share/opencode/bin/");
+const ignoredOpencodeChildPatterns = [
+  opencodeInternalRunPrefix,
+  "typescript-language-server",
+  "bash-language-server",
+  "eslintServer.js",
+  "language-server",
+  "tsserver.js",
+  "typingsInstaller.js",
+  "marksman",
+  "node_modules/typescript",
+  "--stdio",
+];
+
+const isInteractiveOpencodeCommand = (command: string) => {
+  const runMatch = command.match(/\bopencode\b\s+run\s+(.+)$/);
+  if (runMatch) {
+    const arg = runMatch[1]?.trim() ?? "";
+    return !arg.startsWith(opencodeInternalRunPrefix);
+  }
+  return /\bopencode\b\s+(?:-s|--session)\b/.test(command);
+};
+
+const isIgnoredOpencodeChildCommand = (command: string) =>
+  ignoredOpencodeChildPatterns.some((pattern) => command.includes(pattern));
+
+const isActiveOpencodeChildCommand = (command: string) => !isIgnoredOpencodeChildCommand(command);
+
 const isIdleLine = (line: string) =>
   line.includes("type=session.idle") ||
   (line.includes("session.prompt") && (line.includes("exiting loop") || line.includes("cancel")));
+
+const isActiveLine = (line: string) =>
+  line.includes("session.prompt") && !line.includes("exiting loop") && !line.includes("cancel");
 
 const loadOpencodeLogState = () => {
   const statusBySession = new Map<string, "idle" | "active">();
@@ -231,7 +262,7 @@ const loadOpencodeLogState = () => {
         }
         continue;
       }
-      if (sessionId) {
+      if (sessionId && isActiveLine(line)) {
         statusBySession.set(sessionId, "active");
       }
     }
@@ -242,6 +273,7 @@ const loadOpencodeLogState = () => {
 
 const loadOpencodeSessionsFromTmux = () => {
   const sessionByPath = new Map<string, string>();
+  const runningPaths = new Set<string>();
   const paneOutput = runOptional("tmux", [
     "list-panes",
     "-a",
@@ -249,24 +281,143 @@ const loadOpencodeSessionsFromTmux = () => {
     `#{pane_pid}${paneDelimiter}#{pane_current_path}`,
   ]);
   if (!paneOutput) {
-    return sessionByPath;
+    return { sessionByPath, runningPaths };
   }
+  const panes: Array<{ pid: number; path: string }> = [];
   for (const line of readLines(paneOutput)) {
     const [pid, path] = line.split(paneDelimiter);
     if (!pid || !path) {
       continue;
     }
-    const command = runOptional("ps", ["-o", "command=", "-p", pid]).trim();
-    if (!command.includes("opencode")) {
+    const pidNumber = Number(pid);
+    if (!Number.isFinite(pidNumber)) {
       continue;
     }
-    const sessionId = extractSessionIdFromCommand(command);
-    if (!sessionId) {
-      continue;
-    }
-    sessionByPath.set(normalizePath(path), sessionId);
+    panes.push({ pid: pidNumber, path: normalizePath(path) });
   }
-  return sessionByPath;
+  if (panes.length === 0) {
+    return { sessionByPath, runningPaths };
+  }
+  const processOutput = runOptional("ps", ["-eo", "pid=,ppid=,command="]).trim();
+  if (!processOutput) {
+    return { sessionByPath, runningPaths };
+  }
+  const processMap = new Map<number, { ppid: number; command: string }>();
+  for (const line of readLines(processOutput)) {
+    const match = line.match(/^(\d+)\s+(\d+)\s+(.*)$/);
+    if (!match) {
+      continue;
+    }
+    const pid = Number(match[1]);
+    const ppid = Number(match[2]);
+    const command = match[3] ?? "";
+    if (!Number.isFinite(pid) || !Number.isFinite(ppid)) {
+      continue;
+    }
+    processMap.set(pid, { ppid, command });
+  }
+  const paneByPid = new Map<number, string>();
+  for (const pane of panes) {
+    paneByPid.set(pane.pid, pane.path);
+  }
+  const paneCache = new Map<number, string | null>();
+  const paneStatus = new Map<string, { hasOpencode: boolean; hasActive: boolean }>();
+  const opencodePidsByPane = new Map<string, Set<number>>();
+  const resolvePanePath = (pid: number) => {
+    if (paneCache.has(pid)) {
+      return paneCache.get(pid) ?? null;
+    }
+    let current = pid;
+    let guard = 0;
+    while (processMap.has(current) && guard < 200) {
+      const panePath = paneByPid.get(current);
+      if (panePath) {
+        paneCache.set(pid, panePath);
+        return panePath;
+      }
+      const parent = processMap.get(current)?.ppid ?? 0;
+      if (parent <= 1 || parent === current) {
+        break;
+      }
+      current = parent;
+      guard += 1;
+    }
+    paneCache.set(pid, null);
+    return null;
+  };
+  for (const [pid, data] of processMap.entries()) {
+    const panePath = resolvePanePath(pid);
+    if (!panePath) {
+      continue;
+    }
+    if (!data.command.includes("opencode")) {
+      continue;
+    }
+    const status = paneStatus.get(panePath) ?? { hasOpencode: false, hasActive: false };
+    status.hasOpencode = true;
+    if (isInteractiveOpencodeCommand(data.command)) {
+      status.hasActive = true;
+    }
+    const sessionId = extractSessionIdFromCommand(data.command);
+    if (sessionId) {
+      sessionByPath.set(panePath, sessionId);
+    }
+    const opencodePids = opencodePidsByPane.get(panePath) ?? new Set<number>();
+    opencodePids.add(pid);
+    opencodePidsByPane.set(panePath, opencodePids);
+    paneStatus.set(panePath, status);
+  }
+  const descendantCache = new Map<string, boolean>();
+  const isDescendantOf = (pid: number, ancestors: Set<number>) => {
+    const cacheKey = `${pid}:${[...ancestors].join(",")}`;
+    if (descendantCache.has(cacheKey)) {
+      return descendantCache.get(cacheKey) ?? false;
+    }
+    let current = pid;
+    let guard = 0;
+    while (processMap.has(current) && guard < 200) {
+      const parent = processMap.get(current)?.ppid ?? 0;
+      if (ancestors.has(parent)) {
+        descendantCache.set(cacheKey, true);
+        return true;
+      }
+      if (parent <= 1 || parent === current) {
+        break;
+      }
+      current = parent;
+      guard += 1;
+    }
+    descendantCache.set(cacheKey, false);
+    return false;
+  };
+  for (const [pid, data] of processMap.entries()) {
+    if (data.command.includes("opencode")) {
+      continue;
+    }
+    const panePath = resolvePanePath(pid);
+    if (!panePath) {
+      continue;
+    }
+    const opencodePids = opencodePidsByPane.get(panePath);
+    if (!opencodePids || opencodePids.size === 0) {
+      continue;
+    }
+    if (!isDescendantOf(pid, opencodePids)) {
+      continue;
+    }
+    if (!isActiveOpencodeChildCommand(data.command)) {
+      continue;
+    }
+    const status = paneStatus.get(panePath) ?? { hasOpencode: true, hasActive: false };
+    status.hasActive = true;
+    paneStatus.set(panePath, status);
+  }
+  for (const [path, status] of paneStatus.entries()) {
+    if (status.hasOpencode && status.hasActive) {
+      runningPaths.add(path);
+    }
+  }
+  return { sessionByPath, runningPaths };
 };
 
 const ensureFzfPath = () => {
@@ -330,24 +481,30 @@ const formatEntry = (
   sessionIdByPath: Map<string, string>,
   statusBySession: Map<string, "idle" | "active">,
   runningSessions: Set<string>,
-) => {
+  runningPaths: Set<string>,
+): { line: string; rank: number; label: string } => {
   if (entry.kind === "repo") {
     const label = `○ ${formatRepoLabel(entry)}`;
-    return `${label}${delimiter}${entry.path}`;
+    return { line: `${label}${delimiter}${entry.path}`, rank: 2, label };
   }
   const sessionId = sessionIdByPath.get(normalizePath(entry.path)) ?? null;
   const status = sessionId ? statusBySession.get(sessionId) : null;
-  const isActive = status === "active" || (status === undefined && sessionId && runningSessions.has(sessionId));
-  const dot = isActive ? "●" : "○";
+  const isActive =
+    status === "active" ||
+    (status === undefined && sessionId && runningSessions.has(sessionId)) ||
+    runningPaths.has(normalizePath(entry.path));
+  const hasSession = Boolean(sessionId);
+  const dot = isActive ? "●" : hasSession ? "◐" : "○";
   const label = `${dot} ${formatWorktreeLabel(entry)}`;
-  return `${label}${delimiter}${entry.path}`;
+  const rank = hasSession ? (isActive ? 1 : 0) : 2;
+  return { line: `${label}${delimiter}${entry.path}`, rank, label };
 };
 
 const pickEntry = (entries: Entry[]) => {
   const dbSessions = loadOpencodeSessionsFromDb();
   const opencodeSessionMap = loadOpencodeSessionsFromEvents();
   const { statusBySession, sessionByPath: logSessionByPath } = loadOpencodeLogState();
-  const tmuxSessionByPath = loadOpencodeSessionsFromTmux();
+  const { sessionByPath: tmuxSessionByPath, runningPaths } = loadOpencodeSessionsFromTmux();
   const sessionIdByPath = new Map<string, string>();
   for (const [path, data] of dbSessions.entries()) {
     sessionIdByPath.set(normalizePath(path), data.sessionId);
@@ -368,9 +525,10 @@ const pickEntry = (entries: Entry[]) => {
 
   const runningSessions = new Set(tmuxSessionByPath.values());
 
-  const lines = entries.map((entry) =>
-    formatEntry(entry, sessionIdByPath, statusBySession, runningSessions),
-  );
+  const lines = entries
+    .map((entry) => formatEntry(entry, sessionIdByPath, statusBySession, runningSessions, runningPaths))
+    .sort((a, b) => (a.rank === b.rank ? a.label.localeCompare(b.label) : a.rank - b.rank))
+    .map((item) => item.line);
   if (lines.length === 0) {
     return null;
   }
