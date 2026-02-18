@@ -436,7 +436,7 @@ in
       set -g status-left-length 100
       set -g status-right-length 100
       set -g status-left "#{E:@catppuccin_status_session}"
-      set -g status-right "#[fg=colour240]#(cat ~/.wo/session-status 2>/dev/null || echo '---') #[default]#{E:@catppuccin_status_directory}#{E:@catppuccin_status_date_time}"
+      set -g status-right "#(sh -lc 'if [ -s ~/.wo/session-alert ]; then printf "\"#[fg=red]\""; else printf "\"#[fg=colour240]\""; fi; cat ~/.wo/session-status 2>/dev/null || echo "\"---\""; printf "\"#[default]\""') #{E:@catppuccin_status_directory}#{E:@catppuccin_status_date_time}"
     '';
   };
 

@@ -35,6 +35,7 @@ const DEFAULT_LIMIT_MINUTES = 240;
 const DEFAULT_GRACE_MINUTES = 5;
 const DEFAULT_PROTECTED_SESSIONS = ["journal", "dotfiles"];
 const POLL_INTERVAL_MS = 30_000;
+const ALERT_REPEAT_MINUTES = 5;
 
 type Config = {
   limitMinutes: number;
@@ -314,9 +315,10 @@ const startShutdownRitual = async (config: Config, stats: SessionStats): Promise
   console.log("\nShutdown ritual complete. Journal session is ready.");
 };
 
-let alertShown = false;
 let extendedMinutes = 0;
 let shutdownInProgress = false;
+let lastAlertAt = 0;
+let graceDeadline: number | null = null;
 
 const runMonitor = async (config: Config): Promise<void> => {
   const effectiveLimitMinutes = config.limitMinutes + extendedMinutes;
@@ -365,40 +367,58 @@ const runMonitor = async (config: Config): Promise<void> => {
     console.log(`[${new Date().toLocaleTimeString()}] ${formatDurationFull(stats.totalSeconds)} / ${formatDuration(stats.limitSeconds)} (${percentage}%)`);
 
     // Check if over limit
-    if (stats.isOverLimit && !alertShown) {
-      alertShown = true;
-      await writeAlertFile("LIMIT_REACHED");
-      playAlertSound();
-
-      console.log("\n*** TIME LIMIT REACHED ***\n");
-
-      // Show popup for user choice
-      const choice = await showPopup(effectiveConfig, stats);
-
-      if (choice?.includes("30 minutes")) {
-        extendedMinutes += 30;
-        alertShown = false;
+    if (!stats.isOverLimit) {
+      if (graceDeadline) {
+        graceDeadline = null;
         await clearAlertFile();
-        console.log("Extended by 30 minutes");
-      } else if (choice?.includes("1 hour")) {
-        extendedMinutes += 60;
-        alertShown = false;
-        await clearAlertFile();
-        console.log("Extended by 1 hour");
-      } else {
-        // No response or shutdown chosen - start grace period
-        console.log(`Starting ${config.graceMinutes} minute grace period...`);
-        await writeAlertFile(`GRACE_PERIOD:${config.graceMinutes}`);
-
-        // Wait for grace period
-        await new Promise((resolve) =>
-          setTimeout(resolve, config.graceMinutes * 60 * 1000)
-        );
-
-        // Force shutdown
-        await startShutdownRitual(config, stats);
-        process.exit(0);
       }
+      return;
+    }
+
+    const now = Date.now();
+    if (graceDeadline && now >= graceDeadline) {
+      await startShutdownRitual(config, stats);
+      process.exit(0);
+    }
+
+    if (now - lastAlertAt < ALERT_REPEAT_MINUTES * 60 * 1000) {
+      return;
+    }
+
+    lastAlertAt = now;
+    await writeAlertFile(graceDeadline ? `GRACE_PERIOD:${config.graceMinutes}` : "LIMIT_REACHED");
+    playAlertSound();
+
+    console.log("\n*** TIME LIMIT REACHED ***\n");
+
+    // Show popup for user choice
+    const choice = await showPopup(effectiveConfig, stats);
+
+    if (choice?.includes("30 minutes")) {
+      extendedMinutes += 30;
+      graceDeadline = null;
+      lastAlertAt = Date.now();
+      await clearAlertFile();
+      console.log("Extended by 30 minutes");
+      return;
+    }
+    if (choice?.includes("1 hour")) {
+      extendedMinutes += 60;
+      graceDeadline = null;
+      lastAlertAt = Date.now();
+      await clearAlertFile();
+      console.log("Extended by 1 hour");
+      return;
+    }
+    if (choice?.includes("shutdown")) {
+      await startShutdownRitual(config, stats);
+      process.exit(0);
+    }
+
+    if (!graceDeadline) {
+      console.log(`Starting ${config.graceMinutes} minute grace period...`);
+      graceDeadline = Date.now() + config.graceMinutes * 60 * 1000;
+      await writeAlertFile(`GRACE_PERIOD:${config.graceMinutes}`);
     }
   };
 
