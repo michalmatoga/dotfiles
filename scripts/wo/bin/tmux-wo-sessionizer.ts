@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, relative } from "node:path";
 
@@ -18,27 +18,20 @@ type Entry = {
   leaf?: string | null;
 };
 
-type CacheEntry = {
-  title: string;
-  ts: string;
-};
-
-type CacheFile = Record<string, CacheEntry>;
-
 const delimiter = "\u001f";
-const cacheTtlMs = 24 * 60 * 60 * 1000;
 
 const scriptDir = __dirname;
 const repoRoot = join(scriptDir, "../../..");
 const stateDir = join(repoRoot, "scripts/wo/state");
-const cachePath = join(stateDir, "wo-sessionizer-cache.json");
 const eventsPath = join(stateDir, "wo-events.jsonl");
+const opencodeLogDir = join(homedir(), ".local/share/opencode/log");
+const recentLogCount = 5;
 
 const args = process.argv.slice(2);
 const argPath = args.find((arg) => !arg.startsWith("--")) ?? null;
 const includeGhq = !args.includes("--gwq-only");
-const noTitle = args.includes("--no-title");
 const dryRun = args.includes("--dry-run");
+const paneDelimiter = "\u001e";
 
 const run = (command: string, commandArgs: string[], options: { input?: string; env?: NodeJS.ProcessEnv } = {}) => {
   const result = spawnSync(command, commandArgs, {
@@ -83,59 +76,17 @@ const pathToSessionName = (path: string) => {
 
 const normalizePath = (value: string) => value.replace(/\/+$/, "");
 
-const formatPathLabel = (entry: Entry) => {
-  if (!entry.host || !entry.owner || !entry.repo) {
-    return entry.path;
-  }
-  return `${entry.host} › ${entry.owner} › ${entry.repo}`;
+const formatPathSegments = (segments: Array<string | null>) =>
+  segments.filter((value): value is string => Boolean(value)).join(" › ");
+
+const formatRepoLabel = (entry: Entry) => {
+  const label = formatPathSegments([entry.host, entry.owner, entry.repo]);
+  return label || entry.path;
 };
 
-const formatWorktreeLabel = (entry: Entry, title: string | null) => {
-  const base = entry.leaf ?? entry.path;
-  if (!entry.url) {
-    return base;
-  }
-  const info = parseUrlInfo(entry.url);
-  if (!info || !title) {
-    return base;
-  }
-  return `${base}  #${info.number} ${title}`;
-};
-
-const loadCache = (): CacheFile => {
-  if (!existsSync(cachePath)) {
-    return {};
-  }
-  try {
-    const content = readFileSync(cachePath, "utf8");
-    return JSON.parse(content) as CacheFile;
-  } catch {
-    return {};
-  }
-};
-
-const saveCache = (cache: CacheFile) => {
-  mkdirSync(stateDir, { recursive: true });
-  writeFileSync(cachePath, JSON.stringify(cache, null, 2));
-};
-
-const isCacheFresh = (entry: CacheEntry) => {
-  const ts = new Date(entry.ts).getTime();
-  return Number.isFinite(ts) && Date.now() - ts < cacheTtlMs;
-};
-
-const parseUrlInfo = (url: string) => {
-  const match = url.match(/^https:\/\/([^/]+)\/([^/]+)\/([^/]+)\/(issues|pull)\/(\d+)/);
-  if (!match) {
-    return null;
-  }
-  return {
-    host: match[1],
-    owner: match[2],
-    repo: match[3],
-    kind: match[4] === "pull" ? "pr" : "issue",
-    number: match[5],
-  };
+const formatWorktreeLabel = (entry: Entry) => {
+  const label = formatPathSegments([entry.host, entry.owner, entry.repo, entry.leaf]);
+  return label || entry.path;
 };
 
 const loadWorktreeUrlMap = () => {
@@ -162,33 +113,160 @@ const loadWorktreeUrlMap = () => {
   return map;
 };
 
-const fetchTitle = (url: string, cache: CacheFile): string | null => {
-  if (noTitle) {
-    return null;
+const loadOpencodeSessionsFromEvents = () => {
+  const map = new Map<string, { sessionId: string; ts: number }>();
+  if (!existsSync(eventsPath)) {
+    return map;
   }
-  const cached = cache[url];
-  if (cached && isCacheFresh(cached)) {
-    return cached.title;
-  }
-  const info = parseUrlInfo(url);
-  if (!info) {
-    return null;
-  }
-  const env = { ...process.env, GH_HOST: info.host };
-  const args = info.kind === "issue"
-    ? ["issue", "view", url, "--json", "title"]
-    : ["pr", "view", url, "--json", "title"];
-  try {
-    const raw = run("gh", args, { env });
-    const parsed = JSON.parse(raw) as { title?: string };
-    if (!parsed.title) {
-      return null;
+  const content = readFileSync(eventsPath, "utf8");
+  for (const line of readLines(content)) {
+    try {
+      const event = JSON.parse(line) as {
+        ts?: string;
+        type?: string;
+        payload?: { worktreePath?: string; sessionId?: string | null };
+      };
+      if (event.type !== "opencode.session.created") {
+        continue;
+      }
+      const worktreePath = event.payload?.worktreePath;
+      const sessionId = event.payload?.sessionId ?? null;
+      if (!worktreePath || !sessionId) {
+        continue;
+      }
+      const ts = event.ts ? new Date(event.ts).getTime() : 0;
+      const current = map.get(worktreePath);
+      if (!current || ts >= current.ts) {
+        map.set(worktreePath, { sessionId, ts });
+      }
+    } catch {
+      continue;
     }
-    cache[url] = { title: parsed.title, ts: new Date().toISOString() };
-    return parsed.title;
-  } catch {
-    return null;
   }
+  return map;
+};
+
+const loadOpencodeSessionsFromDb = () => {
+  const map = new Map<string, { sessionId: string; ts: number }>();
+  const gwqRoot = normalizePath(join(homedir(), "gwq"));
+  const query = `select id, directory, time_updated from session where directory like '${gwqRoot.replace(/'/g, "''")}/%';`;
+  const raw = runOptional("opencode", ["db", "--format", "json", query]);
+  if (!raw) {
+    return map;
+  }
+  try {
+    const rows = JSON.parse(raw) as Array<{ id?: string; directory?: string; time_updated?: number }>;
+    for (const row of rows) {
+      if (!row.id || !row.directory) {
+        continue;
+      }
+      const ts = row.time_updated ?? 0;
+      const normalized = normalizePath(row.directory);
+      const current = map.get(normalized);
+      if (!current || ts >= current.ts) {
+        map.set(normalized, { sessionId: row.id, ts });
+      }
+    }
+  } catch {
+    return map;
+  }
+  return map;
+};
+
+const getRecentLogFiles = () => {
+  if (!existsSync(opencodeLogDir)) {
+    return [];
+  }
+  const entries = readdirSync(opencodeLogDir)
+    .filter((name) => name.endsWith(".log"))
+    .sort();
+  const recent = entries.slice(-recentLogCount);
+  return recent.map((name) => join(opencodeLogDir, name));
+};
+
+const extractSessionId = (line: string): string | null => {
+  const match = line.match(/sessionID=([A-Za-z0-9_-]+)/);
+  if (match) {
+    return match[1] ?? null;
+  }
+  const idMatch = line.match(/\bid=(ses_[A-Za-z0-9_-]+)/);
+  return idMatch ? idMatch[1] : null;
+};
+
+const extractSessionIdFromCommand = (command: string): string | null => {
+  const match = command.match(/\bopencode\b[^\n]*\s(?:-s|--session)\s+([^\s]+)/);
+  return match ? match[1] ?? null : null;
+};
+
+const extractDirectory = (line: string): string | null => {
+  const match = line.match(/\bdirectory=([^\s]+)/);
+  return match ? match[1] : null;
+};
+
+const isIdleLine = (line: string) =>
+  line.includes("type=session.idle") ||
+  (line.includes("session.prompt") && (line.includes("exiting loop") || line.includes("cancel")));
+
+const loadOpencodeLogState = () => {
+  const statusBySession = new Map<string, "idle" | "active">();
+  const sessionByPath = new Map<string, string>();
+  const logFiles = getRecentLogFiles();
+  let lastSessionId: string | null = null;
+
+  for (const logFile of logFiles) {
+    const content = readFileSync(logFile, "utf8");
+    for (const line of readLines(content)) {
+      const sessionId = extractSessionId(line);
+      const directory = extractDirectory(line);
+      if (sessionId) {
+        lastSessionId = sessionId;
+      }
+      if (sessionId && directory) {
+        sessionByPath.set(normalizePath(directory), sessionId);
+      }
+      if (isIdleLine(line)) {
+        const target = sessionId ?? lastSessionId;
+        if (target) {
+          statusBySession.set(target, "idle");
+        }
+        continue;
+      }
+      if (sessionId) {
+        statusBySession.set(sessionId, "active");
+      }
+    }
+  }
+
+  return { statusBySession, sessionByPath };
+};
+
+const loadOpencodeSessionsFromTmux = () => {
+  const sessionByPath = new Map<string, string>();
+  const paneOutput = runOptional("tmux", [
+    "list-panes",
+    "-a",
+    "-F",
+    `#{pane_pid}${paneDelimiter}#{pane_current_path}`,
+  ]);
+  if (!paneOutput) {
+    return sessionByPath;
+  }
+  for (const line of readLines(paneOutput)) {
+    const [pid, path] = line.split(paneDelimiter);
+    if (!pid || !path) {
+      continue;
+    }
+    const command = runOptional("ps", ["-o", "command=", "-p", pid]).trim();
+    if (!command.includes("opencode")) {
+      continue;
+    }
+    const sessionId = extractSessionIdFromCommand(command);
+    if (!sessionId) {
+      continue;
+    }
+    sessionByPath.set(normalizePath(path), sessionId);
+  }
+  return sessionByPath;
 };
 
 const ensureFzfPath = () => {
@@ -247,43 +325,52 @@ const gatherEntries = () => {
   return entries;
 };
 
-const formatEntry = (entry: Entry, sessionNames: Set<string>, cache: CacheFile, showGroup: boolean) => {
-  const sessionName = pathToSessionName(entry.path);
-  const existing = sessionNames.has(sessionName);
-  const prefix = existing ? "\u001b[32m*\u001b[0m " : "  ";
+const formatEntry = (
+  entry: Entry,
+  sessionIdByPath: Map<string, string>,
+  statusBySession: Map<string, "idle" | "active">,
+  runningSessions: Set<string>,
+) => {
   if (entry.kind === "repo") {
-    const label = `${prefix}${formatPathLabel(entry)}`;
+    const label = `○ ${formatRepoLabel(entry)}`;
     return `${label}${delimiter}${entry.path}`;
   }
-  const title = entry.url ? fetchTitle(entry.url, cache) : null;
-  const base = formatWorktreeLabel(entry, title);
-  const label = showGroup ? `  ${prefix}${base}` : `${prefix}${formatPathLabel(entry)} › ${base}`;
+  const sessionId = sessionIdByPath.get(normalizePath(entry.path)) ?? null;
+  const status = sessionId ? statusBySession.get(sessionId) : null;
+  const isActive = status === "active" || (status === undefined && sessionId && runningSessions.has(sessionId));
+  const dot = isActive ? "●" : "○";
+  const label = `${dot} ${formatWorktreeLabel(entry)}`;
   return `${label}${delimiter}${entry.path}`;
 };
 
 const pickEntry = (entries: Entry[]) => {
-  const sessionNames = new Set(readLines(runOptional("tmux", ["list-sessions", "-F", "#{session_name}"])));
-  const cache = loadCache();
-  const grouped = new Map<string, { repo?: Entry; worktrees: Entry[] }>();
-  for (const entry of entries) {
-    const key = `${entry.host ?? ""}/${entry.owner ?? ""}/${entry.repo ?? ""}`;
-    const current = grouped.get(key) ?? { repo: undefined, worktrees: [] };
-    if (entry.kind === "repo") {
-      current.repo = entry;
-    } else {
-      current.worktrees.push(entry);
-    }
-    grouped.set(key, current);
+  const dbSessions = loadOpencodeSessionsFromDb();
+  const opencodeSessionMap = loadOpencodeSessionsFromEvents();
+  const { statusBySession, sessionByPath: logSessionByPath } = loadOpencodeLogState();
+  const tmuxSessionByPath = loadOpencodeSessionsFromTmux();
+  const sessionIdByPath = new Map<string, string>();
+  for (const [path, data] of dbSessions.entries()) {
+    sessionIdByPath.set(normalizePath(path), data.sessionId);
   }
-  const lines: string[] = [];
-  for (const group of grouped.values()) {
-    if (group.repo) {
-      lines.push(formatEntry(group.repo, sessionNames, cache, false));
-    }
-    for (const worktree of group.worktrees) {
-      lines.push(formatEntry(worktree, sessionNames, cache, true));
+  for (const [path, data] of opencodeSessionMap.entries()) {
+    if (!sessionIdByPath.has(path)) {
+      sessionIdByPath.set(normalizePath(path), data.sessionId);
     }
   }
+  for (const [path, sessionId] of logSessionByPath.entries()) {
+    if (!sessionIdByPath.has(path)) {
+      sessionIdByPath.set(path, sessionId);
+    }
+  }
+  for (const [path, sessionId] of tmuxSessionByPath.entries()) {
+    sessionIdByPath.set(path, sessionId);
+  }
+
+  const runningSessions = new Set(tmuxSessionByPath.values());
+
+  const lines = entries.map((entry) =>
+    formatEntry(entry, sessionIdByPath, statusBySession, runningSessions),
+  );
   if (lines.length === 0) {
     return null;
   }
@@ -293,7 +380,6 @@ const pickEntry = (entries: Entry[]) => {
     lines.join("\n"),
     { ...process.env, PATH: ensureFzfPath() },
   );
-  saveCache(cache);
   const chosenLine = selected.trim();
   if (!chosenLine) {
     return null;

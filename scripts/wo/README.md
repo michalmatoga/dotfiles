@@ -106,7 +106,8 @@ Flags:
 ## Tmux sessionizer
 
 - `scripts/wo/bin/tmux-wo-sessionizer.ts` is a picker for `~/gwq` worktrees and `~/ghq` repos.
-- Shows GH issue/PR titles when available and caches them in `scripts/wo/state/wo-sessionizer-cache.json`.
+- Entries are rendered as single-line paths (`host › owner › repo › worktree`), so fzf progressively filters as you type.
+- Worktree entries include a status dot: `●` = opencode active, `○` = opencode idle/unknown (derived from last 5 log files in `~/.local/share/opencode/log/`, mapping sessions to worktrees via `opencode db`, with running tmux opencode panes treated as active if no idle signal is found).
 - Run: `npx --yes tsx scripts/wo/bin/tmux-wo-sessionizer.ts`.
 
 ## State & idempotency
@@ -221,7 +222,7 @@ Use the ActivityWatch web UI to create grouped reports for each pane path. In th
 2. Paste a query like:
 
 ```javascript
-events = flood(query_bucket("aw-watcher-tmux_nixos"));
+events = query_bucket("aw-watcher-tmux_nixos");
 events = merge_events_by_keys(events, ["app", "pane_path"]);
 RETURN = sort_by_duration(events);
 ```
