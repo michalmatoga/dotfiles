@@ -30,6 +30,14 @@ export type WorktreeSummary = {
   commitCount: number;
 };
 
+type NarrativeBlock = {
+  start: Date;
+  end: Date;
+  buckets: HourlyBucket[];
+  commits: CommitInfo[];
+  worktrees: Set<string>;
+};
+
 export type JournalEntry = {
   date: string;
   totalSeconds: number;
@@ -46,9 +54,13 @@ const formatDuration = (seconds: number): string => {
   return `${minutes}m`;
 };
 
-const formatHour = (hour: number): string => {
-  return `${hour.toString().padStart(2, "0")}:00`;
+const formatTime = (date: Date): string => {
+  const hours = date.getHours().toString().padStart(2, "0");
+  const minutes = date.getMinutes().toString().padStart(2, "0");
+  return `${hours}:${minutes}`;
 };
+
+const stripAnsi = (text: string): string => text.replace(/\x1b\[[0-9;]*m/g, "");
 
 const pathToLabel = (path: string): string => {
   // Convert /home/nixos/gwq/github.com/org/repo/branch to org/repo
@@ -63,6 +75,193 @@ const pathToLabel = (path: string): string => {
     return `${parts[parts.length - 2]}/${parts[parts.length - 1]}`;
   }
   return path;
+};
+
+const uniqueCommitSubjects = (commits: CommitInfo[]): string[] => {
+  const seen = new Set<string>();
+  const subjects: string[] = [];
+  for (const commit of commits) {
+    const subject = commit.message.trim();
+    if (!subject || seen.has(subject)) {
+      continue;
+    }
+    seen.add(subject);
+    subjects.push(subject);
+  }
+  return subjects;
+};
+
+const buildNarrativeBlocks = (hourlyBuckets: HourlyBucket[]): NarrativeBlock[] => {
+  const sorted = [...hourlyBuckets].sort((a, b) => a.hour - b.hour);
+  const blocks: NarrativeBlock[] = [];
+  let current: NarrativeBlock | null = null;
+
+  for (const bucket of sorted) {
+    if (!current) {
+      current = {
+        start: new Date(bucket.startTime),
+        end: new Date(bucket.endTime),
+        buckets: [bucket],
+        commits: [...bucket.commits],
+        worktrees: new Set(bucket.worktrees),
+      };
+      continue;
+    }
+
+    const lastBucket = current.buckets[current.buckets.length - 1];
+    const isContiguous = bucket.hour === lastBucket.hour + 1;
+    const withinTwoHours = current.buckets.length < 2;
+
+    if (isContiguous && withinTwoHours) {
+      current.buckets.push(bucket);
+      current.end = new Date(bucket.endTime);
+      current.commits.push(...bucket.commits);
+      for (const path of bucket.worktrees) {
+        current.worktrees.add(path);
+      }
+      continue;
+    }
+
+    blocks.push(current);
+    current = {
+      start: new Date(bucket.startTime),
+      end: new Date(bucket.endTime),
+      buckets: [bucket],
+      commits: [...bucket.commits],
+      worktrees: new Set(bucket.worktrees),
+    };
+  }
+
+  if (current) {
+    blocks.push(current);
+  }
+
+  for (const block of blocks) {
+    const byHash = new Map<string, CommitInfo>();
+    for (const commit of block.commits) {
+      if (!byHash.has(commit.hash)) {
+        byHash.set(commit.hash, commit);
+      }
+    }
+    block.commits = Array.from(byHash.values()).sort(
+      (a, b) => a.timestamp.getTime() - b.timestamp.getTime(),
+    );
+  }
+
+  return blocks;
+};
+
+const pickDominantWorktree = (commits: CommitInfo[], worktrees: Set<string>): string | null => {
+  if (commits.length > 0) {
+    const counts = new Map<string, number>();
+    for (const commit of commits) {
+      counts.set(commit.worktree, (counts.get(commit.worktree) ?? 0) + 1);
+    }
+    let best: string | null = null;
+    let bestCount = 0;
+    for (const [path, count] of counts.entries()) {
+      if (count > bestCount) {
+        best = path;
+        bestCount = count;
+      }
+    }
+    return best;
+  }
+
+  for (const path of worktrees) {
+    return path;
+  }
+  return null;
+};
+
+const fallbackNarrativeParagraph = (blocks: NarrativeBlock[]): string => {
+  const sentences: string[] = [];
+
+  for (const block of blocks) {
+    if (block.commits.length > 0) {
+      const commitCount = block.commits.length;
+      const dominantPath = pickDominantWorktree(block.commits, block.worktrees);
+      const dominantLabel = dominantPath ? pathToLabel(dominantPath) : null;
+      const labelText = dominantLabel ? ` in ${dominantLabel}` : "";
+      sentences.push(`Focused${labelText} and shipped ${commitCount} update${commitCount === 1 ? "" : "s"}.`);
+    } else {
+      const labels = Array.from(block.worktrees).map(pathToLabel).slice(0, 2);
+      const focus = labels.length > 0 ? ` on ${labels.join(" and ")}` : "";
+      sentences.push(`Exploration block${focus} with no shipped updates yet.`);
+    }
+  }
+
+  return sentences.join(" ");
+};
+
+const buildOpencodePrompt = (entry: JournalEntry, blocks: NarrativeBlock[]): string => {
+  const blockLines = blocks.map((block) => {
+    const timeRange = `${formatTime(block.start)}-${formatTime(block.end)}`;
+    const dominantPath = pickDominantWorktree(block.commits, block.worktrees);
+    const dominantLabel = dominantPath ? pathToLabel(dominantPath) : "unknown";
+    const subjects = uniqueCommitSubjects(block.commits).slice(0, 12);
+    const worktrees = Array.from(block.worktrees).map(pathToLabel);
+
+    return [
+      `- ${timeRange}`,
+      `  dominant: ${dominantLabel}`,
+      `  worktrees: ${worktrees.join(", ") || "none"}`,
+      `  commit_subjects: ${subjects.join(" | ") || "none"}`,
+      `  commit_count: ${block.commits.length}`,
+    ].join("\n");
+  });
+
+  return [
+    "You are generating a work session journal narrative.",
+    "Output Markdown with hour-by-hour narrative blocks.",
+    "Each block must be a Markdown sub-header and a single paragraph below it.",
+    "Sub-header format: #### HH:MM-HH:MM - <short title>",
+    "Do not use bullet points or lists.",
+    "Do not include commit hashes. Use commit subjects only as hints.",
+    "Keep it human-friendly and accomplishment-focused, 1-3 sentences per block.",
+    "Mention primary repositories within each block where relevant.",
+    "If a block has no commits, frame it as exploration or investigation.",
+    "",
+    `Date: ${entry.date}`,
+    `Total active time: ${formatDuration(entry.totalSeconds)}`,
+    "",
+    "Time blocks:",
+    ...blockLines,
+  ].join("\n");
+};
+
+const generateNarrativeWithOpencode = (entry: JournalEntry, blocks: NarrativeBlock[]): string | null => {
+  const prompt = buildOpencodePrompt(entry, blocks);
+
+  const result = spawnSync(
+    "opencode",
+    ["run", "--model", "openai/gpt-5.2-chat-latest", prompt],
+    {
+      encoding: "utf8",
+      timeout: 30_000,
+    },
+  );
+
+  if (result.error) {
+    console.warn(`opencode failed: ${stripAnsi(result.error.message)}`);
+    return null;
+  }
+
+  if (result.status !== 0 || !result.stdout) {
+    const errorText = result.stderr?.trim();
+    if (errorText) {
+      console.warn(`opencode failed: ${stripAnsi(errorText)}`);
+    }
+    return null;
+  }
+
+  const output = result.stdout.trim();
+  if (output.length === 0) {
+    console.warn("opencode returned empty output");
+    return null;
+  }
+
+  return output;
 };
 
 export const getCommitsForWorktree = (
@@ -183,7 +382,7 @@ export const buildWorktreeSummaries = (
     .sort((a, b) => b.durationSeconds - a.durationSeconds);
 };
 
-export const formatJournalEntry = (entry: JournalEntry): string => {
+export const formatJournalEntry = async (entry: JournalEntry): Promise<string> => {
   const lines: string[] = [];
 
   lines.push(`## Work Session - ${entry.date}`);
@@ -191,29 +390,15 @@ export const formatJournalEntry = (entry: JournalEntry): string => {
   lines.push(`**Total active time:** ${formatDuration(entry.totalSeconds)}`);
   lines.push("");
 
-  // Hourly breakdown
+  // Narrative breakdown (grouped)
   if (entry.hourlyBreakdown.length > 0) {
-    lines.push("### Hourly Breakdown");
+    lines.push("### Session Narrative");
     lines.push("");
 
-    for (const bucket of entry.hourlyBreakdown) {
-      const timeRange = `${formatHour(bucket.hour)}-${formatHour(bucket.hour + 1)}`;
-      const commitSummary =
-        bucket.commits.length > 0
-          ? ` - ${bucket.commits.length} commit${bucket.commits.length > 1 ? "s" : ""}`
-          : "";
-      const worktreeLabels = Array.from(bucket.worktrees).map(pathToLabel);
-      const worktreeSummary =
-        worktreeLabels.length > 0 ? ` in ${worktreeLabels.join(", ")}` : "";
-
-      lines.push(`- ${timeRange}: ${formatDuration(bucket.durationSeconds)}${commitSummary}${worktreeSummary}`);
-
-      // List commit messages
-      for (const commit of bucket.commits) {
-        const shortHash = commit.hash.slice(0, 7);
-        lines.push(`  - \`${shortHash}\` ${commit.message}`);
-      }
-    }
+    const blocks = buildNarrativeBlocks(entry.hourlyBreakdown);
+    const narrative = generateNarrativeWithOpencode(entry, blocks)
+      ?? fallbackNarrativeParagraph(blocks);
+    lines.push(narrative);
     lines.push("");
   }
 

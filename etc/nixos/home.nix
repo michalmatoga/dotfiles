@@ -554,6 +554,7 @@ in
         "PATH=${pkgs.tmux}/bin:${pkgs.nodejs_24}/bin:${pkgs.git}/bin:/run/current-system/sw/bin"
         "DOTFILES_DIR=%h/ghq/github.com/michalmatoga/dotfiles"
         "AW_PORT=5601"
+        "TMUX_TMPDIR=%t"
         "WO_SESSION_LIMIT_MINUTES=240"
         "WO_SESSION_GRACE_MINUTES=5"
         "WO_SESSION_PROTECTED=journal,dotfiles"

@@ -15,10 +15,9 @@
  *   WO_SESSION_PROTECTED - Comma-separated list of protected session names
  */
 
-import { homedir, hostname } from "node:os";
+import { homedir, hostname, tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import {
@@ -192,20 +191,7 @@ const pickTmuxClient = (): string | null => {
   return (active ?? clients[0]).name;
 };
 
-const findFzfPath = (): string | null => {
-  const home = process.env.HOME;
-  const candidates = [
-    process.env.FZF_PATH,
-    home ? join(home, ".fzf", "bin", "fzf") : null,
-    "/run/current-system/sw/bin/fzf",
-  ];
-  for (const candidate of candidates) {
-    if (candidate && existsSync(candidate)) {
-      return candidate;
-    }
-  }
-  return null;
-};
+const shellQuote = (value: string): string => `'${value.replace(/'/g, `'\\''`)}'`;
 
 const showPopup = async (config: Config, stats: SessionStats): Promise<string | null> => {
   const message = `Time limit reached!\\n\\nTotal: ${formatDurationFull(stats.totalSeconds)}\\nLimit: ${formatDurationFull(stats.limitSeconds)}\\n\\nSelect action:`;
@@ -216,13 +202,21 @@ const showPopup = async (config: Config, stats: SessionStats): Promise<string | 
     return null;
   }
 
-  const fzfPath = findFzfPath();
-
-  // Use tmux display-popup with fzf for selection
-  const options = ["Extend 30 minutes", "Extend 1 hour", "Start shutdown ritual"];
-  const popupScript = fzfPath
-    ? "printf '%s\\n\\n' \"$WO_POPUP_MESSAGE\"; printf '%s\\n' \"$WO_POPUP_OPTIONS\" | \"$WO_POPUP_FZF\" --header=\"Work Session Alert\""
-    : "printf '%s\\n\\n' \"$WO_POPUP_MESSAGE\" > /dev/tty; mapfile -t choices <<< \"$WO_POPUP_OPTIONS\"; PS3='Select action: '; select choice in \"${choices[@]}\"; do printf '%s' \"$choice\"; break; done < /dev/tty > /dev/tty";
+  const options = ["Extend 30 minutes", "Extend 1 hour", "Start shutdown ritual", "Cancel"];
+  const outputFile = join(tmpdir(), `wo-popup-${process.pid}-${Date.now()}.txt`);
+  const outputFileArg = shellQuote(outputFile);
+  const popupScript = [
+    "set -e",
+    "printf '%s\\n\\n' \"$WO_POPUP_MESSAGE\"",
+    "mapfile -t choices <<< \"$WO_POPUP_OPTIONS\"",
+    "PS3='Select action: '",
+    "select choice in \"${choices[@]}\"; do",
+    "  if [ -n \"$choice\" ]; then",
+    `    printf '%s' \"$choice\" > ${outputFileArg}`,
+    "    break",
+    "  fi",
+    "done",
+  ].join("; ");
 
   const result = spawnSync(
     "tmux",
@@ -238,17 +232,15 @@ const showPopup = async (config: Config, stats: SessionStats): Promise<string | 
     ],
     {
       encoding: "utf8",
-      timeout: 60_000,
       env: {
         ...process.env,
         WO_POPUP_MESSAGE: message,
         WO_POPUP_OPTIONS: options.join("\n"),
-        WO_POPUP_FZF: fzfPath ?? "",
       },
     },
   );
 
-  if (result.status !== 0 || !result.stdout) {
+  if (result.status !== 0) {
     const errorDetails = result.stderr?.trim();
     if (errorDetails) {
       console.error("Popup failed:", errorDetails);
@@ -256,7 +248,14 @@ const showPopup = async (config: Config, stats: SessionStats): Promise<string | 
     return null;
   }
 
-  return result.stdout.trim();
+  try {
+    const choice = (await readFile(outputFile, "utf8")).trim();
+    return choice.length > 0 ? choice : null;
+  } catch {
+    return null;
+  } finally {
+    await rm(outputFile, { force: true });
+  }
 };
 
 const playAlertSound = (): void => {

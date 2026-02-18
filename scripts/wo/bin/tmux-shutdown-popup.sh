@@ -16,5 +16,7 @@ if [ "$choice" = "Confirm shutdown" ]; then
     tmux display-message "pkill not found; cannot signal session-monitor"
     exit 0
   fi
-  pkill -USR1 -f session-monitor
+  if ! pkill -USR1 -f session-monitor >/dev/null 2>&1; then
+    tmux display-message "No session-monitor process to signal"
+  fi
 fi

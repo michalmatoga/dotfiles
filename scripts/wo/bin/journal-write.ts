@@ -112,7 +112,7 @@ const run = async (options: Options): Promise<void> => {
 
   // Build journal entry
   const entry = buildJournalEntry(events, options.date);
-  const formatted = formatJournalEntry(entry);
+  const formatted = await formatJournalEntry(entry);
 
   if (options.dryRun) {
     console.log("\n--- DRY RUN OUTPUT ---\n");

@@ -194,11 +194,10 @@ Written to `/home/nixos/ghq/gitlab.com/michalmatoga/journal/YYYY-MM-DD.md`:
 
 **Total active time:** 4h 12m
 
-### Hourly Breakdown
+### Session Narrative
 
-- 09:00-10:00: 45m - 3 commits in org/repo-a
-- 10:00-11:00: 52m - 2 commits in org/repo-a, 1 commit in org/repo-b
-  ...
+Focused on org/repo-a and shipped several updates, with supporting exploration in org/repo-b.
+Shifted into investigation and validation work later in the day without new shipped updates.
 
 ### Per-Worktree Summary
 
