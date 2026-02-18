@@ -6,6 +6,9 @@ import {
   getBucket,
   getEvents,
   getTodayTimeRange,
+  aggregateUniqueDuration,
+  aggregateUniqueDurationByDataKey,
+  aggregateUniqueDurationByDataKeyByHour,
   isServerAvailable,
 } from "../lib/sessions/activitywatch";
 
@@ -48,17 +51,22 @@ const bucketId = `aw-watcher-tmux_${hostname()}`;
   }
 
   const stats = new Map<string, PathStats>();
-  let totalSeconds = 0;
+  const totalSeconds = aggregateUniqueDuration(events);
+  const durationByPath = aggregateUniqueDurationByDataKey(events, "pane_path");
+  const hourlyByPath = aggregateUniqueDurationByDataKeyByHour(events, "pane_path");
+  const eventCounts = new Map<string, number>();
 
   for (const event of events) {
-    totalSeconds += event.duration;
     const path = String(event.data.pane_path ?? "(unknown)");
-    const entry = stats.get(path) ?? { durationSeconds: 0, events: 0, hourly: Array(24).fill(0) };
-    entry.durationSeconds += event.duration;
-    entry.events += 1;
-    const hour = new Date(event.timestamp).getHours();
-    entry.hourly[hour] += event.duration;
-    stats.set(path, entry);
+    eventCounts.set(path, (eventCounts.get(path) ?? 0) + 1);
+  }
+
+  for (const [path, durationSeconds] of durationByPath.entries()) {
+    stats.set(path, {
+      durationSeconds,
+      events: eventCounts.get(path) ?? 0,
+      hourly: hourlyByPath.get(path) ?? Array(24).fill(0),
+    });
   }
 
   const sorted = Array.from(stats.entries()).sort((a, b) => b[1].durationSeconds - a[1].durationSeconds);

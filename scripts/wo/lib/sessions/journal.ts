@@ -1,5 +1,11 @@
-import { execSync, spawnSync } from "node:child_process";
-import type { AWEvent } from "./activitywatch";
+import { spawnSync } from "node:child_process";
+import {
+  aggregateUniqueDuration,
+  aggregateUniqueDurationByDataKey,
+  aggregateUniqueDurationByHour,
+  collectDataKeyByHour,
+  type AWEvent,
+} from "./activitywatch";
 
 export type HourlyBucket = {
   hour: number;
@@ -105,60 +111,22 @@ export const getCommitsForWorktree = (
   }
 };
 
-export const bucketEventsByHour = (
-  events: AWEvent[],
-  date: Date,
-): Map<number, AWEvent[]> => {
-  const buckets = new Map<number, AWEvent[]>();
-
-  // Initialize all hours
-  for (let h = 0; h < 24; h++) {
-    buckets.set(h, []);
-  }
-
-  for (const event of events) {
-    const eventTime = new Date(event.timestamp);
-    const hour = eventTime.getHours();
-    const existing = buckets.get(hour) ?? [];
-    existing.push(event);
-    buckets.set(hour, existing);
-  }
-
-  return buckets;
-};
-
 export const buildHourlyBreakdown = (
   events: AWEvent[],
   date: Date,
 ): HourlyBucket[] => {
-  const eventsByHour = bucketEventsByHour(events, date);
-  const worktreePaths = new Set<string>();
-
-  // Collect all unique worktree paths
-  for (const event of events) {
-    const path = event.data.pane_path as string | undefined;
-    if (path) {
-      worktreePaths.add(path);
-    }
-  }
+  const hourDurations = aggregateUniqueDurationByHour(events);
+  const worktreesByHour = collectDataKeyByHour(events, "pane_path");
 
   const hourlyBuckets: HourlyBucket[] = [];
 
   for (let hour = 0; hour < 24; hour++) {
-    const hourEvents = eventsByHour.get(hour) ?? [];
-    if (hourEvents.length === 0) {
+    const durationSeconds = hourDurations.get(hour) ?? 0;
+    if (durationSeconds === 0) {
       continue;
     }
 
-    const durationSeconds = hourEvents.reduce((sum, e) => sum + e.duration, 0);
-    const worktrees = new Set<string>();
-
-    for (const event of hourEvents) {
-      const path = event.data.pane_path as string | undefined;
-      if (path) {
-        worktrees.add(path);
-      }
-    }
+    const worktrees = worktreesByHour.get(hour) ?? new Set<string>();
 
     // Get commits for this hour from all touched worktrees
     const startTime = new Date(date);
@@ -189,15 +157,10 @@ export const buildWorktreeSummaries = (
   hourlyBuckets: HourlyBucket[],
 ): WorktreeSummary[] => {
   const summaryMap = new Map<string, { duration: number; commits: number }>();
+  const durationByPath = aggregateUniqueDurationByDataKey(events, "pane_path");
 
-  // Aggregate duration by pane_path
-  for (const event of events) {
-    const path = event.data.pane_path as string | undefined;
-    if (!path) continue;
-
-    const existing = summaryMap.get(path) ?? { duration: 0, commits: 0 };
-    existing.duration += event.duration;
-    summaryMap.set(path, existing);
+  for (const [path, duration] of durationByPath.entries()) {
+    summaryMap.set(path, { duration, commits: 0 });
   }
 
   // Count commits per worktree
@@ -276,7 +239,7 @@ export const buildJournalEntry = (
   events: AWEvent[],
   date: Date,
 ): JournalEntry => {
-  const totalSeconds = events.reduce((sum, e) => sum + e.duration, 0);
+  const totalSeconds = aggregateUniqueDuration(events);
   const hourlyBreakdown = buildHourlyBreakdown(events, date);
   const worktreeSummaries = buildWorktreeSummaries(events, hourlyBreakdown);
 

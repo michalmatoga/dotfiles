@@ -23,10 +23,9 @@ import { dirname, join } from "node:path";
 import {
   getEvents,
   getTodayTimeRange,
-  aggregateEventDurations,
-  groupEventsByData,
+  aggregateUniqueDuration,
+  aggregateUniqueDurationByDataKey,
   isServerAvailable,
-  type AWEvent,
 } from "../lib/sessions/activitywatch";
 
 const STATUS_FILE = join(homedir(), ".wo", "session-status");
@@ -110,14 +109,8 @@ const fetchTodayStats = async (config: Config): Promise<SessionStats | null> => 
 
   try {
     const events = await getEvents(bucketId, { start, end });
-    const totalSeconds = aggregateEventDurations(events);
-    const byWorktree = new Map<string, number>();
-
-    // Group by pane_path and sum durations
-    const grouped = groupEventsByData(events, "pane_path");
-    for (const [path, pathEvents] of Array.from(grouped.entries())) {
-      byWorktree.set(path, aggregateEventDurations(pathEvents));
-    }
+    const totalSeconds = aggregateUniqueDuration(events);
+    const byWorktree = aggregateUniqueDurationByDataKey(events, "pane_path");
 
     const limitSeconds = config.limitMinutes * 60;
     const remainingSeconds = Math.max(0, limitSeconds - totalSeconds);
