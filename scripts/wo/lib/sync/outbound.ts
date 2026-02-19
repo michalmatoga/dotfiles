@@ -9,6 +9,7 @@ import {
   type ProjectMetaSnapshot,
 } from "../state/snapshots";
 import { writeEvent } from "../state/events";
+import { recordCardMove } from "../metrics/lifecycle";
 
 export const syncOutbound = async (options: {
   boardId: string;
@@ -22,6 +23,14 @@ export const syncOutbound = async (options: {
   const snapshot = await readLatestSnapshot();
   const previous = snapshot?.trello ?? {};
   const now = new Date().toISOString();
+
+  // Build reverse map from label ID to name
+  const labelById = new Map<string, string>();
+  for (const label of context.labels) {
+    if (label.name) {
+      labelById.set(label.id, label.name);
+    }
+  }
 
   const schibstedLabelId = context.labelByName.get(labelNames.schibsted)?.id;
   if (!schibstedLabelId) {
@@ -84,6 +93,20 @@ export const syncOutbound = async (options: {
           labels: card.idLabels,
           name: card.name,
         },
+      });
+
+      // Record metrics for card lifecycle tracking
+      const labelNamesList = card.idLabels
+        .map((id) => labelById.get(id))
+        .filter((name): name is string => name !== undefined);
+
+      await recordCardMove({
+        cardId: card.id,
+        url: meta.url,
+        fromList: prevListName,
+        toList: listName,
+        labels: labelNamesList,
+        now,
       });
     }
 
