@@ -66,4 +66,15 @@ export PATH="$HOME/.cache/npm/global/bin:$HOME/.nix-profile/bin:$HOME/.local/sta
 
 cd "$DOTFILES_DIR"
 
+lock_file="${XDG_RUNTIME_DIR:-/tmp}/wo-sync.lock"
+if command -v flock >/dev/null 2>&1; then
+  exec 9>"$lock_file"
+  if ! flock -n 9; then
+    echo "[wo-run] Another wo-sync is already running; exiting"
+    exit 0
+  fi
+else
+  echo "[wo-run] Warning: flock not found; running without lock" >&2
+fi
+
 exec npx --yes tsx "$DOTFILES_DIR/scripts/wo/main.ts" "$@"

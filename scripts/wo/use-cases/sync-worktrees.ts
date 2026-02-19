@@ -1,3 +1,5 @@
+import { access } from "node:fs/promises";
+
 import { listNames } from "../lib/policy/mapping";
 import { readJsonlEntries } from "../lib/state/jsonl";
 import { readLatestSnapshot, writeSnapshot } from "../lib/state/snapshots";
@@ -74,6 +76,15 @@ const isAfter = (ts: string, last: string | null) => {
   return new Date(ts).getTime() > new Date(last).getTime();
 };
 
+const pathExists = async (path: string): Promise<boolean> => {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 export const syncWorktreesUseCase = async (options: { verbose: boolean }) => {
   const snapshot = await readLatestSnapshot();
   const lastEventTs = snapshot?.worktrees?.lastEventTs ?? null;
@@ -103,6 +114,51 @@ export const syncWorktreesUseCase = async (options: { verbose: boolean }) => {
     const title = (await fetchTitle(url)) ?? name ?? "work";
 
     if (toList === listNames.doing) {
+      const existingPath = worktreeMap[url];
+      if (existingPath && (await pathExists(existingPath))) {
+        await writeEvent({
+          ts: event.ts,
+          type: "worktree.skipped.exists",
+          payload: { cardId, url, path: existingPath },
+        });
+        if (sessionTriggerLists.includes(toList)) {
+          const session = await initializeWorkSession({
+            url,
+            worktreePath: existingPath,
+            verbose: options.verbose,
+          });
+          const eventType = session.status === "exists" ? "tmux.session.exists" : "tmux.session.created";
+          await writeEvent({
+            ts: new Date().toISOString(),
+            type: eventType,
+            payload: {
+              cardId,
+              url,
+              sessionName: session.sessionName,
+              sessionId: session.sessionId,
+              title: session.title,
+              kind: session.kind,
+              worktreePath: existingPath,
+            },
+          });
+          if (session.sessionId) {
+            await writeEvent({
+              ts: new Date().toISOString(),
+              type: "opencode.session.created",
+              payload: {
+                cardId,
+                url,
+                sessionId: session.sessionId,
+                title: session.title,
+                kind: session.kind,
+                worktreePath: existingPath,
+              },
+            });
+          }
+        }
+        continue;
+      }
+
       const result = await ensureWorktreeForUrl({
         url,
         title,
