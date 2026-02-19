@@ -141,6 +141,25 @@ const getActivePaneInfo = (): TmuxPaneInfo | null => {
   };
 };
 
+const getLastClientActivityMs = (): number | null => {
+  const clientOutput = runTmux(["list-clients", "-F", "#{client_activity}"]);
+  if (!clientOutput) {
+    return null;
+  }
+
+  const activities = clientOutput
+    .split("\n")
+    .map((line) => Number(line.trim()))
+    .filter((value) => Number.isFinite(value) && value > 0);
+
+  if (activities.length === 0) {
+    return null;
+  }
+
+  const mostRecent = Math.max(...activities);
+  return mostRecent * 1000;
+};
+
 const getBucketId = (): string => {
   const host = hostname();
   return `aw-watcher-tmux_${host}`;
@@ -247,9 +266,8 @@ const runDaemon = async (args: ParsedArgs): Promise<void> => {
   process.on("SIGTERM", cleanup);
 
   // Polling loop as fallback and for initial state
-  // Track pane state for idle detection
+  // Track pane state for metadata logging
   let lastPaneStateKey = "";
-  let lastStateChangeTime = Date.now();
 
   const poll = async () => {
     if (!isTmuxRunning()) {
@@ -271,17 +289,22 @@ const runDaemon = async (args: ParsedArgs): Promise<void> => {
         console.log(`[${new Date().toLocaleTimeString()}] Pane changed: ${pane.sessionName} @ ${pane.panePath} (${pane.paneCmd})`);
       }
       lastPaneStateKey = currentPaneKey;
-      lastStateChangeTime = now;
-    } else {
-      // Pane unchanged - check idle threshold
-      const idleDuration = now - lastStateChangeTime;
-      if (idleDuration > idleThresholdMs) {
-        // Pane has been idle for too long - skip heartbeat
-        if (verbose) {
-          console.log(`[${new Date().toLocaleTimeString()}] Skipping heartbeat - pane idle for ${Math.round(idleDuration / 1000)}s`);
-        }
-        return;
+    }
+
+    const lastClientActivityMs = getLastClientActivityMs();
+    if (!lastClientActivityMs) {
+      if (verbose) {
+        console.log(`[${new Date().toLocaleTimeString()}] Skipping heartbeat - no active tmux clients`);
       }
+      return;
+    }
+
+    const idleDuration = now - lastClientActivityMs;
+    if (idleDuration > idleThresholdMs) {
+      if (verbose) {
+        console.log(`[${new Date().toLocaleTimeString()}] Skipping heartbeat - client idle for ${Math.round(idleDuration / 1000)}s`);
+      }
+      return;
     }
 
     try {
