@@ -67,7 +67,7 @@ export const reconcileReviewLifecycle = async (options: {
     if (options.verbose) {
       console.log(`Moving review card ${card.id} to Done (approved).`);
     }
-    await updateCard({ cardId: card.id, listId: doneList.id });
+    await updateCard({ cardId: card.id, listId: doneList.id, pos: "top" });
     await writeEvent({
       ts: new Date().toISOString(),
       type: "trello.review.done",

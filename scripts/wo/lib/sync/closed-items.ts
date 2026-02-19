@@ -66,7 +66,7 @@ export const moveClosedItemsToDone = async (options: {
     if (options.verbose) {
       console.log(`Moving closed item to Done: ${item.url}`);
     }
-    await updateCard({ cardId: card.id, listId: doneList.id, desc });
+    await updateCard({ cardId: card.id, listId: doneList.id, desc, pos: "top" });
     await writeEvent({
       ts: now,
       type: "trello.card.done.closed",
