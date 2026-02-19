@@ -5,13 +5,15 @@
  *
  * Tracks active time in tmux sessions by sending heartbeats to ActivityWatch.
  * Uses tmux hooks for pane focus changes with periodic polling as fallback.
+ * Includes idle detection to prevent over-reporting when terminal loses focus.
  *
  * Usage:
- *   npx tsx scripts/wo/bin/aw-watcher-tmux.ts [--poll-interval <ms>] [--pulsetime <s>]
+ *   npx tsx scripts/wo/bin/aw-watcher-tmux.ts [--poll-interval <ms>] [--pulsetime <s>] [--verbose]
  *
  * Environment:
  *   AW_HOST - ActivityWatch server host (default: localhost)
  *   AW_PORT - ActivityWatch server port (default: 5601)
+ *   AW_IDLE_THRESHOLD_MS - Milliseconds of inactivity before skipping heartbeats (default: 60000)
  */
 
 import { hostname } from "node:os";
@@ -23,6 +25,7 @@ const BUCKET_TYPE = "tmux.pane.activity";
 const CLIENT_NAME = "aw-watcher-tmux";
 const DEFAULT_POLL_INTERVAL_MS = 30_000;
 const DEFAULT_PULSETIME_S = 60;
+const DEFAULT_IDLE_THRESHOLD_MS = 60_000; // 1 minute default idle threshold
 
 type TmuxPaneInfo = {
   sessionName: string;
@@ -32,10 +35,18 @@ type TmuxPaneInfo = {
   windowName: string;
 };
 
-const parseArgs = () => {
+type ParsedArgs = {
+  pollInterval: number;
+  pulsetime: number;
+  verbose: boolean;
+  idleThresholdMs: number;
+};
+
+const parseArgs = (): ParsedArgs => {
   const args = process.argv.slice(2);
   let pollInterval = DEFAULT_POLL_INTERVAL_MS;
   let pulsetime = DEFAULT_PULSETIME_S;
+  let verbose = false;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--poll-interval" && args[i + 1]) {
@@ -44,10 +55,15 @@ const parseArgs = () => {
     } else if (args[i] === "--pulsetime" && args[i + 1]) {
       pulsetime = Number(args[i + 1]);
       i++;
+    } else if (args[i] === "--verbose") {
+      verbose = true;
     }
   }
 
-  return { pollInterval, pulsetime };
+  // Parse idle threshold from environment variable (allows user customization)
+  const idleThresholdMs = Number(process.env.AW_IDLE_THRESHOLD_MS) || DEFAULT_IDLE_THRESHOLD_MS;
+
+  return { pollInterval, pulsetime, verbose, idleThresholdMs };
 };
 
 const runTmux = (args: string[]): string | null => {
@@ -184,8 +200,15 @@ const runSingleHeartbeat = async (pulsetime: number): Promise<void> => {
   await sendHeartbeat(bucketId, pane, pulsetime);
 };
 
-const runDaemon = async (pollInterval: number, pulsetime: number): Promise<void> => {
-  console.log(`aw-watcher-tmux starting (poll: ${pollInterval}ms, pulsetime: ${pulsetime}s)`);
+// Generate a unique key for pane state comparison
+const getPaneStateKey = (pane: TmuxPaneInfo): string => {
+  return `${pane.paneId}:${pane.panePath}:${pane.paneCmd}`;
+};
+
+const runDaemon = async (args: ParsedArgs): Promise<void> => {
+  const { pollInterval, pulsetime, verbose, idleThresholdMs } = args;
+
+  console.log(`aw-watcher-tmux starting (poll: ${pollInterval}ms, pulsetime: ${pulsetime}s, idle-threshold: ${idleThresholdMs}ms)`);
 
   // Wait for AW server to be available
   let retries = 0;
@@ -224,7 +247,10 @@ const runDaemon = async (pollInterval: number, pulsetime: number): Promise<void>
   process.on("SIGTERM", cleanup);
 
   // Polling loop as fallback and for initial state
-  let lastPanePath = "";
+  // Track pane state for idle detection
+  let lastPaneStateKey = "";
+  let lastStateChangeTime = Date.now();
+
   const poll = async () => {
     if (!isTmuxRunning()) {
       return;
@@ -235,14 +261,34 @@ const runDaemon = async (pollInterval: number, pulsetime: number): Promise<void>
       return;
     }
 
-    // Log when pane changes
-    if (pane.panePath !== lastPanePath) {
-      console.log(`Active: ${pane.sessionName} @ ${pane.panePath} (${pane.paneCmd})`);
-      lastPanePath = pane.panePath;
+    const currentPaneKey = getPaneStateKey(pane);
+    const now = Date.now();
+
+    // Check if pane state changed
+    if (currentPaneKey !== lastPaneStateKey) {
+      // Pane changed - update tracking and send heartbeat
+      if (verbose && lastPaneStateKey) {
+        console.log(`[${new Date().toLocaleTimeString()}] Pane changed: ${pane.sessionName} @ ${pane.panePath} (${pane.paneCmd})`);
+      }
+      lastPaneStateKey = currentPaneKey;
+      lastStateChangeTime = now;
+    } else {
+      // Pane unchanged - check idle threshold
+      const idleDuration = now - lastStateChangeTime;
+      if (idleDuration > idleThresholdMs) {
+        // Pane has been idle for too long - skip heartbeat
+        if (verbose) {
+          console.log(`[${new Date().toLocaleTimeString()}] Skipping heartbeat - pane idle for ${Math.round(idleDuration / 1000)}s`);
+        }
+        return;
+      }
     }
 
     try {
       await sendHeartbeat(bucketId, pane, pulsetime);
+      if (verbose) {
+        console.log(`[${new Date().toLocaleTimeString()}] Heartbeat sent: ${pane.sessionName} @ ${pane.panePath}`);
+      }
     } catch (error) {
       console.error("Heartbeat failed:", error instanceof Error ? error.message : String(error));
     }
@@ -261,9 +307,10 @@ const runDaemon = async (pollInterval: number, pulsetime: number): Promise<void>
 
   if (isHook) {
     // Called from tmux hook - send single heartbeat and exit
+    // Hooks always send heartbeats (they indicate user activity)
     await runSingleHeartbeat(args.pulsetime);
   } else {
     // Run as daemon
-    await runDaemon(args.pollInterval, args.pulsetime);
+    await runDaemon(args);
   }
 })();
