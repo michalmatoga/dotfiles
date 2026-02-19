@@ -570,6 +570,20 @@ in
     };
   };
 
+  systemd.user.timers.wo-session-monitor = {
+    Unit = {
+      Description = "Run work session monitor daily";
+    };
+    Timer = {
+      OnCalendar = "*-*-* 05:00:00";
+      Persistent = true;
+      Unit = "wo-session-monitor.service";
+    };
+    Install = {
+      WantedBy = [ "timers.target" ];
+    };
+  };
+
   # Generate per-host .npmrc and .env files for Schibsted repos from secrets.json
   # Uses direnv with recursive .env loading (see .config/direnv/direnvrc)
   home.activation.generateNpmrc = lib.hm.dag.entryAfter ["writeBoundary"] ''

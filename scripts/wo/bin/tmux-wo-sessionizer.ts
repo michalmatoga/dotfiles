@@ -608,12 +608,19 @@ const gatherEntries = () => {
       }
       const normalized = normalizePath(path);
       const rel = relative(ghqRoot, normalized).split("/");
+      let leaf: string | null = null;
+      if (existsSync(join(normalized, ".git/refs/heads/main"))) {
+        leaf = "main";
+      } else if (existsSync(join(normalized, ".git/refs/heads/master"))) {
+        leaf = "master";
+      }
       entries.push({
         path: normalized,
         kind: "repo",
         host: rel[0] ?? null,
         owner: rel[1] ?? null,
         repo: rel[2] ?? null,
+        leaf,
       });
     }
   }
@@ -628,10 +635,6 @@ const formatEntry = (
   runningSessions: Set<string>,
   runningPaths: Set<string>,
 ): { line: string; rank: number; label: string } => {
-  if (entry.kind === "repo") {
-    const label = `○ ${formatRepoLabel(entry)}`;
-    return { line: `${label}${delimiter}${entry.path}`, rank: 2, label };
-  }
   const sessionId = sessionIdByPath.get(normalizePath(entry.path)) ?? null;
   const status = sessionId ? statusBySession.get(sessionId) : null;
   const isActive =

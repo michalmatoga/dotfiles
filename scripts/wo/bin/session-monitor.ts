@@ -369,8 +369,8 @@ const runMonitor = async (config: Config): Promise<void> => {
     if (!stats.isOverLimit) {
       if (graceDeadline) {
         graceDeadline = null;
-        await clearAlertFile();
       }
+      await clearAlertFile();
       return;
     }
 
