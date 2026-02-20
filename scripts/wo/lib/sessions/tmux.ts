@@ -16,6 +16,7 @@ type UrlInfo = {
 export type SessionInitResult = {
   sessionName: string;
   sessionId: string | null;
+  logPath?: string | null;
   title: string;
   kind: "issue" | "pr";
   status: "created" | "exists";
@@ -140,6 +141,7 @@ export const initializeWorkSession = async (options: {
     return {
       sessionName,
       sessionId: null,
+      logPath: null,
       title: "",
       kind: info.kind,
       status: "exists",
@@ -148,7 +150,7 @@ export const initializeWorkSession = async (options: {
 
   const title = buildTitle(info, await fetchTitle(options.url, info));
   const prompt = await buildPrompt(info, options.url);
-  const sessionId = await runInitialOpencode({
+  const { sessionId, logPath } = await runInitialOpencode({
     title,
     prompt,
     cwd: options.worktreePath,
@@ -166,6 +168,7 @@ export const initializeWorkSession = async (options: {
   return {
     sessionName,
     sessionId,
+    logPath,
     title,
     kind: info.kind,
     status: "created",
