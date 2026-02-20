@@ -5,7 +5,12 @@ import { readJsonlEntries } from "../lib/state/jsonl";
 import { readLatestSnapshot, writeSnapshot } from "../lib/state/snapshots";
 import { writeEvent } from "../lib/state/events";
 import { ghJson } from "../lib/gh/gh";
-import { ensureWorktreeForUrl, removeWorktreeForUrl } from "../lib/worktrees/worktrees";
+import {
+  buildWorktreePath,
+  ensureWorktreeForUrl,
+  removeWorktreeForUrl,
+  resolveWorkItemName,
+} from "../lib/worktrees/worktrees";
 import { cleanupWorkSession, initializeWorkSession } from "../lib/sessions/tmux";
 
 type TrelloMovedEvent = {
@@ -159,6 +164,53 @@ export const syncWorktreesUseCase = async (options: { verbose: boolean }) => {
         continue;
       }
 
+      const resolvedName = resolveWorkItemName({ url, title });
+      const deterministicPath = resolvedName ? buildWorktreePath(url, resolvedName) : null;
+      if (deterministicPath && (await pathExists(deterministicPath))) {
+        worktreeMap[url] = deterministicPath;
+        await writeEvent({
+          ts: event.ts,
+          type: "worktree.skipped.exists",
+          payload: { cardId, url, path: deterministicPath },
+        });
+        if (sessionTriggerLists.includes(toList)) {
+          const session = await initializeWorkSession({
+            url,
+            worktreePath: deterministicPath,
+            verbose: options.verbose,
+          });
+          const eventType = session.status === "exists" ? "tmux.session.exists" : "tmux.session.created";
+          await writeEvent({
+            ts: new Date().toISOString(),
+            type: eventType,
+            payload: {
+              cardId,
+              url,
+              sessionName: session.sessionName,
+              sessionId: session.sessionId,
+              title: session.title,
+              kind: session.kind,
+              worktreePath: deterministicPath,
+            },
+          });
+          if (session.sessionId) {
+            await writeEvent({
+              ts: new Date().toISOString(),
+              type: "opencode.session.created",
+              payload: {
+                cardId,
+                url,
+                sessionId: session.sessionId,
+                title: session.title,
+                kind: session.kind,
+                worktreePath: deterministicPath,
+              },
+            });
+          }
+        }
+        continue;
+      }
+
       const result = await ensureWorktreeForUrl({
         url,
         title,
@@ -178,19 +230,6 @@ export const syncWorktreesUseCase = async (options: { verbose: boolean }) => {
         payload: { cardId, url, branch: result.branch, path: result.worktreePath },
       });
       worktreeMap[url] = result.worktreePath;
-      if (result.fallbackUsed) {
-        await writeEvent({
-          ts: event.ts,
-          type: "worktree.name.fallback",
-          payload: {
-            cardId,
-            url,
-            branch: result.branch,
-            path: result.worktreePath,
-            reason: result.fallbackReason,
-          },
-        });
-      }
 
       if (sessionTriggerLists.includes(toList)) {
         const session = await initializeWorkSession({
@@ -260,19 +299,6 @@ export const syncWorktreesUseCase = async (options: { verbose: boolean }) => {
         payload: { cardId, url, branch: result.branch, path: result.worktreePath },
       });
       delete worktreeMap[url];
-      if (result.fallbackUsed) {
-        await writeEvent({
-          ts: event.ts,
-          type: "worktree.name.fallback",
-          payload: {
-            cardId,
-            url,
-            branch: result.branch,
-            path: result.worktreePath,
-            reason: result.fallbackReason,
-          },
-        });
-      }
       const cleanup = await cleanupWorkSession({
         worktreePath: result.worktreePath,
         verbose: options.verbose,

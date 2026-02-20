@@ -1,6 +1,6 @@
-import { access } from "node:fs/promises";
+import { access, cp, mkdir } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, isAbsolute, join, resolve } from "node:path";
 
 import { runCommand, runCommandCapture } from "../command";
 
@@ -15,12 +15,6 @@ type ParsedUrl = {
 type WorktreeResult = {
   branch: string;
   worktreePath: string;
-};
-
-type ResolvedName = {
-  name: string;
-  fallbackUsed: boolean;
-  fallbackReason: "branch" | "path" | null;
 };
 
 const sshUserForHost = (host: string) => (host === "schibsted.ghe.com" ? "schibsted" : "git");
@@ -58,6 +52,51 @@ const pathExists = async (path: string): Promise<boolean> => {
   }
 };
 
+const resolveGitPath = async (repoPath: string, gitPath: string): Promise<string> => {
+  const output = await runCommandCapture("git", ["-C", repoPath, "rev-parse", "--git-path", gitPath]);
+  const resolved = output.trim();
+  if (isAbsolute(resolved)) {
+    return resolved;
+  }
+  return resolve(repoPath, resolved);
+};
+
+const resolveGitCryptStatePath = async (repoPath: string): Promise<string | null> => {
+  const candidates = ["common/git-crypt", "git-crypt"];
+  for (const candidate of candidates) {
+    const gitCryptPath = await resolveGitPath(repoPath, candidate);
+    const keyPath = join(gitCryptPath, "keys", "default");
+    if (await pathExists(keyPath)) {
+      return gitCryptPath;
+    }
+  }
+  return null;
+};
+
+const ensureGitCryptStateInWorktree = async (sourcePath: string, worktreePath: string) => {
+  const targetPath = await resolveGitPath(worktreePath, "git-crypt");
+  await mkdir(dirname(targetPath), { recursive: true });
+  await cp(sourcePath, targetPath, { recursive: true, force: true });
+};
+
+const addWorktreeNoCheckout = async (
+  repoPath: string,
+  worktreePath: string,
+  branch: string,
+  options: { verbose: boolean },
+) => {
+  try {
+    await runCommand("gwq", ["add", "--no-checkout", branch, worktreePath], {
+      cwd: repoPath,
+      verbose: options.verbose,
+    });
+  } catch {
+    await runCommand("git", ["-C", repoPath, "worktree", "add", "--no-checkout", worktreePath, branch], {
+      verbose: options.verbose,
+    });
+  }
+};
+
 const ensureRepoCloned = async (parsed: ParsedUrl, options: { verbose: boolean }) => {
   const repoPath = resolveRepoPath(parsed);
   if (await pathExists(repoPath)) {
@@ -90,31 +129,17 @@ const slugify = (value: string) => {
   return trimmed.length > 50 ? trimmed.slice(0, 50) : trimmed;
 };
 
-export const resolveWorkItemName = async (options: {
-  url: string;
-  title: string;
-  repoPath: string;
-  worktreeRoot: string;
-}): Promise<ResolvedName | null> => {
+export const resolveWorkItemName = (options: { url: string; title: string }): string | null => {
   const parsed = parseGitHubUrl(options.url);
   if (!parsed) {
     return null;
   }
   const slug = slugify(options.title);
   const baseName = `${parsed.number}-${slug}`;
-  const basePath = join(options.worktreeRoot, baseName);
-  const branchUsed = await branchExists(options.repoPath, baseName);
-  const pathUsed = await pathExists(basePath);
-  if (!branchUsed && !pathUsed) {
-    return { name: baseName, fallbackUsed: false, fallbackReason: null };
+  if (parsed.kind === "pr") {
+    return `pr-${baseName}`;
   }
-  const prefix = parsed.kind === "pr" ? "pr" : "issue";
-  const fallbackName = `${prefix}-${baseName}`;
-  return {
-    name: fallbackName,
-    fallbackUsed: true,
-    fallbackReason: branchUsed ? "branch" : "path",
-  };
+  return baseName;
 };
 
 const resolveDefaultBranch = async (repoPath: string): Promise<string> => {
@@ -184,24 +209,23 @@ export const ensureWorktreeForUrl = async (options: {
   title: string;
   path?: string | null;
   verbose: boolean;
-}): Promise<(WorktreeResult & ResolvedName) | null> => {
+}): Promise<WorktreeResult | null> => {
   const parsed = parseGitHubUrl(options.url);
   if (!parsed) {
     return null;
   }
   const repoPath = await ensureRepoCloned(parsed, options);
   const worktreeRoot = join(homedir(), "gwq", parsed.host, parsed.owner, parsed.repo);
-  const resolved = await resolveWorkItemName({
-    url: options.url,
-    title: options.title,
-    repoPath,
-    worktreeRoot,
-  });
-  if (!resolved) {
+  const resolvedName = resolveWorkItemName({ url: options.url, title: options.title });
+  if (!resolvedName) {
     return null;
   }
 
-  const branch = resolved.name;
+  const branch = resolvedName;
+  const worktreePath = options.path ?? join(worktreeRoot, sanitizeBranch(branch));
+  if (await pathExists(worktreePath)) {
+    return { branch, worktreePath };
+  }
 
   if (parsed.kind === "issue") {
     await ensureIssueBranch(repoPath, branch, options);
@@ -209,21 +233,26 @@ export const ensureWorktreeForUrl = async (options: {
     await ensurePrBranch(repoPath, parsed.number, branch, options);
   }
 
-  const worktreePath = options.path ?? join(worktreeRoot, sanitizeBranch(branch));
-  if (await pathExists(worktreePath)) {
-    return { branch, worktreePath, ...resolved };
+  const gitCryptStatePath = await resolveGitCryptStatePath(repoPath);
+
+  if (gitCryptStatePath) {
+    await addWorktreeNoCheckout(repoPath, worktreePath, branch, options);
+    await ensureGitCryptStateInWorktree(gitCryptStatePath, worktreePath);
+    await runCommand("git", ["-C", worktreePath, "checkout", branch], {
+      verbose: options.verbose,
+    });
+  } else {
+    const args = ["add", branch];
+    if (worktreePath) {
+      args.push(worktreePath);
+    }
+    await runCommand("gwq", args, {
+      cwd: repoPath,
+      verbose: options.verbose,
+    });
   }
 
-  const args = ["add", branch];
-  if (worktreePath) {
-    args.push(worktreePath);
-  }
-  await runCommand("gwq", args, {
-    cwd: repoPath,
-    verbose: options.verbose,
-  });
-
-  return { branch, worktreePath, ...resolved };
+  return { branch, worktreePath };
 };
 
 export const removeWorktreeForUrl = async (options: {
@@ -231,23 +260,18 @@ export const removeWorktreeForUrl = async (options: {
   title: string;
   path?: string | null;
   verbose: boolean;
-}): Promise<(WorktreeResult & ResolvedName) | "dirty" | null> => {
+}): Promise<WorktreeResult | "dirty" | null> => {
   const parsed = parseGitHubUrl(options.url);
   if (!parsed) {
     return null;
   }
   const repoPath = await ensureRepoCloned(parsed, options);
   const worktreeRoot = join(homedir(), "gwq", parsed.host, parsed.owner, parsed.repo);
-  const resolved = await resolveWorkItemName({
-    url: options.url,
-    title: options.title,
-    repoPath,
-    worktreeRoot,
-  });
-  if (!resolved) {
+  const resolvedName = resolveWorkItemName({ url: options.url, title: options.title });
+  if (!resolvedName) {
     return null;
   }
-  const branch = resolved.name;
+  const branch = resolvedName;
   const worktreePath = options.path ?? join(worktreeRoot, sanitizeBranch(branch));
 
   if (!(await pathExists(worktreePath))) {
@@ -265,5 +289,5 @@ export const removeWorktreeForUrl = async (options: {
     verbose: options.verbose,
   });
 
-  return { branch, worktreePath, ...resolved };
+  return { branch, worktreePath };
 };
