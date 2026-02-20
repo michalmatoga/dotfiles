@@ -64,15 +64,24 @@ export const runInitialOpencode = async (options: {
   if (options.verbose) {
     console.log(`$ opencode ${args.join(" ")} > ${logPath}`);
   }
+  let spawnError: Error | null = null;
   try {
     const child = spawn("opencode", args, {
       cwd: options.cwd,
       detached: true,
       stdio: ["ignore", logFd, logFd],
     });
+    child.on("error", (error) => {
+      spawnError = error;
+    });
     child.unref();
   } finally {
     closeSync(logFd);
+  }
+
+  await new Promise((resolve) => setImmediate(resolve));
+  if (spawnError) {
+    throw spawnError;
   }
 
   const sessionId = await waitForSessionId(options.cwd, 15_000);

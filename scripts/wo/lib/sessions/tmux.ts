@@ -86,7 +86,7 @@ const buildTitle = (info: UrlInfo, title: string) => {
 const createDetachedSession = async (options: {
   sessionName: string;
   worktreePath: string;
-  opencodeResumeCommand: string;
+  opencodeResumeCommand?: string | null;
   verbose: boolean;
 }) => {
   await runCommand("tmux", ["new-session", "-d", "-s", options.sessionName, "-c", options.worktreePath], {
@@ -98,9 +98,11 @@ const createDetachedSession = async (options: {
   await runCommand("tmux", ["resize-pane", "-t", options.sessionName, "-x", "93"], {
     verbose: options.verbose,
   });
-  await runCommand("tmux", ["send-keys", "-t", options.sessionName, options.opencodeResumeCommand, "C-m"], {
-    verbose: options.verbose,
-  });
+  if (options.opencodeResumeCommand) {
+    await runCommand("tmux", ["send-keys", "-t", options.sessionName, options.opencodeResumeCommand, "C-m"], {
+      verbose: options.verbose,
+    });
+  }
 };
 
 export type SessionCleanupResult = {
@@ -128,7 +130,14 @@ export const initializeWorkSession = async (options: {
   worktreePath: string;
   verbose: boolean;
 }): Promise<SessionInitResult> => {
-  await ensureCommandAvailable("opencode");
+  let opencodeAvailable = true;
+  try {
+    await ensureCommandAvailable("opencode");
+  } catch (error) {
+    opencodeAvailable = false;
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(`opencode unavailable: ${message}`);
+  }
   await ensureCommandAvailable("tmux");
 
   const info = parseUrlInfo(options.url);
@@ -150,13 +159,25 @@ export const initializeWorkSession = async (options: {
 
   const title = buildTitle(info, await fetchTitle(options.url, info));
   const prompt = await buildPrompt(info, options.url);
-  const { sessionId, logPath } = await runInitialOpencode({
-    title,
-    prompt,
-    cwd: options.worktreePath,
-    verbose: options.verbose,
-  });
-  const opencodeResumeCommand = buildOpencodeResumeCommand(sessionId);
+  let sessionId: string | null = null;
+  let logPath: string | null = null;
+  let opencodeResumeCommand: string | null = null;
+  if (opencodeAvailable) {
+    try {
+      const result = await runInitialOpencode({
+        title,
+        prompt,
+        cwd: options.worktreePath,
+        verbose: options.verbose,
+      });
+      sessionId = result.sessionId;
+      logPath = result.logPath;
+      opencodeResumeCommand = buildOpencodeResumeCommand(result.sessionId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(`opencode failed: ${message}`);
+    }
+  }
 
   await createDetachedSession({
     sessionName,
