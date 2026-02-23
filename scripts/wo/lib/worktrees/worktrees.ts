@@ -86,7 +86,7 @@ const addWorktreeNoCheckout = async (
   options: { verbose: boolean },
 ) => {
   try {
-    await runCommand("gwq", ["add", "--no-checkout", branch, worktreePath], {
+    await runCommand("gwq", ["add", branch, worktreePath], {
       cwd: repoPath,
       verbose: options.verbose,
     });

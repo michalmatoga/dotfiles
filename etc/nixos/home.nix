@@ -458,7 +458,7 @@ in
     Service = {
       Type = "oneshot";
       Environment = [
-        "PATH=${pkgs.dash}/bin:${pkgs.bash}/bin:${pkgs.nodejs_24}/bin:${pkgs.gh}/bin:/run/current-system/sw/bin"
+        "PATH=%h/.cache/npm/global/bin:${pkgs.dash}/bin:${pkgs.bash}/bin:${pkgs.nodejs_24}/bin:${pkgs.gh}/bin:/run/current-system/sw/bin"
         "SHELL=${pkgs.bash}/bin/bash"
       ];
       ExecStart = "%h/.local/bin/wo-run";
