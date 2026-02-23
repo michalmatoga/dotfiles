@@ -1,5 +1,6 @@
 tmp.md
 todo.md
+*.todo.md
 .github/issues
 /.gtm/
 AGENTS.md
