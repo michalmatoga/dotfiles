@@ -300,9 +300,6 @@ const startShutdownRitual = async (config: Config, stats: SessionStats): Promise
   // Small delay to let user see what's happening
   await new Promise((resolve) => setTimeout(resolve, 1000));
 
-  // Kill all non-protected sessions
-  killNonProtectedSessions(config.protectedSessions);
-
   // Run journal writer
   const scriptDir = dirname(process.argv[1]);
   const journalScript = join(scriptDir, "journal-write.ts");
@@ -316,6 +313,9 @@ const startShutdownRitual = async (config: Config, stats: SessionStats): Promise
     console.error("Journal writer failed; aborting shutdown ritual.");
     process.exit(1);
   }
+
+  // Kill all non-protected sessions
+  killNonProtectedSessions(config.protectedSessions);
 
   console.log("\nShutdown ritual complete. Journal session is ready.");
 };

@@ -124,18 +124,13 @@ const run = async (options: Options): Promise<void> => {
   // Write to journal
   const journalFile = getJournalFilePath(options.journalPath, options.date);
 
-  // Check if entry already exists
-  if (await journalEntryExists(journalFile, options.date)) {
-    console.log(`Journal entry already exists in ${journalFile}`);
-    console.log("\n--- SUMMARY ---\n");
-    console.log(formatted);
-    return;
-  }
-
   // Ensure directory exists
   await mkdir(dirname(journalFile), { recursive: true });
 
   // Append to journal file
+  if (await journalEntryExists(journalFile, options.date)) {
+    console.log(`Journal entry already exists in ${journalFile}; appending another entry.`);
+  }
   const separator = "\n---\n\n";
   await appendFile(journalFile, separator + formatted + "\n");
 
