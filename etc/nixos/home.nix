@@ -591,6 +591,7 @@ in
     SECRETS_FILE="$HOME/ghq/github.com/michalmatoga/dotfiles/secrets.json"
     if [ -f "$SECRETS_FILE" ]; then
       NPMRC_CONTENT=$(${pkgs.jq}/bin/jq -r '.npmrc_sch // empty' "$SECRETS_FILE" | ${pkgs.coreutils}/bin/base64 -d 2>/dev/null)
+      LINODE_TOKEN=$(${pkgs.jq}/bin/jq -r '.linode_token // empty' "$SECRETS_FILE")
       if [ -n "$NPMRC_CONTENT" ]; then
         FULL_NPMRC="$NPMRC_CONTENT
 prefix = \"/home/nixos/.cache/npm/global\""
@@ -620,7 +621,8 @@ GH_HOST=github.com' > "$GWQ_ROOT/.env"
         echo "NPM_CONFIG_USERCONFIG=$GHQ_SCH/.npmrc
 GH_USER=michal-matoga
 GH_HOST=schibsted.ghe.com
-KUBECONFIG=$HOME/ghq/github.schibsted.io/svp/infrastructure/linode/stream-kubeconfig.yaml" > "$GHQ_SCH/.env"
+KUBECONFIG=$HOME/ghq/github.schibsted.io/svp/infrastructure/linode/stream-kubeconfig.yaml
+LINODE_TOKEN=$LINODE_TOKEN" > "$GHQ_SCH/.env"
         ${pkgs.direnv}/bin/direnv allow "$GHQ_SCH/.env" 2>/dev/null || true
         rm -f "$GHQ_SCH/.envrc"
 
@@ -631,7 +633,8 @@ KUBECONFIG=$HOME/ghq/github.schibsted.io/svp/infrastructure/linode/stream-kubeco
         echo "NPM_CONFIG_USERCONFIG=$GWQ_SCH/.npmrc
 GH_USER=michal-matoga
 GH_HOST=schibsted.ghe.com
-KUBECONFIG=$HOME/ghq/github.schibsted.io/svp/infrastructure/linode/stream-kubeconfig.yaml" > "$GWQ_SCH/.env"
+KUBECONFIG=$HOME/ghq/github.schibsted.io/svp/infrastructure/linode/stream-kubeconfig.yaml
+LINODE_TOKEN=$LINODE_TOKEN" > "$GWQ_SCH/.env"
         ${pkgs.direnv}/bin/direnv allow "$GWQ_SCH/.env" 2>/dev/null || true
         rm -f "$GWQ_SCH/.envrc"
 
