@@ -5,6 +5,7 @@ import { syncTrelloToGithubUseCase } from "./use-cases/sync-trello-to-github";
 import { syncWorkItemsUseCase } from "./use-cases/sync-work-items";
 import { reconcileReviewsUseCase } from "./use-cases/reconcile-reviews";
 import { syncWorktreesUseCase } from "./use-cases/sync-worktrees";
+import { pruneWorktreesUseCase } from "./use-cases/prune-worktrees";
 
 type Mode = "all" | "init" | "sync";
 
@@ -52,6 +53,7 @@ const main = async () => {
   await syncTrelloToGithubUseCase({ verbose });
   await reconcileReviewsUseCase({ verbose });
   await syncWorktreesUseCase({ verbose });
+  await pruneWorktreesUseCase({ verbose });
 };
 
 main().catch((error) => {
