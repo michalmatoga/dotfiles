@@ -146,7 +146,7 @@ Follow these notes before making changes or running commands.
 - `scripts/update-npm-deps.ts`: updates dependency ranges; run `npm install --prefix scripts` afterward.
 - `scripts/pulumi.sh`: wraps Pulumi operations; ensure `PULUMI_CWD` env is set before execution.
 - `scripts/sync-ghec.ts`: synchronizes GitHub Enterprise Cloud repos; needs `gh auth login`.
-- `scripts/shutdown.ts` and `scripts/startup.ts`: manage daily rituals; emit console summaries only.
+- `scripts/startup.ts`: manage daily rituals; emit console summaries only.
 - `scripts/gr.sh`: triggers Git Time Metric reports; avoid changing report formats without approval.
 - `scripts/init.sh`: bootstrap script with destructive steps; never edit without explicit confirmation.
 - `scripts/prompts/*.md`: prompt templates consumed by automation; keep instructions concise and atomic.

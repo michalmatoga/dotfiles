@@ -32,7 +32,9 @@ const STATUS_FILE = join(homedir(), ".wo", "session-status");
 const ALERT_FILE = join(homedir(), ".wo", "session-alert");
 const DEFAULT_LIMIT_MINUTES = 240;
 const DEFAULT_GRACE_MINUTES = 5;
-const DEFAULT_PROTECTED_SESSIONS = ["journal", "dotfiles"];
+const SHUTDOWN_TARGET_SESSION = "ghq_gitlab_com_michalmatoga_journal";
+const SHUTDOWN_TARGET_PATH = "/home/nixos/ghq/gitlab.com/michalmatoga/journal";
+const DEFAULT_PROTECTED_SESSIONS = [SHUTDOWN_TARGET_SESSION, "dotfiles"];
 const POLL_INTERVAL_MS = 30_000;
 const ALERT_REPEAT_MINUTES = 5;
 
@@ -278,23 +280,22 @@ const killNonProtectedSessions = (protectedSessions: string[]): void => {
   }
 };
 
-const ensureJournalSession = (): void => {
+const ensureTargetSession = (sessionName: string, sessionPath: string): void => {
   const sessions = listTmuxSessions();
-  if (!sessions.includes("journal")) {
-    console.log("Creating journal session...");
-    const home = homedir();
-    runTmux(["new-session", "-d", "-s", "journal", "-c", home]);
+  if (!sessions.includes(sessionName)) {
+    console.log(`Creating ${sessionName} session...`);
+    runTmux(["new-session", "-d", "-s", sessionName, "-c", sessionPath]);
   }
 };
 
 const startShutdownRitual = async (config: Config, stats: SessionStats): Promise<void> => {
   console.log("\n=== Starting Shutdown Ritual ===\n");
 
-  // Ensure journal session exists
-  ensureJournalSession();
+  // Ensure target session exists
+  ensureTargetSession(SHUTDOWN_TARGET_SESSION, SHUTDOWN_TARGET_PATH);
 
-  // Switch current client to journal session (if tmux is attached)
-  runTmux(["switch-client", "-t", "journal"]);
+  // Switch current client to target session (if tmux is attached)
+  runTmux(["switch-client", "-t", SHUTDOWN_TARGET_SESSION]);
 
   // Small delay to let user see what's happening
   await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -306,10 +307,15 @@ const startShutdownRitual = async (config: Config, stats: SessionStats): Promise
   const scriptDir = dirname(process.argv[1]);
   const journalScript = join(scriptDir, "journal-write.ts");
   console.log("Running journal writer...");
-  spawnSync("npx", ["--yes", "tsx", journalScript], {
+  const journalResult = spawnSync("npx", ["--yes", "tsx", journalScript], {
     stdio: "inherit",
     cwd: process.cwd(),
   });
+
+  if (journalResult.status !== 0) {
+    console.error("Journal writer failed; aborting shutdown ritual.");
+    process.exit(1);
+  }
 
   console.log("\nShutdown ritual complete. Journal session is ready.");
 };

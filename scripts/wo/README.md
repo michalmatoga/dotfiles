@@ -165,7 +165,7 @@ Environment variables (set in systemd service or shell):
 
 - `WO_SESSION_LIMIT_MINUTES` - Daily limit (default: 240 = 4h)
 - `WO_SESSION_GRACE_MINUTES` - Grace period before forced shutdown (default: 5)
-- `WO_SESSION_PROTECTED` - Comma-separated session names to preserve (default: `journal,dotfiles`)
+- `WO_SESSION_PROTECTED` - Comma-separated session names to preserve (default: `ghq_gitlab_com_michalmatoga_journal,dotfiles`)
 - `AW_PORT` - ActivityWatch server port (default: 5601)
 
 Config file at `~/.config/wo/session.json` (symlinked from repo).

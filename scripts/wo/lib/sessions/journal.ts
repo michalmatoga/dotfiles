@@ -174,26 +174,6 @@ const pickDominantWorktree = (commits: CommitInfo[], worktrees: Set<string>): st
   return null;
 };
 
-const fallbackNarrativeParagraph = (blocks: NarrativeBlock[]): string => {
-  const sentences: string[] = [];
-
-  for (const block of blocks) {
-    if (block.commits.length > 0) {
-      const commitCount = block.commits.length;
-      const dominantPath = pickDominantWorktree(block.commits, block.worktrees);
-      const dominantLabel = dominantPath ? pathToLabel(dominantPath) : null;
-      const labelText = dominantLabel ? ` in ${dominantLabel}` : "";
-      sentences.push(`Focused${labelText} and shipped ${commitCount} update${commitCount === 1 ? "" : "s"}.`);
-    } else {
-      const labels = Array.from(block.worktrees).map(pathToLabel).slice(0, 2);
-      const focus = labels.length > 0 ? ` on ${labels.join(" and ")}` : "";
-      sentences.push(`Exploration block${focus} with no shipped updates yet.`);
-    }
-  }
-
-  return sentences.join(" ");
-};
-
 const buildOpencodePrompt = (entry: JournalEntry, blocks: NarrativeBlock[]): string => {
   const blockLines = blocks.map((block) => {
     const timeRange = `${formatTime(block.start)}-${formatTime(block.end)}`;
@@ -230,7 +210,7 @@ const buildOpencodePrompt = (entry: JournalEntry, blocks: NarrativeBlock[]): str
   ].join("\n");
 };
 
-const generateNarrativeWithOpencode = (entry: JournalEntry, blocks: NarrativeBlock[]): string | null => {
+const generateNarrativeWithOpencode = (entry: JournalEntry, blocks: NarrativeBlock[]): string => {
   const prompt = buildOpencodePrompt(entry, blocks);
 
   const result = spawnSync(
@@ -243,22 +223,23 @@ const generateNarrativeWithOpencode = (entry: JournalEntry, blocks: NarrativeBlo
   );
 
   if (result.error) {
-    console.warn(`opencode failed: ${stripAnsi(result.error.message)}`);
-    return null;
+    if ((result.error as NodeJS.ErrnoException).code === "ENOENT") {
+      throw new Error("opencode not found on PATH; ensure it is available for journal-write.");
+    }
+    throw new Error(`opencode failed: ${stripAnsi(result.error.message)}`);
   }
 
   if (result.status !== 0 || !result.stdout) {
     const errorText = result.stderr?.trim();
     if (errorText) {
-      console.warn(`opencode failed: ${stripAnsi(errorText)}`);
+      throw new Error(`opencode failed: ${stripAnsi(errorText)}`);
     }
-    return null;
+    throw new Error("opencode failed with no output");
   }
 
   const output = result.stdout.trim();
   if (output.length === 0) {
-    console.warn("opencode returned empty output");
-    return null;
+    throw new Error("opencode returned empty output");
   }
 
   return output;
@@ -396,24 +377,8 @@ export const formatJournalEntry = async (entry: JournalEntry): Promise<string> =
     lines.push("");
 
     const blocks = buildNarrativeBlocks(entry.hourlyBreakdown);
-    const narrative = generateNarrativeWithOpencode(entry, blocks)
-      ?? fallbackNarrativeParagraph(blocks);
+    const narrative = generateNarrativeWithOpencode(entry, blocks);
     lines.push(narrative);
-    lines.push("");
-  }
-
-  // Per-worktree summary table
-  if (entry.worktreeSummaries.length > 0) {
-    lines.push("### Per-Worktree Summary");
-    lines.push("");
-    lines.push("| Worktree | Time | Commits |");
-    lines.push("|----------|------|---------|");
-
-    for (const summary of entry.worktreeSummaries) {
-      lines.push(
-        `| ${summary.label} | ${formatDuration(summary.durationSeconds)} | ${summary.commitCount} |`,
-      );
-    }
     lines.push("");
   }
 

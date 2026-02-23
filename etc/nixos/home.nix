@@ -232,7 +232,6 @@ in
       paste = "powershell.exe get-clipboard";
       pi = "pulumi";
       pulumi = "dotfiles_require; bash \"$DOTFILES_DIR/scripts/pulumi.sh\"";
-      shutdown-ritual = "dotfiles_require; npx tsx \"$DOTFILES_DIR/scripts/shutdown.ts\"";
       startup-ritual = "dotfiles_require; npx tsx \"$DOTFILES_DIR/scripts/startup.ts\"";
       sync-ghec = "dotfiles_require; npx tsx \"$DOTFILES_DIR/scripts/sync-ghec.ts\"";
       sync-repos = "dotfiles_require; node \"$DOTFILES_DIR/scripts/sync-repos.mjs\"";
@@ -554,13 +553,13 @@ in
     Service = {
       Type = "simple";
       Environment = [
-        "PATH=${pkgs.tmux}/bin:${pkgs.nodejs_24}/bin:${pkgs.git}/bin:/run/current-system/sw/bin"
+        "PATH=%h/.cache/npm/global/bin:${pkgs.tmux}/bin:${pkgs.nodejs_24}/bin:${pkgs.git}/bin:/run/current-system/sw/bin"
         "DOTFILES_DIR=%h/ghq/github.com/michalmatoga/dotfiles"
         "AW_PORT=5601"
         "TMUX_TMPDIR=%t"
         "WO_SESSION_LIMIT_MINUTES=240"
         "WO_SESSION_GRACE_MINUTES=5"
-        "WO_SESSION_PROTECTED=journal,dotfiles"
+        "WO_SESSION_PROTECTED=ghq_gitlab_com_michalmatoga_journal,dotfiles"
       ];
       ExecStart = "${pkgs.bash}/bin/bash -c '${pkgs.nodejs_24}/bin/npx --yes tsx \"$DOTFILES_DIR/scripts/wo/bin/session-monitor.ts\"'";
       Restart = "on-failure";
