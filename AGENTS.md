@@ -116,6 +116,7 @@ Follow these notes before making changes or running commands.
 ## Secrets and Credentials
 
 - Never print Bitwarden output or decrypted keys into logs.
+- `secrets.json` is git-crypt protected; keep it encrypted in commits and never print values.
 - `scripts/init.sh` expects Bitwarden CLI `bw` and GPG; ensure both are available before running.
 - SSH keys are materialized into `~/.ssh`; clean up temporary files if scripts fail midway.
 - `secrets.json` stores base64 blobs for `.env`, kubeconfig, and Trello tokens—treat as highly sensitive.
