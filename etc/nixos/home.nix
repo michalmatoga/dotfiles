@@ -304,6 +304,7 @@ in
         humio_address=$(jq -r '.humio.address // empty' "''${DOTFILES_DIR}/secrets.json")
         humio_token=$(jq -r '.humio.token // empty' "''${DOTFILES_DIR}/secrets.json")
         humio_default_repo=$(jq -r '.humio.default_repo // empty' "''${DOTFILES_DIR}/secrets.json")
+        openai_api_key=$(jq -r '.OPENAI_API_KEY // empty' "''${DOTFILES_DIR}/secrets.json")
         if [ -n "$humio_address" ]; then
           export HUMIO_ADDRESS="$humio_address"
         fi
@@ -312,6 +313,9 @@ in
         fi
         if [ -n "$humio_default_repo" ]; then
           export HUMIO_DEFAULT_REPO="$humio_default_repo"
+        fi
+        if [ -n "$openai_api_key" ]; then
+          export OPENAI_API_KEY="$openai_api_key"
         fi
       fi
 
@@ -561,7 +565,7 @@ in
         "WO_SESSION_GRACE_MINUTES=5"
         "WO_SESSION_PROTECTED=ghq_gitlab_com_michalmatoga_journal,dotfiles"
       ];
-      ExecStart = "${pkgs.bash}/bin/bash -c '${pkgs.nodejs_24}/bin/npx --yes tsx \"$DOTFILES_DIR/scripts/wo/bin/session-monitor.ts\"'";
+      ExecStart = "${pkgs.bash}/bin/bash -c 'openai_key=$(${pkgs.jq}/bin/jq -r \".OPENAI_API_KEY // empty\" $DOTFILES_DIR/secrets.json 2>/dev/null); if [ -n $openai_key ]; then export OPENAI_API_KEY=$openai_key; fi; ${pkgs.nodejs_24}/bin/npx --yes tsx \"$DOTFILES_DIR/scripts/wo/bin/session-monitor.ts\"'";
       Restart = "on-failure";
       RestartSec = "30s";
     };
