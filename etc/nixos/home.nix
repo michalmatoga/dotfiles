@@ -364,7 +364,6 @@ in
   };
   home.sessionVariables = {
     SSL_CERT_FILE="/etc/ssl/certs/ca-certificates.crt"; # fix for local cloudflare wrangler issues https://github.com/cloudflare/workers-sdk/issues/3264#issuecomment-2600760750
-    NX_PARALLEL = "8";
   };
   programs.k9s = {
     enable = true;
