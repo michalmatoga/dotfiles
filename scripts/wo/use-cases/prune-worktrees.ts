@@ -5,12 +5,13 @@ import { listAliases, listNames } from "../lib/policy/mapping";
 import { parseSyncMetadata } from "../lib/sync/metadata";
 import { readLatestSnapshot, writeSnapshot } from "../lib/state/snapshots";
 import { writeEvent } from "../lib/state/events";
-import { removeWorktreeForUrl } from "../lib/worktrees/worktrees";
+import { removeWorktreeForUrl, removeWorktreeForPath } from "../lib/worktrees/worktrees";
 import { cleanupWorkSession } from "../lib/sessions/tmux";
 
 type PruneReason = "done" | "archived";
 
 const canonicalListName = (name: string) => listAliases[name] ?? name;
+const isTrelloUrl = (url: string) => /^https:\/\/trello\.com\/c\//.test(url);
 
 export const pruneWorktreesUseCase = async (options: { verbose: boolean }) => {
   const boardId = requireEnv("TRELLO_BOARD_ID_WO");
@@ -27,8 +28,9 @@ export const pruneWorktreesUseCase = async (options: { verbose: boolean }) => {
 
   for (const card of cards) {
     const meta = parseSyncMetadata(card.desc);
-    if (meta?.url) {
-      cardByUrl.set(meta.url, card);
+    const cardUrl = meta?.url ?? card.shortUrl ?? card.url ?? null;
+    if (cardUrl) {
+      cardByUrl.set(cardUrl, card);
     }
   }
 
@@ -58,12 +60,14 @@ export const pruneWorktreesUseCase = async (options: { verbose: boolean }) => {
 
     const reason: PruneReason = isArchived ? "archived" : "done";
     const title = card.name ?? "work";
-    const result = await removeWorktreeForUrl({
-      url,
-      title,
-      path,
-      verbose: options.verbose,
-    });
+    const result = isTrelloUrl(url)
+      ? await removeWorktreeForPath({ worktreePath: path, verbose: options.verbose })
+      : await removeWorktreeForUrl({
+          url,
+          title,
+          path,
+          verbose: options.verbose,
+        });
     if (result === "dirty") {
       await writeEvent({
         ts: now,

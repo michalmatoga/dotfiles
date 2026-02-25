@@ -102,7 +102,7 @@ const buildCardIndex = async (boardId: string): Promise<Map<string, CardIndexEnt
   const index = new Map<string, CardIndexEntry>();
   for (const card of cards) {
     const meta = parseSyncMetadata(card.desc);
-    const url = meta?.url ?? extractUrlFromDesc(card.desc);
+    const url = meta?.url ?? extractUrlFromDesc(card.desc) ?? card.shortUrl ?? card.url ?? null;
     if (!url) {
       continue;
     }

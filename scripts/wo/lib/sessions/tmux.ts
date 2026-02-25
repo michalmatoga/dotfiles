@@ -5,27 +5,39 @@ import { runCommand, runCommandCapture } from "../command";
 import { ghJson } from "../gh/gh";
 import { buildOpencodeResumeCommand, runInitialOpencode } from "../opencode";
 
-type UrlInfo = {
-  host: string;
-  owner: string;
-  repo: string;
-  number: string;
-  kind: "issue" | "pr";
-};
+type UrlInfo =
+  | {
+      host: string;
+      owner: string;
+      repo: string;
+      number: string;
+      kind: "issue" | "pr";
+    }
+  | {
+      kind: "trello";
+      shortId: string;
+    };
 
 export type SessionInitResult = {
   sessionName: string;
   sessionId: string | null;
   logPath?: string | null;
   title: string;
-  kind: "issue" | "pr";
+  kind: "issue" | "pr" | "trello";
   status: "created" | "exists";
 };
 
 const parseUrlInfo = (url: string): UrlInfo | null => {
   const match = url.match(/^https:\/\/([^/]+)\/([^/]+)\/([^/]+)\/(issues|pull)\/(\d+)/);
   if (!match) {
-    return null;
+    const trelloMatch = url.match(/^https:\/\/trello\.com\/c\/([^/]+)/);
+    if (!trelloMatch) {
+      return null;
+    }
+    return {
+      kind: "trello",
+      shortId: trelloMatch[1],
+    };
   }
   return {
     host: match[1],
@@ -56,6 +68,9 @@ const hasSession = async (sessionName: string): Promise<boolean> => {
 };
 
 const fetchTitle = async (url: string, info: UrlInfo): Promise<string> => {
+  if (info.kind === "trello") {
+    return "Trello Card";
+  }
   if (info.kind === "issue") {
     const response = await ghJson<{ title: string }>(["issue", "view", url, "--json", "title"], {
       host: info.host,
@@ -66,9 +81,19 @@ const fetchTitle = async (url: string, info: UrlInfo): Promise<string> => {
   return response.title;
 };
 
-const buildPrompt = async (info: UrlInfo, url: string) => {
-  const promptPath = info.kind === "pr" ? "scripts/wo/prompts/review.md" : "scripts/wo/prompts/issue.md";
+const buildPrompt = async (info: UrlInfo, url: string, title: string | null) => {
+  const promptPath =
+    info.kind === "pr"
+      ? "scripts/wo/prompts/review.md"
+      : info.kind === "issue"
+        ? "scripts/wo/prompts/issue.md"
+        : "scripts/wo/prompts/trello.md";
   const template = await readFile(promptPath, "utf8");
+  if (info.kind === "trello") {
+    return template
+      .replaceAll("[trello-url]", url)
+      .replaceAll("[card-title]", title ?? "Trello Card");
+  }
   const repoLabel = `${info.owner}/${info.repo}`;
   if (info.kind === "pr") {
     return template.replaceAll("[org/repo]", repoLabel).replaceAll("[pr-url]", url);
@@ -77,6 +102,9 @@ const buildPrompt = async (info: UrlInfo, url: string) => {
 };
 
 const buildTitle = (info: UrlInfo, title: string) => {
+  if (info.kind === "trello") {
+    return `Trello: ${title}`;
+  }
   if (info.kind === "pr") {
     return `PR${info.number}: ${title}`;
   }
@@ -128,6 +156,7 @@ export const cleanupWorkSession = async (options: {
 export const initializeWorkSession = async (options: {
   url: string;
   worktreePath: string;
+  title?: string | null;
   verbose: boolean;
 }): Promise<SessionInitResult> => {
   let opencodeAvailable = true;
@@ -142,7 +171,7 @@ export const initializeWorkSession = async (options: {
 
   const info = parseUrlInfo(options.url);
   if (!info) {
-    throw new Error(`Unsupported GitHub URL: ${options.url}`);
+    throw new Error(`Unsupported URL: ${options.url}`);
   }
 
   const sessionName = sessionNameFromPath(options.worktreePath);
@@ -157,8 +186,9 @@ export const initializeWorkSession = async (options: {
     };
   }
 
-  const title = buildTitle(info, await fetchTitle(options.url, info));
-  const prompt = await buildPrompt(info, options.url);
+  const fetchedTitle = options.title ?? (await fetchTitle(options.url, info));
+  const title = buildTitle(info, fetchedTitle);
+  const prompt = await buildPrompt(info, options.url, options.title ?? fetchedTitle);
   let sessionId: string | null = null;
   let logPath: string | null = null;
   let opencodeResumeCommand: string | null = null;

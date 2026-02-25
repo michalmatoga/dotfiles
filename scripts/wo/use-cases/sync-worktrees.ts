@@ -1,15 +1,23 @@
 import { access } from "node:fs/promises";
 
 import { listNames } from "../lib/policy/mapping";
+import { requireEnv } from "../lib/env";
+import { loadBoardContext } from "../lib/trello/context";
+import { loadLabelRepoMap, resolveLabelRepo } from "../lib/trello/label-mapping";
 import { readJsonlEntries } from "../lib/state/jsonl";
 import { readLatestSnapshot, writeSnapshot } from "../lib/state/snapshots";
 import { writeEvent } from "../lib/state/events";
 import { ghJson } from "../lib/gh/gh";
 import {
   buildWorktreePath,
+  buildWorktreePathForRepo,
   ensureWorktreeForUrl,
+  ensureWorktreeForRepo,
+  parseGitHubUrl,
   removeWorktreeForUrl,
+  removeWorktreeForPath,
   resolveWorkItemName,
+  slugifyWorktreeSegment,
 } from "../lib/worktrees/worktrees";
 import { cleanupWorkSession, initializeWorkSession } from "../lib/sessions/tmux";
 
@@ -46,6 +54,8 @@ const extractKind = (url: string) => {
   }
   return match[1] === "pull" ? "pr" : "issue";
 };
+
+const isTrelloUrl = (url: string) => /^https:\/\/trello\.com\/c\//.test(url);
 
 const fetchTitle = async (url: string): Promise<string | null> => {
   if (titleCache.has(url)) {
@@ -91,6 +101,14 @@ const pathExists = async (path: string): Promise<boolean> => {
 };
 
 export const syncWorktreesUseCase = async (options: { verbose: boolean }) => {
+  const boardId = requireEnv("TRELLO_BOARD_ID_WO");
+  const context = await loadBoardContext({ boardId, allowCreate: false });
+  const labelById = new Map(
+    context.labels
+      .filter((label) => Boolean(label.name))
+      .map((label) => [label.id, label.name as string]),
+  );
+  const labelRepoMap = await loadLabelRepoMap();
   const snapshot = await readLatestSnapshot();
   const lastEventTs = snapshot?.worktrees?.lastEventTs ?? null;
   const worktreeMap = snapshot?.worktrees?.byUrl ?? {};
@@ -106,7 +124,7 @@ export const syncWorktreesUseCase = async (options: { verbose: boolean }) => {
   let newestTs = lastEventTs;
   for (const event of moves) {
     newestTs = event.ts;
-    const { url, toList, cardId, name } = event.payload;
+    const { url, toList, cardId, name, labels } = event.payload;
     if (!url || !toList) {
       await writeEvent({
         ts: event.ts,
@@ -116,9 +134,198 @@ export const syncWorktreesUseCase = async (options: { verbose: boolean }) => {
       continue;
     }
 
-    const title = (await fetchTitle(url)) ?? name ?? "work";
+    const isGitHub = Boolean(parseGitHubUrl(url));
+    const isTrello = isTrelloUrl(url);
+    if (!isGitHub && !isTrello) {
+      await writeEvent({
+        ts: event.ts,
+        type: "worktree.skipped.unmatched-url",
+        payload: { cardId, url },
+      });
+      continue;
+    }
+
+    const title = isGitHub ? (await fetchTitle(url)) ?? name ?? "work" : name ?? "work";
 
     if (toList === listNames.doing) {
+      if (isTrello) {
+        const labelNames = (labels ?? [])
+          .map((id) => labelById.get(id))
+          .filter((value): value is string => Boolean(value));
+        const resolution = resolveLabelRepo({ labelNames, mapping: labelRepoMap });
+        if (resolution.status === "multiple") {
+          await writeEvent({
+            ts: event.ts,
+            type: "worktree.skipped.multiple-labels",
+            payload: { cardId, url, labels: resolution.labels },
+          });
+          continue;
+        }
+        if (resolution.status === "none") {
+          await writeEvent({
+            ts: event.ts,
+            type: "worktree.skipped.unmapped-label",
+            payload: { cardId, url, labels: labelNames },
+          });
+          continue;
+        }
+
+        const segment = slugifyWorktreeSegment(title);
+        const existingPath = worktreeMap[url];
+        if (existingPath && (await pathExists(existingPath))) {
+          await writeEvent({
+            ts: event.ts,
+            type: "worktree.skipped.exists",
+            payload: { cardId, url, path: existingPath },
+          });
+          if (sessionTriggerLists.includes(toList)) {
+            const session = await initializeWorkSession({
+              url,
+              worktreePath: existingPath,
+              title,
+              verbose: options.verbose,
+            });
+            const eventType = session.status === "exists" ? "tmux.session.exists" : "tmux.session.created";
+            await writeEvent({
+              ts: new Date().toISOString(),
+              type: eventType,
+              payload: {
+                cardId,
+                url,
+                sessionName: session.sessionName,
+                sessionId: session.sessionId,
+                title: session.title,
+                kind: session.kind,
+                worktreePath: existingPath,
+              },
+            });
+            if (session.sessionId) {
+              await writeEvent({
+                ts: new Date().toISOString(),
+                type: "opencode.session.created",
+                payload: {
+                  cardId,
+                  url,
+                  sessionId: session.sessionId,
+                  logPath: session.logPath ?? null,
+                  title: session.title,
+                  kind: session.kind,
+                  worktreePath: existingPath,
+                },
+              });
+            }
+          }
+          continue;
+        }
+
+        const deterministicPath = buildWorktreePathForRepo(resolution.repoPath, segment);
+        if (deterministicPath && (await pathExists(deterministicPath))) {
+          worktreeMap[url] = deterministicPath;
+          await writeEvent({
+            ts: event.ts,
+            type: "worktree.skipped.exists",
+            payload: { cardId, url, path: deterministicPath },
+          });
+          if (sessionTriggerLists.includes(toList)) {
+            const session = await initializeWorkSession({
+              url,
+              worktreePath: deterministicPath,
+              title,
+              verbose: options.verbose,
+            });
+            const eventType = session.status === "exists" ? "tmux.session.exists" : "tmux.session.created";
+            await writeEvent({
+              ts: new Date().toISOString(),
+              type: eventType,
+              payload: {
+                cardId,
+                url,
+                sessionName: session.sessionName,
+                sessionId: session.sessionId,
+                title: session.title,
+                kind: session.kind,
+                worktreePath: deterministicPath,
+              },
+            });
+            if (session.sessionId) {
+              await writeEvent({
+                ts: new Date().toISOString(),
+                type: "opencode.session.created",
+                payload: {
+                  cardId,
+                  url,
+                  sessionId: session.sessionId,
+                  logPath: session.logPath ?? null,
+                  title: session.title,
+                  kind: session.kind,
+                  worktreePath: deterministicPath,
+                },
+              });
+            }
+          }
+          continue;
+        }
+
+        const result = await ensureWorktreeForRepo({
+          repoPath: resolution.repoPath,
+          segment,
+          verbose: options.verbose,
+        });
+        if (!result) {
+          await writeEvent({
+            ts: event.ts,
+            type: "worktree.skipped.unmatched-url",
+            payload: { cardId, url },
+          });
+          continue;
+        }
+        await writeEvent({
+          ts: event.ts,
+          type: "worktree.added",
+          payload: { cardId, url, branch: result.branch, path: result.worktreePath },
+        });
+        worktreeMap[url] = result.worktreePath;
+
+        if (sessionTriggerLists.includes(toList)) {
+          const session = await initializeWorkSession({
+            url,
+            worktreePath: result.worktreePath,
+            title,
+            verbose: options.verbose,
+          });
+          const eventType = session.status === "exists" ? "tmux.session.exists" : "tmux.session.created";
+          await writeEvent({
+            ts: new Date().toISOString(),
+            type: eventType,
+            payload: {
+              cardId,
+              url,
+              sessionName: session.sessionName,
+              sessionId: session.sessionId,
+              title: session.title,
+              kind: session.kind,
+              worktreePath: result.worktreePath,
+            },
+          });
+          if (session.sessionId) {
+            await writeEvent({
+              ts: new Date().toISOString(),
+              type: "opencode.session.created",
+              payload: {
+                cardId,
+                url,
+                sessionId: session.sessionId,
+                logPath: session.logPath ?? null,
+                title: session.title,
+                kind: session.kind,
+                worktreePath: result.worktreePath,
+              },
+            });
+          }
+        }
+        continue;
+      }
+
       const existingPath = worktreeMap[url];
       if (existingPath && (await pathExists(existingPath))) {
         await writeEvent({
@@ -273,13 +480,45 @@ export const syncWorktreesUseCase = async (options: { verbose: boolean }) => {
     }
 
     if (toList === listNames.done) {
-      const mappedPath = worktreeMap[url];
-      const result = await removeWorktreeForUrl({
-        url,
-        title,
-        path: mappedPath,
-        verbose: options.verbose,
-      });
+      let mappedPath = worktreeMap[url] ?? null;
+      if (isTrello && !mappedPath) {
+        const labelNames = (labels ?? [])
+          .map((id) => labelById.get(id))
+          .filter((value): value is string => Boolean(value));
+        const resolution = resolveLabelRepo({ labelNames, mapping: labelRepoMap });
+        if (resolution.status === "multiple") {
+          await writeEvent({
+            ts: event.ts,
+            type: "worktree.skipped.multiple-labels",
+            payload: { cardId, url, labels: resolution.labels },
+          });
+          continue;
+        }
+        if (resolution.status === "none") {
+          await writeEvent({
+            ts: event.ts,
+            type: "worktree.skipped.unmapped-label",
+            payload: { cardId, url, labels: labelNames },
+          });
+          continue;
+        }
+        const segment = slugifyWorktreeSegment(title);
+        const deterministicPath = buildWorktreePathForRepo(resolution.repoPath, segment);
+        if (deterministicPath && (await pathExists(deterministicPath))) {
+          mappedPath = deterministicPath;
+        }
+      }
+
+      const result = isTrello
+        ? mappedPath
+          ? await removeWorktreeForPath({ worktreePath: mappedPath, verbose: options.verbose })
+          : null
+        : await removeWorktreeForUrl({
+            url,
+            title,
+            path: mappedPath,
+            verbose: options.verbose,
+          });
       if (result === "dirty") {
         await writeEvent({
           ts: event.ts,

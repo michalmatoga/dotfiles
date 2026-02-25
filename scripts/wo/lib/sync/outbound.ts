@@ -10,6 +10,7 @@ import {
 } from "../state/snapshots";
 import { writeEvent } from "../state/events";
 import { recordCardMove } from "../metrics/lifecycle";
+import { loadLabelRepoMap } from "../trello/label-mapping";
 
 export const syncOutbound = async (options: {
   boardId: string;
@@ -23,6 +24,7 @@ export const syncOutbound = async (options: {
   const snapshot = await readLatestSnapshot();
   const previous = snapshot?.trello ?? {};
   const now = new Date().toISOString();
+  const labelRepoMap = await loadLabelRepoMap();
 
   // Build reverse map from label ID to name
   const labelById = new Map<string, string>();
@@ -32,10 +34,7 @@ export const syncOutbound = async (options: {
     }
   }
 
-  const schibstedLabelId = context.labelByName.get(labelNames.schibsted)?.id;
-  if (!schibstedLabelId) {
-    throw new Error("Missing schibsted label in Trello board");
-  }
+  const schibstedLabelId = context.labelByName.get(labelNames.schibsted)?.id ?? null;
 
   const meta = snapshot?.project?.meta ?? null;
   const metaIsFresh = meta
@@ -62,7 +61,12 @@ export const syncOutbound = async (options: {
       };
 
   for (const card of cards) {
-    if (!card.idLabels.includes(schibstedLabelId)) {
+    const labelNamesList = card.idLabels
+      .map((id) => labelById.get(id))
+      .filter((name): name is string => Boolean(name));
+    const hasMappedLabel = labelNamesList.some((name) => labelRepoMap.has(name));
+    const hasSchibstedLabel = schibstedLabelId ? card.idLabels.includes(schibstedLabelId) : false;
+    if (!hasSchibstedLabel && !hasMappedLabel) {
       continue;
     }
     const meta = parseSyncMetadata(card.desc);
@@ -79,15 +83,17 @@ export const syncOutbound = async (options: {
       : null;
     const prevListName = prevList ? listAliases[prevList.name] ?? prevList.name : null;
 
-    // Emit trello.card.moved for all cards with URLs that changed lists
-    if (listChanged && meta?.url) {
+    const cardUrl = meta?.url ?? card.shortUrl ?? card.url ?? null;
+
+    // Emit trello.card.moved for cards that changed lists and are relevant for worktrees
+    if (listChanged && cardUrl && (meta?.url || hasMappedLabel)) {
       await writeEvent({
         ts: now,
         type: "trello.card.moved",
         payload: {
           cardId: card.id,
-          url: meta.url ?? null,
-          itemId: meta.itemId ?? null,
+          url: cardUrl,
+          itemId: meta?.itemId ?? null,
           fromList: prevListName,
           toList: listName,
           labels: card.idLabels,
@@ -96,13 +102,9 @@ export const syncOutbound = async (options: {
       });
 
       // Record metrics for card lifecycle tracking
-      const labelNamesList = card.idLabels
-        .map((id) => labelById.get(id))
-        .filter((name): name is string => name !== undefined);
-
       await recordCardMove({
         cardId: card.id,
-        url: meta.url,
+        url: cardUrl,
         fromList: prevListName,
         toList: listName,
         labels: labelNamesList,
@@ -110,8 +112,8 @@ export const syncOutbound = async (options: {
       });
     }
 
-    // Skip GH Project update for cards without itemId
-    if (!meta?.itemId || !listChanged) {
+    // Skip GH Project update for cards without schibsted label/itemId
+    if (!hasSchibstedLabel || !meta?.itemId || !listChanged) {
       continue;
     }
 

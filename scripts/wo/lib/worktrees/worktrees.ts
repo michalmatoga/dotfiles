@@ -1,15 +1,22 @@
 import { access, cp, mkdir } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, isAbsolute, join, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 
 import { runCommand, runCommandCapture } from "../command";
 
-type ParsedUrl = {
+export type ParsedUrl = {
   host: string;
   owner: string;
   repo: string;
   number: number;
   kind: "issue" | "pr";
+};
+
+type RepoInfo = {
+  host: string;
+  owner: string;
+  repo: string;
+  repoPath: string;
 };
 
 type WorktreeResult = {
@@ -19,7 +26,7 @@ type WorktreeResult = {
 
 const sshUserForHost = (host: string) => (host === "schibsted.ghe.com" ? "schibsted" : "git");
 
-const parseGitHubUrl = (url: string): ParsedUrl | null => {
+export const parseGitHubUrl = (url: string): ParsedUrl | null => {
   const match = url.match(
     /^https:\/\/([^/]+)\/([^/]+)\/([^/]+)\/(issues|pull)\/(\d+)/,
   );
@@ -42,6 +49,54 @@ const resolveRepoPath = (parsed: ParsedUrl) =>
 
 const resolveWorktreePath = (parsed: ParsedUrl, segment: string) =>
   join(homedir(), "gwq", parsed.host, parsed.owner, parsed.repo, sanitizeBranch(segment));
+
+const resolveRepoInfoFromPath = (repoPath: string): RepoInfo | null => {
+  const ghqRoot = join(homedir(), "ghq");
+  const rel = relative(ghqRoot, repoPath);
+  if (rel.startsWith("..") || rel === repoPath) {
+    return null;
+  }
+  const parts = rel.split("/").filter(Boolean);
+  if (parts.length < 3) {
+    return null;
+  }
+  const [host, owner, repo] = parts;
+  return {
+    host,
+    owner,
+    repo,
+    repoPath: join(ghqRoot, host, owner, repo),
+  };
+};
+
+const resolveRepoInfoFromWorktreePath = (worktreePath: string): (RepoInfo & { branch: string }) | null => {
+  const gwqRoot = join(homedir(), "gwq");
+  const rel = relative(gwqRoot, worktreePath);
+  if (rel.startsWith("..") || rel === worktreePath) {
+    return null;
+  }
+  const parts = rel.split("/").filter(Boolean);
+  if (parts.length < 4) {
+    return null;
+  }
+  const [host, owner, repo, ...rest] = parts;
+  const branch = rest.join("/");
+  return {
+    host,
+    owner,
+    repo,
+    repoPath: join(homedir(), "ghq", host, owner, repo),
+    branch,
+  };
+};
+
+export const buildWorktreePathForRepo = (repoPath: string, segment: string): string | null => {
+  const info = resolveRepoInfoFromPath(repoPath);
+  if (!info) {
+    return null;
+  }
+  return join(homedir(), "gwq", info.host, info.owner, info.repo, sanitizeBranch(segment));
+};
 
 const pathExists = async (path: string): Promise<boolean> => {
   try {
@@ -110,6 +165,22 @@ const ensureRepoCloned = async (parsed: ParsedUrl, options: { verbose: boolean }
   return repoPath;
 };
 
+const ensureRepoClonedForPath = async (repoPath: string, options: { verbose: boolean }) => {
+  if (await pathExists(repoPath)) {
+    return repoPath;
+  }
+  const info = resolveRepoInfoFromPath(repoPath);
+  if (!info) {
+    throw new Error(`Unsupported repo path: ${repoPath}`);
+  }
+  const sshUser = sshUserForHost(info.host);
+  const sshUrl = `${sshUser}@${info.host}:${info.owner}/${info.repo}.git`;
+  await runCommand("ghq", ["get", sshUrl], {
+    verbose: options.verbose,
+  });
+  return info.repoPath;
+};
+
 const branchExists = async (repoPath: string, branch: string): Promise<boolean> => {
   try {
     await runCommandCapture("git", ["-C", repoPath, "show-ref", "--verify", `refs/heads/${branch}`]);
@@ -128,6 +199,8 @@ const slugify = (value: string) => {
   }
   return trimmed.length > 50 ? trimmed.slice(0, 50) : trimmed;
 };
+
+export const slugifyWorktreeSegment = (value: string) => slugify(value);
 
 export const resolveWorkItemName = (options: { url: string; title: string }): string | null => {
   const parsed = parseGitHubUrl(options.url);
@@ -158,7 +231,7 @@ const resolveDefaultBranch = async (repoPath: string): Promise<string> => {
   }
 };
 
-const ensureIssueBranch = async (repoPath: string, branch: string, options: { verbose: boolean }) => {
+const ensureBranchFromDefault = async (repoPath: string, branch: string, options: { verbose: boolean }) => {
   if (!(await pathExists(repoPath))) {
     return;
   }
@@ -228,7 +301,7 @@ export const ensureWorktreeForUrl = async (options: {
   }
 
   if (parsed.kind === "issue") {
-    await ensureIssueBranch(repoPath, branch, options);
+    await ensureBranchFromDefault(repoPath, branch, options);
   } else {
     await ensurePrBranch(repoPath, parsed.number, branch, options);
   }
@@ -252,6 +325,41 @@ export const ensureWorktreeForUrl = async (options: {
     });
   }
 
+  return { branch, worktreePath };
+};
+
+export const ensureWorktreeForRepo = async (options: {
+  repoPath: string;
+  segment: string;
+  verbose: boolean;
+}): Promise<WorktreeResult | null> => {
+  const repoPath = await ensureRepoClonedForPath(options.repoPath, options);
+  const worktreePath = buildWorktreePathForRepo(repoPath, options.segment);
+  if (!worktreePath) {
+    return null;
+  }
+  const branch = sanitizeBranch(options.segment);
+  if (await pathExists(worktreePath)) {
+    return { branch, worktreePath };
+  }
+  await ensureBranchFromDefault(repoPath, branch, options);
+  const gitCryptStatePath = await resolveGitCryptStatePath(repoPath);
+  if (gitCryptStatePath) {
+    await addWorktreeNoCheckout(repoPath, worktreePath, branch, options);
+    await ensureGitCryptStateInWorktree(gitCryptStatePath, worktreePath);
+    await runCommand("git", ["-C", worktreePath, "checkout", branch], {
+      verbose: options.verbose,
+    });
+  } else {
+    const args = ["add", branch];
+    if (worktreePath) {
+      args.push(worktreePath);
+    }
+    await runCommand("gwq", args, {
+      cwd: repoPath,
+      verbose: options.verbose,
+    });
+  }
   return { branch, worktreePath };
 };
 
@@ -290,4 +398,26 @@ export const removeWorktreeForUrl = async (options: {
   });
 
   return { branch, worktreePath };
+};
+
+export const removeWorktreeForPath = async (options: {
+  worktreePath: string;
+  verbose: boolean;
+}): Promise<WorktreeResult | "dirty" | null> => {
+  const info = resolveRepoInfoFromWorktreePath(options.worktreePath);
+  if (!info) {
+    return null;
+  }
+  if (!(await pathExists(options.worktreePath))) {
+    return null;
+  }
+  if (await isDirty(options.worktreePath)) {
+    return "dirty";
+  }
+  const args = ["remove", options.worktreePath, "-b"];
+  await runCommand("gwq", args, {
+    cwd: info.repoPath,
+    verbose: options.verbose,
+  });
+  return { branch: info.branch, worktreePath: options.worktreePath };
 };
