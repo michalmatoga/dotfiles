@@ -366,19 +366,16 @@ export const buildWorktreeSummaries = (
 export const formatJournalEntry = async (entry: JournalEntry): Promise<string> => {
   const lines: string[] = [];
 
-  lines.push(`## Work Session - ${entry.date}`);
+  lines.push(`# ${entry.date}`);
   lines.push("");
-  lines.push(`**Total active time:** ${formatDuration(entry.totalSeconds)}`);
+  lines.push(`**Deep work time:** ${formatDuration(entry.totalSeconds)}`);
   lines.push("");
 
   // Narrative breakdown (grouped)
   if (entry.hourlyBreakdown.length > 0) {
-    lines.push("### Session Narrative");
-    lines.push("");
-
     const blocks = buildNarrativeBlocks(entry.hourlyBreakdown);
     const narrative = generateNarrativeWithOpencode(entry, blocks);
-    lines.push(narrative);
+    lines.push(narrative.replace(/^####/gm, "##"));
     lines.push("");
   }
 
