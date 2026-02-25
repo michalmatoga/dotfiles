@@ -4,8 +4,15 @@
 # Usage: ./monitor-aw.sh [--follow]
 
 BUCKET="aw-watcher-tmux_nixos"
+
+if [ -z "${AW_HOST:-}" ]; then
+    if [ -r /proc/sys/kernel/osrelease ] && awk 'tolower($0) ~ /microsoft/' /proc/sys/kernel/osrelease >/dev/null; then
+        AW_HOST=$(ip route | awk '/^default/ {print $3; exit}')
+    fi
+fi
+
 AW_HOST="${AW_HOST:-localhost}"
-AW_PORT="${AW_PORT:-5601}"
+AW_PORT="${AW_PORT:-5600}"
 FOLLOW=false
 
 if [ "$1" == "--follow" ] || [ "$1" == "-f" ]; then

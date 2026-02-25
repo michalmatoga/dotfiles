@@ -19,6 +19,7 @@ export const NO_LABEL_BUCKET = "no-label";
 export type CardTimeEntry = {
   cardId: string;
   url: string | null;
+  title: string | null;
   label: string;
   labels: string[];
   durationSeconds: number;
@@ -44,6 +45,7 @@ type WorktreeAddedEvent = {
 type CardIndexEntry = {
   cardId: string;
   url: string;
+  title: string;
   labels: string[];
 };
 
@@ -107,7 +109,7 @@ const buildCardIndex = async (boardId: string): Promise<Map<string, CardIndexEnt
     const labels = card.idLabels
       .map((id) => labelById.get(id))
       .filter((name): name is string => Boolean(name));
-    index.set(url, { cardId: card.id, url, labels });
+    index.set(url, { cardId: card.id, url, title: card.name, labels });
   }
 
   return index;
@@ -159,7 +161,10 @@ export const summarizeActivityWatchTime = async (options: {
 
   const cardTotals = new Map<string, CardTimeEntry>();
   const noCardRepoTotals = new Map<string, number>();
-  const addCardDuration = (entry: { cardId: string; url: string | null; labels: string[] }, duration: number) => {
+  const addCardDuration = (
+    entry: { cardId: string; url: string | null; title: string | null; labels: string[] },
+    duration: number,
+  ) => {
     const existing = cardTotals.get(entry.cardId);
     const label = entry.cardId === NO_CARD_BUCKET
       ? NO_CARD_BUCKET
@@ -171,6 +176,7 @@ export const summarizeActivityWatchTime = async (options: {
     cardTotals.set(entry.cardId, {
       cardId: entry.cardId,
       url: entry.url,
+      title: entry.title,
       labels: entry.labels,
       label,
       durationSeconds: duration,
@@ -184,7 +190,7 @@ export const summarizeActivityWatchTime = async (options: {
     }
     const url = findUrlForPath(panePath, entries);
     if (!url) {
-      addCardDuration({ cardId: NO_CARD_BUCKET, url: null, labels: [] }, duration);
+      addCardDuration({ cardId: NO_CARD_BUCKET, url: null, title: null, labels: [] }, duration);
       const repoLabel = toRepoLabel(panePath);
       if (repoLabel) {
         noCardRepoTotals.set(repoLabel, (noCardRepoTotals.get(repoLabel) ?? 0) + duration);
@@ -193,14 +199,14 @@ export const summarizeActivityWatchTime = async (options: {
     }
     const card = cardIndex.get(url);
     if (!card) {
-      addCardDuration({ cardId: NO_CARD_BUCKET, url: null, labels: [] }, duration);
+      addCardDuration({ cardId: NO_CARD_BUCKET, url: null, title: null, labels: [] }, duration);
       const repoLabel = toRepoLabel(panePath);
       if (repoLabel) {
         noCardRepoTotals.set(repoLabel, (noCardRepoTotals.get(repoLabel) ?? 0) + duration);
       }
       continue;
     }
-    addCardDuration({ cardId: card.cardId, url: card.url, labels: card.labels }, duration);
+    addCardDuration({ cardId: card.cardId, url: card.url, title: card.title, labels: card.labels }, duration);
   }
 
   const cardTimes = Array.from(cardTotals.values()).sort(

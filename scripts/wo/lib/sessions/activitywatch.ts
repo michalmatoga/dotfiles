@@ -1,8 +1,69 @@
+import { execSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { hostname } from "node:os";
 
-const AW_PORT = process.env.AW_PORT ?? "5601";
-const AW_HOST = process.env.AW_HOST ?? "localhost";
-const AW_BASE_URL = `http://${AW_HOST}:${AW_PORT}/api/0`;
+const isWsl = (): boolean => {
+  if (process.env.WSL_DISTRO_NAME) {
+    return true;
+  }
+  try {
+    const osRelease = readFileSync("/proc/sys/kernel/osrelease", "utf8");
+    return osRelease.toLowerCase().includes("microsoft");
+  } catch {
+    return false;
+  }
+};
+
+const resolveWslGateway = (): string | null => {
+  try {
+    const output = execSync("ip route show default", { encoding: "utf8" });
+    const match = output.match(/default\s+via\s+([0-9.]+)/);
+    return match?.[1] ?? null;
+  } catch {
+    return null;
+  }
+};
+
+const resolveResolvConfGateway = (): string | null => {
+  try {
+    const content = readFileSync("/etc/resolv.conf", "utf8");
+    const match = content.match(/^nameserver\s+([0-9.]+)/m);
+    return match?.[1] ?? null;
+  } catch {
+    return null;
+  }
+};
+
+const resolveAwHost = (): string => {
+  const envHost = process.env.AW_HOST;
+  if (envHost) {
+    return envHost;
+  }
+  if (isWsl()) {
+    return resolveWslGateway() ?? resolveResolvConfGateway() ?? "localhost";
+  }
+  return "localhost";
+};
+
+const resolveAwPort = (): string => {
+  const envPort = process.env.AW_PORT;
+  if (envPort) {
+    return envPort;
+  }
+  return isWsl() ? "5600" : "5601";
+};
+
+export const getActivityWatchConfig = (): { host: string; port: string; baseUrl: string } => {
+  const host = resolveAwHost();
+  const port = resolveAwPort();
+  return {
+    host,
+    port,
+    baseUrl: `http://${host}:${port}/api/0`,
+  };
+};
+
+const { baseUrl: AW_BASE_URL } = getActivityWatchConfig();
 
 export type AWEvent = {
   id?: number;

@@ -166,8 +166,8 @@ Follow these notes before making changes or running commands.
 
 ## Systemd User Services
 
-- `aw-server`: ActivityWatch server on port 5601 for tmux tracking.
-- `aw-watcher-tmux`: sends heartbeats based on active tmux pane (depends on aw-server).
+- Windows `aw-server`: ActivityWatch server on port 5600 for tmux tracking.
+- `aw-watcher-tmux`: sends heartbeats based on active tmux pane.
 - `wo-session-monitor`: monitors time, updates status bar, triggers shutdown at limit.
 - `wo-sync`: runs `wo` sync every 5 minutes via timer.
 - `copilot-ghe-refresh`: refreshes Copilot GHE token every 20 minutes.

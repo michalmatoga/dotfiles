@@ -161,7 +161,6 @@ in
     zstd
     agent-of-empires
     gogcli
-    aw-server-rust
   ] ++ unstablePackages;
 
   # starship - an customizable prompt for any shell
@@ -242,10 +241,10 @@ in
       wo-status = "cat ~/.wo/session-status 2>/dev/null || echo 'No session data'";
       wo-journal = "dotfiles_require; npx tsx \"$DOTFILES_DIR/scripts/wo/bin/journal-write.ts\"";
       wo-journal-dry = "dotfiles_require; npx tsx \"$DOTFILES_DIR/scripts/wo/bin/journal-write.ts\" --dry-run";
-      wo-services = "systemctl --user status aw-server aw-watcher-tmux wo-session-monitor";
-      wo-start = "systemctl --user start aw-server aw-watcher-tmux wo-session-monitor";
-      wo-stop = "systemctl --user stop wo-session-monitor aw-watcher-tmux aw-server";
-      wo-restart = "systemctl --user restart aw-server aw-watcher-tmux wo-session-monitor";
+      wo-services = "systemctl --user status aw-watcher-tmux wo-session-monitor";
+      wo-start = "systemctl --user start aw-watcher-tmux wo-session-monitor";
+      wo-stop = "systemctl --user stop wo-session-monitor aw-watcher-tmux";
+      wo-restart = "systemctl --user restart aw-watcher-tmux wo-session-monitor";
     };
     # setup some environment variables
     initContent = ''
@@ -510,33 +509,16 @@ in
     };
   };
 
-  systemd.user.services.aw-server = {
-    Unit = {
-      Description = "ActivityWatch server for tmux session tracking";
-    };
-    Service = {
-      Type = "simple";
-      ExecStart = "${pkgs.aw-server-rust}/bin/aw-server --port 5601 --dbpath %h/.local/share/activitywatch-wsl/aw-server-rust/sqlite.db --no-legacy-import";
-      Restart = "on-failure";
-      RestartSec = "5s";
-    };
-    Install = {
-      WantedBy = [ "default.target" ];
-    };
-  };
-
   systemd.user.services.aw-watcher-tmux = {
     Unit = {
       Description = "ActivityWatch watcher for tmux sessions";
-      After = [ "aw-server.service" ];
-      Requires = [ "aw-server.service" ];
     };
     Service = {
       Type = "simple";
       Environment = [
         "PATH=${pkgs.tmux}/bin:${pkgs.nodejs_24}/bin:/run/current-system/sw/bin"
         "DOTFILES_DIR=%h/ghq/github.com/michalmatoga/dotfiles"
-        "AW_PORT=5601"
+        "AW_PORT=5600"
         "AW_IDLE_THRESHOLD_MS=60000"
         "TMUX_TMPDIR=%t"
       ];
@@ -559,7 +541,7 @@ in
       Environment = [
         "PATH=%h/.cache/npm/global/bin:${pkgs.tmux}/bin:${pkgs.nodejs_24}/bin:${pkgs.git}/bin:/run/current-system/sw/bin"
         "DOTFILES_DIR=%h/ghq/github.com/michalmatoga/dotfiles"
-        "AW_PORT=5601"
+        "AW_PORT=5600"
         "TMUX_TMPDIR=%t"
         "WO_SESSION_LIMIT_MINUTES=240"
         "WO_SESSION_GRACE_MINUTES=5"

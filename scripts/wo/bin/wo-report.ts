@@ -84,6 +84,7 @@ const showSummary = async (days: number) => {
   const cardStats: Array<{
     cardId: string;
     url: string | null;
+    title: string | null;
     activeTime: number;
     waitTime: number;
     cycleTime: number | null;
@@ -99,6 +100,7 @@ const showSummary = async (days: number) => {
     cardStats.push({
       cardId: entry.cardId,
       url: entry.url,
+      title: entry.title,
       activeTime: entry.durationSeconds,
       waitTime,
       cycleTime,
@@ -137,14 +139,16 @@ const showSummary = async (days: number) => {
       .slice(0, 5);
 
     for (const item of top) {
-      const url = item.url
-        ? item.url.replace("https://", "")
-        : item.cardId === NO_CARD_BUCKET
-          ? NO_CARD_BUCKET
-          : item.cardId.slice(0, 8);
+      const labelText = item.label === NO_LABEL_BUCKET ? "" : ` (${item.label})`;
+      const name = item.cardId === NO_CARD_BUCKET
+        ? NO_CARD_BUCKET
+        : item.title
+          ? item.title
+          : item.url
+            ? item.url.replace("https://", "")
+            : item.cardId.slice(0, 8);
       const status = item.completed ? "✅" : "📝";
-      const label = item.label === NO_LABEL_BUCKET ? "" : ` (${item.label})`;
-      console.log(`   ${status} ${formatDuration(item.activeTime)} - ${url}${label}`);
+      console.log(`   ${status} ${formatDuration(item.activeTime)} - ${name}${labelText}`);
     }
   }
 
@@ -179,6 +183,9 @@ const showCardDetails = async (cardId: string, days: number) => {
   console.log(`\n📋 Card: ${cardId}\n`);
 
   if (cardTime) {
+    if (cardTime.title) {
+      console.log(`Title: ${cardTime.title}`);
+    }
     const label = cardTime.label === NO_LABEL_BUCKET ? "no-label" : cardTime.label;
     console.log(`Active time (last ${days} days): ${formatDuration(cardTime.durationSeconds)}`);
     console.log(`Label: ${label}`);

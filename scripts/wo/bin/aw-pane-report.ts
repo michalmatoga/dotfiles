@@ -9,6 +9,7 @@ import {
   aggregateUniqueDuration,
   aggregateUniqueDurationByDataKey,
   aggregateUniqueDurationByDataKeyByHour,
+  getActivityWatchConfig,
   isServerAvailable,
 } from "../lib/sessions/activitywatch";
 
@@ -32,7 +33,8 @@ const bucketId = `aw-watcher-tmux_${hostname()}`;
 
 (async function main() {
   if (!(await isServerAvailable())) {
-    console.error("ActivityWatch server is unreachable on port 5601. Start aw-server and retry.");
+    const { host, port } = getActivityWatchConfig();
+    console.error(`ActivityWatch server is unreachable at ${host}:${port}. Check AW_HOST/AW_PORT or start aw-server.`);
     process.exit(1);
   }
 

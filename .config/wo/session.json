@@ -5,8 +5,8 @@
     "protectedSessions": ["journal", "dotfiles"]
   },
   "activitywatch": {
-    "host": "localhost",
-    "port": 5601
+    "host": "auto",
+    "port": 5600
   },
   "journal": {
     "path": "/home/nixos/ghq/gitlab.com/michalmatoga/journal"

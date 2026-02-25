@@ -12,7 +12,7 @@
  *
  * Environment:
  *   AW_HOST - ActivityWatch server host (default: localhost)
- *   AW_PORT - ActivityWatch server port (default: 5601)
+ *   AW_PORT - ActivityWatch server port (default: 5600 in WSL)
  *   AW_IDLE_THRESHOLD_MS - Milliseconds of inactivity before skipping heartbeats (default: 60000)
  */
 

@@ -137,7 +137,7 @@ Tracks active time spent in tmux sessions using ActivityWatch, with automatic sh
 
 ### Components
 
-- `aw-server-rust` - ActivityWatch server running on port 5601 (separate from Windows AW)
+- Windows ActivityWatch server running on port 5600 (WSL clients connect to it)
 - `aw-watcher-tmux` - Sends heartbeats based on active tmux pane
 - `wo-session-monitor` - Aggregates time, updates status bar, triggers shutdown
 
@@ -146,7 +146,7 @@ Tracks active time spent in tmux sessions using ActivityWatch, with automatic sh
 All services start automatically on login:
 
 ```bash
-systemctl --user status aw-server aw-watcher-tmux wo-session-monitor
+systemctl --user status aw-watcher-tmux wo-session-monitor
 ```
 
 ### Shell aliases
@@ -166,7 +166,8 @@ Environment variables (set in systemd service or shell):
 - `WO_SESSION_LIMIT_MINUTES` - Daily limit (default: 240 = 4h)
 - `WO_SESSION_GRACE_MINUTES` - Grace period before forced shutdown (default: 5)
 - `WO_SESSION_PROTECTED` - Comma-separated session names to preserve (default: `ghq_gitlab_com_michalmatoga_journal,dotfiles`)
-- `AW_PORT` - ActivityWatch server port (default: 5601)
+- `AW_PORT` - ActivityWatch server port (default: 5600 in WSL)
+- `AW_HOST` - ActivityWatch server host (default: WSL gateway IP; falls back to `localhost`)
 
 Config file at `~/.config/wo/session.json` (symlinked from repo).
 
@@ -259,5 +260,5 @@ The script uses the same bucket as the UI and is safe to run in WSL (no secrets 
 - Ensure Trello key/token are in `.env`.
 - Use `--dry-run --verbose` to inspect actions without side effects.
 - If session tracking shows 0m, check `systemctl --user status aw-watcher-tmux` for errors.
-- If AW server fails with "poisoned lock", restart: `systemctl --user restart aw-server`.
+- If AW is unreachable, confirm Windows aw-server is running and reachable from WSL on port 5600.
 - Tmux watcher requires `TMUX_TMPDIR` to find the socket; this is set automatically by the systemd service.
