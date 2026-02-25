@@ -219,6 +219,7 @@ export const summarizeActivityWatchTime = async (options: {
 
   const noCardByRepo = Array.from(noCardRepoTotals.entries())
     .map(([repo, durationSeconds]) => ({ repo, durationSeconds }))
+    .filter((entry) => entry.durationSeconds >= 60)
     .sort((a, b) => b.durationSeconds - a.durationSeconds);
 
   return { totalSeconds, cardTimes, labelTotals, noCardByRepo };
