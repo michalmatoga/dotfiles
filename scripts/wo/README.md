@@ -199,6 +199,25 @@ Written to `/home/nixos/ghq/gitlab.com/michalmatoga/journal/YYYY-MM-DD.md`:
 Focused on org/repo-a and shipped several updates, with supporting exploration in org/repo-b.
 Shifted into investigation and validation work later in the day without new shipped updates.
 
+## Reporting
+
+Use `wo-report` to summarize ActivityWatch time and Trello throughput.
+
+```bash
+npx --yes tsx scripts/wo/bin/wo-report.ts summary 7
+npx --yes tsx scripts/wo/bin/wo-report.ts summary 1
+npx --yes tsx scripts/wo/bin/wo-report.ts card <card-id>
+npx --yes tsx scripts/wo/bin/wo-report.ts card <card-id> 90
+npx --yes tsx scripts/wo/bin/wo-report.ts throughput 14
+```
+
+Notes:
+
+- Active time comes from ActivityWatch tmux events, mapped to Trello cards via worktree paths.
+- Cards without a Trello mapping are grouped under `no-card`.
+- `no-card by repo` breaks down unmapped time by repo root (host/owner/repo).
+- Labels are current labels at report time (no historical label tracking).
+
 ### Per-Worktree Summary
 
 | Worktree   | Time   | Commits |

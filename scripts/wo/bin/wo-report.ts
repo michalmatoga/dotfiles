@@ -1,5 +1,12 @@
 #!/usr/bin/env node
-import { readMetrics, getCardMetrics, getThroughput } from "../lib/metrics/lifecycle";
+import { readMetrics, getThroughput } from "../lib/metrics/lifecycle";
+import { loadEnvFile, requireEnv } from "../lib/env";
+import {
+  NO_CARD_BUCKET,
+  NO_LABEL_BUCKET,
+  summarizeActivityWatchTime,
+} from "../lib/metrics/aw-time";
+import type { MetricsRecord } from "../lib/metrics/types";
 
 const formatDuration = (seconds: number): string => {
   if (seconds === 0) return "0m";
@@ -15,7 +22,41 @@ const formatDate = (date: Date): string => {
   return date.toISOString().split("T")[0]!;
 };
 
+const buildTimeRange = (days: number): { start: string; end: string } => {
+  const end = new Date();
+  const start = new Date(end);
+  start.setDate(start.getDate() - days + 1);
+  start.setHours(0, 0, 0, 0);
+  return { start: start.toISOString(), end: end.toISOString() };
+};
+
+const computeCycleTimes = (metrics: MetricsRecord[]) => {
+  const byCard = new Map<string, { enteredDoingAt: string | null; completedAt: string | null }>();
+  const sorted = [...metrics].sort(
+    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+  );
+  for (const metric of sorted) {
+    const current = byCard.get(metric.cardId) ?? { enteredDoingAt: null, completedAt: null };
+    if (metric.eventType === "entered" && metric.list === "Doing") {
+      current.enteredDoingAt = metric.timestamp;
+    }
+    if (metric.eventType === "exited" && metric.list === "Done" && metric.completedDate) {
+      current.completedAt = metric.timestamp;
+    }
+    byCard.set(metric.cardId, current);
+  }
+  const cycleTimes = new Map<string, number | null>();
+  for (const [cardId, state] of byCard.entries()) {
+    const cycleTime = state.enteredDoingAt && state.completedAt
+      ? Math.floor((new Date(state.completedAt).getTime() - new Date(state.enteredDoingAt).getTime()) / 1000)
+      : null;
+    cycleTimes.set(cardId, cycleTime);
+  }
+  return cycleTimes;
+};
+
 const showSummary = async (days: number) => {
+  const boardId = requireEnv("TRELLO_BOARD_ID_WO");
   const metrics = await readMetrics();
   const endDate = new Date();
   const startDate = new Date();
@@ -30,103 +71,149 @@ const showSummary = async (days: number) => {
   const throughput = await getThroughput({ startDate: startStr, endDate: endStr });
   console.log(`✅ Completed: ${throughput} items`);
 
-  // Get all unique card IDs that had activity
-  const activeCards = new Set<string>();
-  for (const m of metrics) {
-    const mDate = m.timestamp.split("T")[0];
-    if (mDate && mDate >= startStr && mDate <= endStr) {
-      activeCards.add(m.cardId);
-    }
-  }
+  const { start, end } = buildTimeRange(days);
+  const { totalSeconds, cardTimes, labelTotals, noCardByRepo } = await summarizeActivityWatchTime({
+    start,
+    end,
+    boardId,
+  });
 
-  // Calculate touch time per card
+  const cycleTimes = computeCycleTimes(metrics);
+
+  // Calculate active time per card
   const cardStats: Array<{
     cardId: string;
     url: string | null;
-    touchTime: number;
+    activeTime: number;
     waitTime: number;
     cycleTime: number | null;
     completed: boolean;
+    label: string;
   }> = [];
 
-  for (const cardId of activeCards) {
-    const stats = await getCardMetrics(cardId);
-    const cardMetrics = metrics.find((m) => m.cardId === cardId);
+  for (const entry of cardTimes) {
+    const cycleTime = entry.cardId === NO_CARD_BUCKET
+      ? null
+      : cycleTimes.get(entry.cardId) ?? null;
+    const waitTime = cycleTime ? Math.max(0, cycleTime - entry.durationSeconds) : 0;
     cardStats.push({
-      cardId,
-      url: cardMetrics?.url ?? null,
-      ...stats,
-      completed: stats.cycleTime !== null,
+      cardId: entry.cardId,
+      url: entry.url,
+      activeTime: entry.durationSeconds,
+      waitTime,
+      cycleTime,
+      completed: cycleTime !== null,
+      label: entry.label,
     });
   }
 
   // Aggregate stats
-  const completed = cardStats.filter((c) => c.completed);
-  const inProgress = cardStats.filter((c) => !c.completed && c.touchTime > 0);
+  const reportable = cardStats.filter((c) => c.cardId !== NO_CARD_BUCKET);
+  const completed = reportable.filter((c) => c.completed);
+  const inProgress = reportable.filter((c) => !c.completed && c.activeTime > 0);
+
+  console.log(`\n⏱️  Tracked time: ${formatDuration(totalSeconds)}`);
 
   console.log(`\n📝 In Progress: ${inProgress.length} items`);
   console.log(`✅ Completed: ${completed.length} items`);
 
   if (completed.length > 0) {
-    const avgTouch = completed.reduce((sum, c) => sum + c.touchTime, 0) / completed.length;
+    const avgActive = completed.reduce((sum, c) => sum + c.activeTime, 0) / completed.length;
     const avgWait = completed.reduce((sum, c) => sum + c.waitTime, 0) / completed.length;
     const avgCycle = completed.reduce((sum, c) => sum + (c.cycleTime ?? 0), 0) / completed.length;
 
     console.log(`\n⏱️  Averages (completed items):`);
-    console.log(`   Touch time: ${formatDuration(avgTouch)}`);
+    console.log(`   Active time: ${formatDuration(avgActive)}`);
     console.log(`   Wait time:  ${formatDuration(avgWait)}`);
     console.log(`   Cycle time: ${formatDuration(avgCycle)}`);
   }
 
-  // Show top items by touch time
+  // Show top items by active time
   if (cardStats.length > 0) {
-    console.log(`\n🔥 Top items by touch time:`);
+    console.log(`\n🔥 Top items by active time:`);
     const top = cardStats
-      .filter((c) => c.touchTime > 0)
-      .sort((a, b) => b.touchTime - a.touchTime)
+      .filter((c) => c.activeTime > 0)
+      .sort((a, b) => b.activeTime - a.activeTime)
       .slice(0, 5);
 
     for (const item of top) {
-      const url = item.url ? item.url.replace("https://", "") : item.cardId.slice(0, 8);
+      const url = item.url
+        ? item.url.replace("https://", "")
+        : item.cardId === NO_CARD_BUCKET
+          ? NO_CARD_BUCKET
+          : item.cardId.slice(0, 8);
       const status = item.completed ? "✅" : "📝";
-      console.log(`   ${status} ${formatDuration(item.touchTime)} - ${url}`);
+      const label = item.label === NO_LABEL_BUCKET ? "" : ` (${item.label})`;
+      console.log(`   ${status} ${formatDuration(item.activeTime)} - ${url}${label}`);
+    }
+  }
+
+  if (noCardByRepo.length > 0) {
+    console.log(`\n🧭 no-card by repo:`);
+    for (const entry of noCardByRepo) {
+      console.log(`   ${entry.repo}: ${formatDuration(entry.durationSeconds)}`);
+    }
+  }
+
+  if (labelTotals.length > 0) {
+    console.log(`\n🏷️  Label breakdown:`);
+    for (const entry of labelTotals) {
+      console.log(`   ${entry.label}: ${formatDuration(entry.durationSeconds)}`);
     }
   }
 };
 
-const showCardDetails = async (cardId: string) => {
+const showCardDetails = async (cardId: string, days: number) => {
+  const boardId = requireEnv("TRELLO_BOARD_ID_WO");
   const metrics = await readMetrics();
   const cardMetrics = metrics.filter((m) => m.cardId === cardId);
+  const { start, end } = buildTimeRange(days);
+  const { cardTimes } = await summarizeActivityWatchTime({ start, end, boardId });
+  const cardTime = cardTimes.find((entry) => entry.cardId === cardId);
 
-  if (cardMetrics.length === 0) {
+  if (!cardTime && cardMetrics.length === 0) {
     console.log(`No metrics found for card: ${cardId}`);
     return;
   }
 
   console.log(`\n📋 Card: ${cardId}\n`);
 
+  if (cardTime) {
+    const label = cardTime.label === NO_LABEL_BUCKET ? "no-label" : cardTime.label;
+    console.log(`Active time (last ${days} days): ${formatDuration(cardTime.durationSeconds)}`);
+    console.log(`Label: ${label}`);
+    console.log("");
+  }
+
   // Show lifecycle
-  console.log("Lifecycle:");
-  for (const m of cardMetrics.sort(
-    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-  )) {
-    const time = new Date(m.timestamp).toLocaleString();
-    if (m.eventType === "entered") {
-      console.log(`  → ${time}: Entered ${m.list}`);
-    } else {
-      console.log(`  ← ${time}: Exited ${m.list} after ${formatDuration(m.secondsInList ?? 0)}`);
+  if (cardMetrics.length > 0) {
+    console.log("Lifecycle:");
+    for (const m of cardMetrics.sort(
+      (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+    )) {
+      const time = new Date(m.timestamp).toLocaleString();
+      if (m.eventType === "entered") {
+        console.log(`  → ${time}: Entered ${m.list}`);
+      } else {
+        console.log(`  ← ${time}: Exited ${m.list} after ${formatDuration(m.secondsInList ?? 0)}`);
+      }
     }
   }
 
-  // Show aggregated stats
-  const stats = await getCardMetrics(cardId);
-  console.log(`\n📊 Aggregated:`);
-  console.log(`  Touch time: ${formatDuration(stats.touchTime)}`);
-  console.log(`  Wait time:  ${formatDuration(stats.waitTime)}`);
-  if (stats.cycleTime) {
-    console.log(`  Cycle time: ${formatDuration(stats.cycleTime)}`);
-    console.log(`  Efficiency: ${((stats.touchTime / stats.cycleTime) * 100).toFixed(1)}%`);
+  const cycleTimes = computeCycleTimes(metrics);
+  const cycleTime = cycleTimes.get(cardId) ?? null;
+  if (cycleTime !== null && cardTime) {
+    const waitTime = Math.max(0, cycleTime - cardTime.durationSeconds);
+    console.log(`\n📊 Aggregated:`);
+    console.log(`  Active time: ${formatDuration(cardTime.durationSeconds)}`);
+    console.log(`  Wait time:  ${formatDuration(waitTime)}`);
+    console.log(`  Cycle time: ${formatDuration(cycleTime)}`);
+    console.log(`  Efficiency: ${((cardTime.durationSeconds / cycleTime) * 100).toFixed(1)}%`);
+  } else if (cycleTime !== null) {
+    console.log(`\n📊 Aggregated:`);
+    console.log(`  Cycle time: ${formatDuration(cycleTime)}`);
   } else {
+    console.log(`\n📊 Aggregated:`);
     console.log(`  Cycle time: In progress...`);
   }
 };
@@ -174,14 +261,15 @@ Usage: wo-report <command> [options]
 
 Commands:
   summary [days]     Show summary for last N days (default: 7)
-  card <id>          Show detailed metrics for a specific card
+  card <id> [days]   Show detailed metrics for a specific card (default: 30 days)
   throughput [days]  Show throughput for last N days (default: 7)
   help               Show this help message
 
 Examples:
   wo-report summary           # Last 7 days
   wo-report summary 30        # Last 30 days
-  wo-report card abc123       # Card details
+  wo-report card abc123       # Card details (last 30 days)
+  wo-report card abc123 90    # Card details (last 90 days)
   wo-report throughput 14     # 2-week throughput
 `);
 };
@@ -191,6 +279,15 @@ const main = async () => {
   const command = args[0] ?? "summary";
 
   try {
+    try {
+      await loadEnvFile(".env");
+    } catch {
+      try {
+        await loadEnvFile(".env.local");
+      } catch {
+        // No env file present; continue with existing environment variables
+      }
+    }
     switch (command) {
       case "summary": {
         const days = parseInt(args[1] ?? "7", 10);
@@ -199,11 +296,12 @@ const main = async () => {
       }
       case "card": {
         const cardId = args[1];
+        const days = parseInt(args[2] ?? "30", 10);
         if (!cardId) {
           console.error("Error: card ID required");
           process.exit(1);
         }
-        await showCardDetails(cardId);
+        await showCardDetails(cardId, days);
         break;
       }
       case "throughput": {
