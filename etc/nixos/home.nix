@@ -305,6 +305,8 @@ in
         humio_token=$(jq -r '.humio.token // empty' "''${DOTFILES_DIR}/secrets.json")
         humio_default_repo=$(jq -r '.humio.default_repo // empty' "''${DOTFILES_DIR}/secrets.json")
         openai_api_key=$(jq -r '.OPENAI_API_KEY // empty' "''${DOTFILES_DIR}/secrets.json")
+        trello_api_key=$(jq -r '.trello_api_key // empty' "''${DOTFILES_DIR}/secrets.json")
+        trello_token=$(jq -r '.trello_token // empty' "''${DOTFILES_DIR}/secrets.json")
         if [ -n "$humio_address" ]; then
           export HUMIO_ADDRESS="$humio_address"
         fi
@@ -316,6 +318,12 @@ in
         fi
         if [ -n "$openai_api_key" ]; then
           export OPENAI_API_KEY="$openai_api_key"
+        fi
+        if [ -n "$trello_api_key" ]; then
+          export TRELLO_API_KEY="$trello_api_key"
+        fi
+        if [ -n "$trello_token" ]; then
+          export TRELLO_TOKEN="$trello_token"
         fi
       fi
 
