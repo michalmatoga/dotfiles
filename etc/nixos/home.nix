@@ -222,7 +222,7 @@ in
       dk = "docker";
       gr = "dotfiles_require; bash \"$DOTFILES_DIR/scripts/gr.sh\"";
       gtm-clean-all = "dotfiles_require; npx tsx \"$DOTFILES_DIR/scripts/gtm-clean-all.ts\"";
-      ghwatch = "gh run watch --exit-status \"$(gh run list -L 1 --json databaseId -q '.\[0\].databaseId')\"";
+      ghwatch = "dotfiles_require; bash \"$DOTFILES_DIR/scripts/ghwatch.sh\"";
       hg = "dotfiles_require; npx tsx \"$DOTFILES_DIR/scripts/hg/hg.ts\"";
       hgs = "dotfiles_require; npx tsx \"$DOTFILES_DIR/scripts/hg/hgs.ts\"";
       ldk = "lazydocker";
