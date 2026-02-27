@@ -201,8 +201,8 @@ const loadOpencodeSessionsFromDb = () => {
     }
     return map;
   }
-  const gwqRoot = normalizePath(join(homedir(), "gwq"));
-  const query = `select id, directory, time_updated from session where directory like '${gwqRoot.replace(/'/g, "''")}/%';`;
+  const ghqRoot = normalizePath(join(homedir(), "ghq"));
+  const query = `select id, directory, time_updated from session where directory like '${ghqRoot.replace(/'/g, "''")}/%';`;
   const raw = runOptional("opencode", ["db", "--format", "json", query]);
   if (!raw) {
     return map;
@@ -554,7 +554,6 @@ const gatherEntries = () => {
   const entries: Entry[] = [];
   const worktreeUrlMap = loadWorktreeUrlMap();
 
-  const gwqRoot = join(homedir(), "gwq");
   const ghqRoot = join(homedir(), "ghq");
   const loadDirCache = (name: string, root: string, depth: number, minDepth: number) => {
     if (!existsSync(root)) {
@@ -582,47 +581,52 @@ const gatherEntries = () => {
     });
     return dirs;
   };
-  const gwqDirs = loadDirCache("gwq", gwqRoot, 4, 4);
-  for (const path of gwqDirs) {
+  const ghqDirs = loadDirCache("ghq", ghqRoot, 3, 3);
+  for (const path of ghqDirs) {
     if (!path) {
       continue;
     }
     const normalized = normalizePath(path);
-    const rel = relative(gwqRoot, normalized).split("/");
-    entries.push({
-      path: normalized,
-      kind: "worktree",
-      url: worktreeUrlMap.get(normalized) ?? null,
-      host: rel[0] ?? null,
-      owner: rel[1] ?? null,
-      repo: rel[2] ?? null,
-      leaf: rel.slice(3).join("/") || null,
-    });
-  }
-
-  if (includeGhq) {
-    const ghqDirs = loadDirCache("ghq", ghqRoot, 3, 3);
-    for (const path of ghqDirs) {
-      if (!path) {
-        continue;
-      }
-      const normalized = normalizePath(path);
-      const rel = relative(ghqRoot, normalized).split("/");
-      let leaf: string | null = null;
-      if (existsSync(join(normalized, ".git/refs/heads/main"))) {
-        leaf = "main";
-      } else if (existsSync(join(normalized, ".git/refs/heads/master"))) {
-        leaf = "master";
-      }
+    const rel = relative(ghqRoot, normalized).split("/");
+    const host = rel[0] ?? null;
+    const owner = rel[1] ?? null;
+    const repoSegment = rel[2] ?? null;
+    if (!host || !owner || !repoSegment) {
+      continue;
+    }
+    const separatorIndex = repoSegment.indexOf("=");
+    const isWorktree = separatorIndex > 0;
+    if (isWorktree) {
+      const repo = repoSegment.slice(0, separatorIndex) || null;
+      const leaf = repoSegment.slice(separatorIndex + 1) || null;
       entries.push({
         path: normalized,
-        kind: "repo",
-        host: rel[0] ?? null,
-        owner: rel[1] ?? null,
-        repo: rel[2] ?? null,
+        kind: "worktree",
+        url: worktreeUrlMap.get(normalized) ?? null,
+        host,
+        owner,
+        repo,
         leaf,
       });
+      continue;
     }
+    if (!includeGhq) {
+      continue;
+    }
+    let leaf: string | null = null;
+    if (existsSync(join(normalized, ".git/refs/heads/main"))) {
+      leaf = "main";
+    } else if (existsSync(join(normalized, ".git/refs/heads/master"))) {
+      leaf = "master";
+    }
+    entries.push({
+      path: normalized,
+      kind: "repo",
+      host,
+      owner,
+      repo: repoSegment,
+      leaf,
+    });
   }
 
   return entries;

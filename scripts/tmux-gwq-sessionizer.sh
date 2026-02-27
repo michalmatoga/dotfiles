@@ -8,7 +8,6 @@ else
     [[ -n $session_name ]] && session_map["$session_name"]=1
   done < <(tmux list-sessions -F "#{session_name}" 2>/dev/null || true)
 
-  mapfile -t gwq_entries < <(fd -d 4 -t d . ~/gwq 2>/dev/null)
   mapfile -t ghq_entries < <(fd -d 3 -t d . ~/ghq 2>/dev/null)
 
   existing_entries=()
@@ -28,14 +27,14 @@ else
     fi
   }
 
-  for dir in "${gwq_entries[@]}"; do
-    [[ -z $dir ]] && continue
-    format_entry "[wt]" "$dir"
-  done
-
   for dir in "${ghq_entries[@]}"; do
     [[ -z $dir ]] && continue
-    format_entry "[repo]" "$dir"
+    leaf=${dir##*/}
+    if [[ $leaf == *"="* ]]; then
+      format_entry "[wt]" "$dir"
+    else
+      format_entry "[repo]" "$dir"
+    fi
   done
 
   fzf_input=("${existing_entries[@]}" "${other_entries[@]}")

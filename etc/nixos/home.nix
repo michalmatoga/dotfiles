@@ -595,23 +595,17 @@ in
         FULL_NPMRC="$NPMRC_CONTENT
 prefix = \"/home/nixos/.cache/npm/global\""
 
-        # Create root directories and .envrc triggers
+        # Create root directory and .envrc trigger
         GHQ_ROOT="$HOME/ghq"
-        GWQ_ROOT="$HOME/gwq"
-        mkdir -p "$GHQ_ROOT" "$GWQ_ROOT"
+        mkdir -p "$GHQ_ROOT"
 
         echo "# direnv trigger - see .env files in subdirectories" > "$GHQ_ROOT/.envrc"
-        echo "# direnv trigger - see .env files in subdirectories" > "$GWQ_ROOT/.envrc"
         ${pkgs.direnv}/bin/direnv allow "$GHQ_ROOT" 2>/dev/null || true
-        ${pkgs.direnv}/bin/direnv allow "$GWQ_ROOT" 2>/dev/null || true
 
         # Personal defaults at root level
         echo 'GH_USER=michalmatoga
 GH_HOST=github.com' > "$GHQ_ROOT/.env"
-        echo 'GH_USER=michalmatoga
-GH_HOST=github.com' > "$GWQ_ROOT/.env"
         ${pkgs.direnv}/bin/direnv allow "$GHQ_ROOT/.env" 2>/dev/null || true
-        ${pkgs.direnv}/bin/direnv allow "$GWQ_ROOT/.env" 2>/dev/null || true
 
         # Schibsted work overrides (ghq)
         GHQ_SCH="$HOME/ghq/schibsted.ghe.com"
@@ -625,19 +619,7 @@ LINODE_TOKEN=$LINODE_TOKEN" > "$GHQ_SCH/.env"
         ${pkgs.direnv}/bin/direnv allow "$GHQ_SCH/.env" 2>/dev/null || true
         rm -f "$GHQ_SCH/.envrc"
 
-        # Schibsted work overrides (gwq)
-        GWQ_SCH="$HOME/gwq/schibsted.ghe.com"
-        mkdir -p "$GWQ_SCH"
-        echo "$FULL_NPMRC" > "$GWQ_SCH/.npmrc"
-        echo "NPM_CONFIG_USERCONFIG=$GWQ_SCH/.npmrc
-GH_USER=michal-matoga
-GH_HOST=schibsted.ghe.com
-KUBECONFIG=$HOME/ghq/github.schibsted.io/svp/infrastructure/linode/stream-kubeconfig.yaml
-LINODE_TOKEN=$LINODE_TOKEN" > "$GWQ_SCH/.env"
-        ${pkgs.direnv}/bin/direnv allow "$GWQ_SCH/.env" 2>/dev/null || true
-        rm -f "$GWQ_SCH/.envrc"
-
-        echo "Generated .envrc triggers and .env files for ghq and gwq"
+        echo "Generated .envrc triggers and .env files for ghq"
       fi
     fi
 

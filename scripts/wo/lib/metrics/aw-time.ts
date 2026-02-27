@@ -131,11 +131,18 @@ const isTrackablePath = (panePath: string, roots: string[]): boolean =>
   roots.some((root) => isPathWithin(root, panePath));
 
 const toRepoLabel = (panePath: string): string | null => {
-  const match = panePath.match(/\/(ghq|gwq)\/([^/]+)\/([^/]+\/[^/]+)/);
+  const match = panePath.match(/\/ghq\/([^/]+)\/([^/]+)\/([^/]+)/);
   if (!match) {
     return null;
   }
-  return `${match[2]}/${match[3]}`;
+  const host = match[1];
+  const owner = match[2];
+  const repoSegment = match[3];
+  const repo = repoSegment.split("=")[0] ?? repoSegment;
+  if (!host || !owner || !repo) {
+    return null;
+  }
+  return `${host}/${owner}/${repo}`;
 };
 
 export const summarizeActivityWatchTime = async (options: {
@@ -157,7 +164,7 @@ export const summarizeActivityWatchTime = async (options: {
     .map(([path, url]) => ({ path: normalizePath(path), url }))
     .sort((a, b) => b.path.length - a.path.length);
   const cardIndex = await buildCardIndex(options.boardId);
-  const roots = [join(homedir(), "gwq"), join(homedir(), "ghq")].map(normalizePath);
+  const roots = [join(homedir(), "ghq")].map(normalizePath);
 
   const cardTotals = new Map<string, CardTimeEntry>();
   const noCardRepoTotals = new Map<string, number>();

@@ -1,5 +1,5 @@
 import { execSync, spawnSync } from "child_process";
-import { readFileSync, writeFileSync } from "fs";
+import { existsSync, readFileSync, readdirSync, writeFileSync } from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -82,13 +82,35 @@ async function fetchAllOrgRepos(provider, org) {
     `bash -c "comm -23 <(ghq list | sort) <(sort repolist.txt)"`,
   ).toString();
   if (removeList) {
-    console.log(`Removing repos:\n\n${removeList}`);
-    const rmParams = removeList
-      .trim()
-      .split("\n")
-      .map((repo) => `~/ghq/${repo}`)
-      .join(" ");
-    execSync(`rm -rf ${rmParams}`);
+    const homeDir = process.env.HOME || "";
+    const rawRepos = removeList.trim().split("\n").filter(Boolean);
+    const removePaths = [];
+    const skippedRepos = [];
+    for (const repo of rawRepos) {
+      const parts = repo.split("/");
+      if (parts.length < 3) {
+        continue;
+      }
+      const [host, owner, repoName] = parts;
+      const ownerDir = path.join(homeDir, "ghq", host, owner);
+      let hasWorktrees = false;
+      if (existsSync(ownerDir)) {
+        const entries = readdirSync(ownerDir);
+        hasWorktrees = entries.some((entry) => entry.startsWith(`${repoName}=`));
+      }
+      if (hasWorktrees) {
+        skippedRepos.push(repo);
+        continue;
+      }
+      removePaths.push(path.join(homeDir, "ghq", repo));
+    }
+    if (removePaths.length > 0) {
+      console.log(`Removing repos:\n\n${removePaths.join("\n")}`);
+      spawnSync("rm", ["-rf", ...removePaths], { stdio: "inherit" });
+    }
+    if (skippedRepos.length > 0) {
+      console.log(`Skipped repos with worktrees:\n\n${skippedRepos.join("\n")}`);
+    }
     execSync('find ~/ghq -type d -empty -not -path "*.git*" -delete');
   }
 })();
