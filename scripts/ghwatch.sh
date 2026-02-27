@@ -3,7 +3,7 @@
 set -euo pipefail
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-notify_script="${script_dir}/../notify.sh"
+notify_script="${script_dir}/notify.sh"
 
 latest_id=$(gh run list -L 1 --json databaseId -q '.[0].databaseId')
 if [ -z "${latest_id}" ]; then
