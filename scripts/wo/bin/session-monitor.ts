@@ -30,6 +30,7 @@ import {
 
 const STATUS_FILE = join(homedir(), ".wo", "session-status");
 const ALERT_FILE = join(homedir(), ".wo", "session-alert");
+const STATE_FILE = join(homedir(), ".wo", "session-monitor-state.json");
 const DEFAULT_LIMIT_MINUTES = 240;
 const DEFAULT_GRACE_MINUTES = 5;
 const SHUTDOWN_TARGET_SESSION = "ghq_gitlab_com_michalmatoga_journal";
@@ -38,10 +39,20 @@ const DEFAULT_PROTECTED_SESSIONS = [SHUTDOWN_TARGET_SESSION, "dotfiles"];
 const POLL_INTERVAL_MS = 30_000;
 const ALERT_REPEAT_MINUTES = 5;
 
+type MonitorPhase = "tracking" | "grace" | "shutdown_done";
+
 type Config = {
   limitMinutes: number;
   graceMinutes: number;
   protectedSessions: string[];
+};
+
+type MonitorState = {
+  day: string;
+  phase: MonitorPhase;
+  extendedMinutes: number;
+  graceDeadline: number | null;
+  lastAlertAt: number;
 };
 
 type SessionStats = {
@@ -93,6 +104,104 @@ const formatDurationFull = (seconds: number): string => {
   return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
 };
 
+const getLocalDayKey = (date = new Date()): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const createState = (day = getLocalDayKey()): MonitorState => ({
+  day,
+  phase: "tracking",
+  extendedMinutes: 0,
+  graceDeadline: null,
+  lastAlertAt: 0,
+});
+
+const normalizeState = (value: unknown): MonitorState => {
+  if (!value || typeof value !== "object") {
+    return createState();
+  }
+
+  const candidate = value as Partial<MonitorState>;
+  const phase = candidate.phase;
+
+  return {
+    day: typeof candidate.day === "string" && candidate.day.length > 0
+      ? candidate.day
+      : getLocalDayKey(),
+    phase: phase === "tracking" || phase === "grace" || phase === "shutdown_done"
+      ? phase
+      : "tracking",
+    extendedMinutes: Number.isFinite(candidate.extendedMinutes)
+      ? Math.max(0, Number(candidate.extendedMinutes))
+      : 0,
+    graceDeadline: Number.isFinite(candidate.graceDeadline)
+      ? Number(candidate.graceDeadline)
+      : null,
+    lastAlertAt: Number.isFinite(candidate.lastAlertAt)
+      ? Number(candidate.lastAlertAt)
+      : 0,
+  };
+};
+
+const loadState = async (): Promise<MonitorState> => {
+  try {
+    const content = await readFile(STATE_FILE, "utf8");
+    return normalizeState(JSON.parse(content));
+  } catch {
+    return createState();
+  }
+};
+
+const saveState = async (state: MonitorState): Promise<void> => {
+  await mkdir(dirname(STATE_FILE), { recursive: true });
+  await writeFile(STATE_FILE, `${JSON.stringify(state, null, 2)}\n`);
+};
+
+const clearAlertFile = async (): Promise<void> => {
+  try {
+    await writeFile(ALERT_FILE, "");
+  } catch {
+    // Ignore if file doesn't exist
+  }
+};
+
+const resetStateForNewDay = async (state: MonitorState): Promise<boolean> => {
+  const currentDay = getLocalDayKey();
+  if (state.day === currentDay) {
+    return false;
+  }
+
+  state.day = currentDay;
+  state.phase = "tracking";
+  state.extendedMinutes = 0;
+  state.graceDeadline = null;
+  state.lastAlertAt = 0;
+
+  await clearAlertFile();
+  await saveState(state);
+  console.log(`New day detected; resetting session monitor state for ${currentDay}`);
+  return true;
+};
+
+const getEffectiveConfig = (config: Config, state: MonitorState): Config => ({
+  ...config,
+  limitMinutes: config.limitMinutes + state.extendedMinutes,
+});
+
+const formatAlertState = (state: MonitorState): string => {
+  if (state.phase !== "grace" || !state.graceDeadline) {
+    return "LIMIT_REACHED";
+  }
+
+  const remainingMinutes = Math.max(0, Math.ceil((state.graceDeadline - Date.now()) / 60_000));
+  return `GRACE_PERIOD:${remainingMinutes}`;
+};
+
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
 const createFallbackStats = (config: Config): SessionStats => ({
   totalSeconds: 0,
   byWorktree: new Map(),
@@ -132,7 +241,7 @@ const fetchTodayStats = async (config: Config): Promise<SessionStats | null> => 
   }
 };
 
-const writeStatusFile = async (stats: SessionStats, config: Config): Promise<void> => {
+const writeStatusFile = async (stats: SessionStats): Promise<void> => {
   const percentage = Math.min(100, Math.round((stats.totalSeconds / stats.limitSeconds) * 100));
   const status = `${formatDuration(stats.totalSeconds)} / ${formatDuration(stats.limitSeconds)} (${percentage}%)`;
 
@@ -143,14 +252,6 @@ const writeStatusFile = async (stats: SessionStats, config: Config): Promise<voi
 const writeAlertFile = async (message: string): Promise<void> => {
   await mkdir(dirname(ALERT_FILE), { recursive: true });
   await writeFile(ALERT_FILE, message);
-};
-
-const clearAlertFile = async (): Promise<void> => {
-  try {
-    await writeFile(ALERT_FILE, "");
-  } catch {
-    // Ignore if file doesn't exist
-  }
 };
 
 const runTmux = (args: string[]): string | null => {
@@ -195,8 +296,8 @@ const pickTmuxClient = (): string | null => {
 
 const shellQuote = (value: string): string => `'${value.replace(/'/g, `'\\''`)}'`;
 
-const showPopup = async (config: Config, stats: SessionStats): Promise<string | null> => {
-  const message = `Time limit reached!\\n\\nTotal: ${formatDurationFull(stats.totalSeconds)}\\nLimit: ${formatDurationFull(stats.limitSeconds)}\\n\\nSelect action:`;
+const showPopup = async (stats: SessionStats): Promise<string | null> => {
+  const message = `Time limit reached!\n\nTotal: ${formatDurationFull(stats.totalSeconds)}\nLimit: ${formatDurationFull(stats.limitSeconds)}\n\nSelect action:`;
 
   const client = pickTmuxClient();
   if (!client) {
@@ -261,7 +362,6 @@ const showPopup = async (config: Config, stats: SessionStats): Promise<string | 
 };
 
 const playAlertSound = (): void => {
-  // Try to play alert sound via Windows (works in WSL)
   spawnSync("powershell.exe", [
     "-Command",
     "[System.Media.SystemSounds]::Exclamation.Play()",
@@ -288,19 +388,14 @@ const ensureTargetSession = (sessionName: string, sessionPath: string): void => 
   }
 };
 
-const startShutdownRitual = async (config: Config, stats: SessionStats): Promise<void> => {
+const startShutdownRitual = async (config: Config): Promise<void> => {
   console.log("\n=== Starting Shutdown Ritual ===\n");
 
-  // Ensure target session exists
   ensureTargetSession(SHUTDOWN_TARGET_SESSION, SHUTDOWN_TARGET_PATH);
-
-  // Switch current client to target session (if tmux is attached)
   runTmux(["switch-client", "-t", SHUTDOWN_TARGET_SESSION]);
 
-  // Small delay to let user see what's happening
-  await new Promise((resolve) => setTimeout(resolve, 1000));
+  await sleep(1000);
 
-  // Run journal writer
   const scriptDir = dirname(process.argv[1]);
   const journalScript = join(scriptDir, "journal-write.ts");
   console.log("Running journal writer...");
@@ -310,29 +405,22 @@ const startShutdownRitual = async (config: Config, stats: SessionStats): Promise
   });
 
   if (journalResult.status !== 0) {
-    console.error("Journal writer failed; aborting shutdown ritual.");
-    process.exit(1);
+    throw new Error("Journal writer failed; aborting shutdown ritual.");
   }
 
-  // Kill all non-protected sessions
   killNonProtectedSessions(config.protectedSessions);
 
   console.log("\nShutdown ritual complete. Journal session is ready.");
 };
 
-let extendedMinutes = 0;
 let shutdownInProgress = false;
-let lastAlertAt = 0;
-let graceDeadline: number | null = null;
 
 const runMonitor = async (config: Config): Promise<void> => {
-  const effectiveLimitMinutes = config.limitMinutes + extendedMinutes;
-  const effectiveConfig = { ...config, limitMinutes: effectiveLimitMinutes };
+  const state = await loadState();
 
-  console.log(`session-monitor starting (limit: ${effectiveLimitMinutes}m, grace: ${config.graceMinutes}m)`);
+  console.log(`session-monitor starting (limit: ${config.limitMinutes}m, grace: ${config.graceMinutes}m)`);
   console.log(`Protected sessions: ${config.protectedSessions.join(", ")}`);
 
-  // Wait for AW server
   let retries = 0;
   while (!(await isServerAvailable())) {
     retries++;
@@ -341,112 +429,170 @@ const runMonitor = async (config: Config): Promise<void> => {
       process.exit(1);
     }
     console.log(`Waiting for ActivityWatch server (attempt ${retries})...`);
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    await sleep(2000);
   }
 
   console.log("Connected to ActivityWatch server");
 
-  const startShutdownNow = async () => {
+  const completeShutdown = async (): Promise<void> => {
     if (shutdownInProgress) {
       return;
     }
+
     shutdownInProgress = true;
+
+    try {
+      await clearAlertFile();
+      await startShutdownRitual(config);
+      state.phase = "shutdown_done";
+      state.graceDeadline = null;
+      state.lastAlertAt = 0;
+      await saveState(state);
+      console.log("Shutdown ritual complete; monitoring is paused until the next day.");
+    } finally {
+      shutdownInProgress = false;
+    }
+  };
+
+  const startShutdownNow = async () => {
+    if (shutdownInProgress || state.phase === "shutdown_done") {
+      return;
+    }
+
     await clearAlertFile();
     console.log("\n=== On-demand Shutdown Requested ===\n");
-    const stats = (await fetchTodayStats(effectiveConfig)) ?? createFallbackStats(effectiveConfig);
-    await startShutdownRitual(config, stats);
-    process.exit(0);
+    await completeShutdown();
   };
 
   const tick = async () => {
+    if (shutdownInProgress) {
+      return;
+    }
+
+    await resetStateForNewDay(state);
+
+    const effectiveConfig = getEffectiveConfig(config, state);
     const stats = await fetchTodayStats(effectiveConfig);
     if (!stats) {
       return;
     }
 
-    // Update status file
-    await writeStatusFile(stats, effectiveConfig);
+    await writeStatusFile(stats);
 
-    // Log status
     const percentage = Math.round((stats.totalSeconds / stats.limitSeconds) * 100);
     console.log(`[${new Date().toLocaleTimeString()}] ${formatDurationFull(stats.totalSeconds)} / ${formatDuration(stats.limitSeconds)} (${percentage}%)`);
 
-    // Check if over limit
+    if (state.phase === "shutdown_done") {
+      await clearAlertFile();
+      return;
+    }
+
     if (!stats.isOverLimit) {
-      if (graceDeadline) {
-        graceDeadline = null;
+      if (state.phase !== "tracking" || state.graceDeadline || state.lastAlertAt !== 0) {
+        state.phase = "tracking";
+        state.graceDeadline = null;
+        state.lastAlertAt = 0;
+        await saveState(state);
       }
       await clearAlertFile();
       return;
     }
 
     const now = Date.now();
-    if (graceDeadline && now >= graceDeadline) {
-      await startShutdownRitual(config, stats);
-      process.exit(0);
-    }
-
-    if (now - lastAlertAt < ALERT_REPEAT_MINUTES * 60 * 1000) {
+    if (state.phase === "grace" && state.graceDeadline && now >= state.graceDeadline) {
+      await completeShutdown();
       return;
     }
 
-    lastAlertAt = now;
-    await writeAlertFile(graceDeadline ? `GRACE_PERIOD:${config.graceMinutes}` : "LIMIT_REACHED");
+    await writeAlertFile(formatAlertState(state));
+
+    if (now - state.lastAlertAt < ALERT_REPEAT_MINUTES * 60 * 1000) {
+      return;
+    }
+
+    state.lastAlertAt = now;
+    await saveState(state);
+    await writeAlertFile(formatAlertState(state));
     playAlertSound();
 
     console.log("\n*** TIME LIMIT REACHED ***\n");
 
-    // Show popup for user choice
-    const choice = await showPopup(effectiveConfig, stats);
+    const choice = await showPopup(stats);
 
     if (choice?.includes("30 minutes")) {
-      extendedMinutes += 30;
-      graceDeadline = null;
-      lastAlertAt = Date.now();
+      state.extendedMinutes += 30;
+      state.phase = "tracking";
+      state.graceDeadline = null;
+      state.lastAlertAt = 0;
+      await saveState(state);
       await clearAlertFile();
       console.log("Extended by 30 minutes");
       return;
     }
+
     if (choice?.includes("1 hour")) {
-      extendedMinutes += 60;
-      graceDeadline = null;
-      lastAlertAt = Date.now();
+      state.extendedMinutes += 60;
+      state.phase = "tracking";
+      state.graceDeadline = null;
+      state.lastAlertAt = 0;
+      await saveState(state);
       await clearAlertFile();
       console.log("Extended by 1 hour");
       return;
     }
+
     if (choice?.includes("shutdown")) {
-      await startShutdownRitual(config, stats);
-      process.exit(0);
+      await completeShutdown();
+      return;
     }
 
-    if (!graceDeadline) {
+    if (state.phase !== "grace" || !state.graceDeadline) {
       console.log(`Starting ${config.graceMinutes} minute grace period...`);
-      graceDeadline = Date.now() + config.graceMinutes * 60 * 1000;
-      await writeAlertFile(`GRACE_PERIOD:${config.graceMinutes}`);
+      state.phase = "grace";
+      state.graceDeadline = Date.now() + config.graceMinutes * 60 * 1000;
     }
+
+    await saveState(state);
+    await writeAlertFile(formatAlertState(state));
   };
 
-  // Handle signals
-  const cleanup = async () => {
-    console.log("\nShutting down session monitor...");
-    await clearAlertFile();
-    process.exit(0);
+  let exitRequested = false;
+  const cleanup = () => {
+    if (exitRequested) {
+      return;
+    }
+
+    exitRequested = true;
+    void (async () => {
+      console.log("\nShutting down session monitor...");
+      await clearAlertFile();
+      process.exit(0);
+    })();
   };
+
   process.on("SIGINT", cleanup);
   process.on("SIGTERM", cleanup);
   process.on("SIGUSR1", () => {
     void startShutdownNow();
   });
 
-  // Initial tick
   await tick();
 
-  // Polling loop
-  setInterval(tick, POLL_INTERVAL_MS);
+  while (!exitRequested) {
+    await sleep(POLL_INTERVAL_MS);
+    await tick();
+  }
 };
 
 (async function main() {
-  const config = parseArgs();
-  await runMonitor(config);
+  try {
+    const config = parseArgs();
+    await runMonitor(config);
+  } catch (error) {
+    console.error(
+      "session-monitor failed:",
+      error instanceof Error ? error.message : String(error),
+    );
+    process.exit(1);
+  }
 })();

@@ -549,6 +549,7 @@ in
     Unit = {
       Description = "Work session monitor with shutdown ritual";
       After = [ "aw-watcher-tmux.service" ];
+      Wants = [ "aw-watcher-tmux.service" ];
     };
     Service = {
       Type = "simple";
@@ -561,26 +562,12 @@ in
         "WO_SESSION_GRACE_MINUTES=5"
         "WO_SESSION_PROTECTED=ghq_gitlab_com_michalmatoga_journal,dotfiles"
       ];
-      ExecStart = "${pkgs.bash}/bin/bash -c 'openai_key=$(${pkgs.jq}/bin/jq -r \".OPENAI_API_KEY // empty\" $DOTFILES_DIR/secrets.json 2>/dev/null); if [ -n $openai_key ]; then export OPENAI_API_KEY=$openai_key; fi; ${pkgs.nodejs_24}/bin/npx --yes tsx \"$DOTFILES_DIR/scripts/wo/bin/session-monitor.ts\"'";
+      ExecStart = "${pkgs.bash}/bin/bash -c 'openai_key=$(${pkgs.jq}/bin/jq -r \".OPENAI_API_KEY // empty\" \"$DOTFILES_DIR/secrets.json\" 2>/dev/null); if [ -n \"$openai_key\" ]; then export OPENAI_API_KEY=\"$openai_key\"; fi; ${pkgs.nodejs_24}/bin/npx --yes tsx \"$DOTFILES_DIR/scripts/wo/bin/session-monitor.ts\"'";
       Restart = "on-failure";
       RestartSec = "30s";
     };
     Install = {
       WantedBy = [ "default.target" ];
-    };
-  };
-
-  systemd.user.timers.wo-session-monitor = {
-    Unit = {
-      Description = "Run work session monitor daily";
-    };
-    Timer = {
-      OnCalendar = "*-*-* 05:00:00";
-      Persistent = true;
-      Unit = "wo-session-monitor.service";
-    };
-    Install = {
-      WantedBy = [ "timers.target" ];
     };
   };
 

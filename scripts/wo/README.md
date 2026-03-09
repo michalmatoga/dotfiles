@@ -196,16 +196,18 @@ Config file at `~/.config/wo/session.json` (symlinked from repo).
 
 1. `aw-watcher-tmux` detects the active tmux pane every 30 seconds
 2. Sends heartbeats to ActivityWatch with session name, pane path, and command
-3. `wo-session-monitor` queries AW for today's events and aggregates time
+3. `wo-session-monitor` runs continuously, queries AW for today's events, and aggregates time
 4. Status written to `~/.wo/session-status` (displayed in tmux status bar)
-5. When limit reached: popup offers extend (30m/1h) or shutdown
-6. After grace period: kills all non-protected sessions, generates journal entry
+5. Monitor state is persisted in `~/.wo/session-monitor-state.json` so extend/grace survives restarts
+6. When limit reached: popup offers extend (30m/1h) or shutdown
+7. After grace period: kills all non-protected sessions, generates journal entry, then stays paused until the next day
+8. At local day rollover the monitor resets itself and resumes tracking automatically
 
 ### Early shutdown on demand
 
 - Press `<prefix> + e` in tmux to open a confirmation popup.
 - The popup shows the current status from `~/.wo/session-status`.
-- Confirming sends a signal to `wo-session-monitor`, which starts the shutdown ritual.
+- Confirming signals `wo-session-monitor.service` directly, which starts the shutdown ritual.
 
 ### Journal format
 
