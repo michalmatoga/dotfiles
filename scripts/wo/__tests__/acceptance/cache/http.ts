@@ -16,6 +16,18 @@ type CachedHttpResponse = {
   body: unknown;
 };
 
+type MockTrelloCard = {
+  id: string;
+  name: string;
+  desc: string;
+  idList: string;
+  idLabels: string[];
+  url: string;
+  shortUrl: string;
+};
+
+const mockCards = new Map<string, MockTrelloCard>();
+
 /**
  * Parse URL query params into object.
  */
@@ -84,32 +96,47 @@ const trelloHandler = http.all("https://api.trello.com/*", async ({ request }) =
     // POST /1/cards - create card
     if (method === "POST" && pathParts[0] === "1" && pathParts[1] === "cards") {
       console.log(`[cache] MOCK: ${method} ${url.slice(0, 80)}...`);
-      return HttpResponse.json({
-        id: `mock-card-${Date.now()}`,
+      const id = `mock-card-${Date.now()}`;
+      const card = {
+        id,
         name: queryParams.name || "[TEST] Mock Card",
         desc: queryParams.desc || "",
         idList: queryParams.idList || "mock-list-id",
         idLabels: queryParams.idLabels?.split(",") || [],
-        url: "https://trello.com/c/mock/mock-card",
-        shortUrl: "https://trello.com/c/mock",
-      });
+        url: `https://trello.com/c/${id}/mock-card`,
+        shortUrl: `https://trello.com/c/${id}`,
+      } satisfies MockTrelloCard;
+      mockCards.set(id, card);
+      return HttpResponse.json(card);
+    }
+
+    // GET /1/boards/{id}/cards - list cards created during test
+    if (method === "GET" && pathParts[0] === "1" && pathParts[1] === "boards" && pathParts[3] === "cards") {
+      console.log(`[cache] MOCK: ${method} ${url.slice(0, 80)}...`);
+      return HttpResponse.json(Array.from(mockCards.values()));
     }
     
     // PUT /1/cards/{id} - update card
     if (method === "PUT" && pathParts[0] === "1" && pathParts[1] === "cards" && pathParts[2]) {
       console.log(`[cache] MOCK: ${method} ${url.slice(0, 80)}...`);
-      return HttpResponse.json({
+      const existing = mockCards.get(pathParts[2]);
+      const updated = {
         id: pathParts[2],
-        name: queryParams.name || "[TEST] Updated Card",
-        desc: queryParams.desc || "",
-        idList: queryParams.idList || "mock-list-id",
-        idLabels: queryParams.idLabels?.split(",") || [],
-      });
+        name: queryParams.name || existing?.name || "[TEST] Updated Card",
+        desc: queryParams.desc || existing?.desc || "",
+        idList: queryParams.idList || existing?.idList || "mock-list-id",
+        idLabels: queryParams.idLabels?.split(",") || existing?.idLabels || [],
+        url: existing?.url || `https://trello.com/c/${pathParts[2]}/mock-card`,
+        shortUrl: existing?.shortUrl || `https://trello.com/c/${pathParts[2]}`,
+      } satisfies MockTrelloCard;
+      mockCards.set(pathParts[2], updated);
+      return HttpResponse.json(updated);
     }
     
     // DELETE /1/cards/{id} - delete card
     if (method === "DELETE" && pathParts[0] === "1" && pathParts[1] === "cards" && pathParts[2]) {
       console.log(`[cache] MOCK: ${method} ${url.slice(0, 80)}...`);
+      mockCards.delete(pathParts[2]);
       return HttpResponse.json({ _value: null });
     }
     
@@ -184,5 +211,6 @@ export const stopHttpCache = () => {
  * Reset handlers between tests.
  */
 export const resetHttpCache = () => {
+  mockCards.clear();
   mswServer.resetHandlers();
 };

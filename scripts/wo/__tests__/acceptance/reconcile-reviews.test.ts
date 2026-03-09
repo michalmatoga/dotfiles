@@ -17,12 +17,12 @@ describe("reconcile-reviews", () => {
       // Cards with "review" label are review request cards
       const card = await createTestCard({
         listName: "Waiting",
-        name: "REVIEW: [org/repo] Add new feature",
+        name: "[org/repo] Add new feature",
         desc: `PR: ${buildTestPRUrl(400)}`,
         // In real test, would add review label
       });
 
-      expect(card.name).toContain("REVIEW:");
+      expect(card.name).toContain("[org/repo]");
     });
 
     it("extracts PR URL from review card description", () => {
@@ -108,7 +108,7 @@ describe("reconcile-reviews", () => {
       // Create review card in Waiting
       const card = await createTestCard({
         listName: "Waiting",
-        name: "REVIEW: [org/repo] Feature PR",
+        name: "[org/repo] Feature PR",
         desc: buildTestPRUrl(402),
       });
 
@@ -122,7 +122,7 @@ describe("reconcile-reviews", () => {
       
       const card = await createTestCard({
         listName: "Waiting",
-        name: "REVIEW: [org/repo] Needs fixes",
+        name: "[org/repo] Needs fixes",
         desc: buildTestPRUrl(403),
       });
 
@@ -150,7 +150,7 @@ describe("reconcile-reviews", () => {
       
       const card = await createTestCard({
         listName: "Done",
-        name: "REVIEW: [org/repo] Already completed",
+        name: "[org/repo] Already completed",
         desc: buildTestPRUrl(404),
       });
 
@@ -164,7 +164,7 @@ describe("reconcile-reviews", () => {
     it("skips cards without PR URL", async () => {
       const card = await createTestCard({
         listName: "Waiting",
-        name: "REVIEW: Missing URL",
+        name: "Missing URL",
         desc: "No PR URL in this description",
       });
 

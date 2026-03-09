@@ -25,10 +25,10 @@ const extractNumberFromUrl = (url: string): number | null => {
 const buildCardTitle = (item: WorkItem): string => {
   const repo = item.repo ?? "unknown";
   if (item.type === "review") {
-    return `REVIEW: ${repo} ${item.title}`;
+    return `${repo} ${item.title}`;
   }
   const number = extractNumberFromUrl(item.url);
-  return number ? `WORK: ${repo} #${number} ${item.title}` : `WORK: ${repo} ${item.title}`;
+  return number ? `${repo} #${number} ${item.title}` : `${repo} ${item.title}`;
 };
 
 const normalizeBase = (value: string): string => value.replace(/\r\n/g, "\n").trim();

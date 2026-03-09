@@ -37,13 +37,13 @@ describe("sync-review-requests", () => {
       // Create a card with PR URL in description
       const card = await createTestCard({
         listName: "Waiting",
-        name: "REVIEW: [test/repo] Some PR",
+        name: "[test/repo] Some PR",
         desc: `Review requested: ${prUrl}`,
       });
 
       // The card we just created should have the URL in its description
       expect(card.desc).toContain(prUrl);
-      expect(card.name).toContain("REVIEW:");
+      expect(card.name).toContain("[test/repo]");
     });
   });
 
