@@ -48,7 +48,7 @@ const resolveRepoPath = (parsed: ParsedUrl) =>
   join(homedir(), "ghq", parsed.host, parsed.owner, parsed.repo);
 
 const resolveWorktreePath = (parsed: ParsedUrl, segment: string) =>
-  join(homedir(), "gwq", parsed.host, parsed.owner, parsed.repo, sanitizeBranch(segment));
+  join(homedir(), "ghq", parsed.host, parsed.owner, `${parsed.repo}=${sanitizeBranch(segment)}`);
 
 const resolveRepoInfoFromPath = (repoPath: string): RepoInfo | null => {
   const ghqRoot = join(homedir(), "ghq");
@@ -69,23 +69,31 @@ const resolveRepoInfoFromPath = (repoPath: string): RepoInfo | null => {
   };
 };
 
-const resolveRepoInfoFromWorktreePath = (worktreePath: string): (RepoInfo & { branch: string }) | null => {
-  const gwqRoot = join(homedir(), "gwq");
-  const rel = relative(gwqRoot, worktreePath);
+export const resolveRepoInfoFromWorktreePath = (worktreePath: string): (RepoInfo & { branch: string }) | null => {
+  const ghqRoot = join(homedir(), "ghq");
+  const rel = relative(ghqRoot, worktreePath);
   if (rel.startsWith("..") || rel === worktreePath) {
     return null;
   }
   const parts = rel.split("/").filter(Boolean);
-  if (parts.length < 4) {
+  if (parts.length < 3) {
     return null;
   }
-  const [host, owner, repo, ...rest] = parts;
-  const branch = rest.join("/");
+  const [host, owner, repoSegment] = parts;
+  const separatorIndex = repoSegment.indexOf("=");
+  if (separatorIndex <= 0) {
+    return null;
+  }
+  const repo = repoSegment.slice(0, separatorIndex);
+  const branch = repoSegment.slice(separatorIndex + 1);
+  if (!repo || !branch) {
+    return null;
+  }
   return {
     host,
     owner,
     repo,
-    repoPath: join(homedir(), "ghq", host, owner, repo),
+    repoPath: join(ghqRoot, host, owner, repo),
     branch,
   };
 };
@@ -95,7 +103,7 @@ export const buildWorktreePathForRepo = (repoPath: string, segment: string): str
   if (!info) {
     return null;
   }
-  return join(homedir(), "gwq", info.host, info.owner, info.repo, sanitizeBranch(segment));
+  return join(homedir(), "ghq", info.host, info.owner, `${info.repo}=${sanitizeBranch(segment)}`);
 };
 
 const pathExists = async (path: string): Promise<boolean> => {
@@ -288,14 +296,14 @@ export const ensureWorktreeForUrl = async (options: {
     return null;
   }
   const repoPath = await ensureRepoCloned(parsed, options);
-  const worktreeRoot = join(homedir(), "gwq", parsed.host, parsed.owner, parsed.repo);
+  const worktreeRoot = join(homedir(), "ghq", parsed.host, parsed.owner);
   const resolvedName = resolveWorkItemName({ url: options.url, title: options.title });
   if (!resolvedName) {
     return null;
   }
 
   const branch = resolvedName;
-  const worktreePath = options.path ?? join(worktreeRoot, sanitizeBranch(branch));
+  const worktreePath = options.path ?? join(worktreeRoot, `${parsed.repo}=${sanitizeBranch(branch)}`);
   if (await pathExists(worktreePath)) {
     return { branch, worktreePath };
   }
@@ -374,13 +382,13 @@ export const removeWorktreeForUrl = async (options: {
     return null;
   }
   const repoPath = await ensureRepoCloned(parsed, options);
-  const worktreeRoot = join(homedir(), "gwq", parsed.host, parsed.owner, parsed.repo);
+  const worktreeRoot = join(homedir(), "ghq", parsed.host, parsed.owner);
   const resolvedName = resolveWorkItemName({ url: options.url, title: options.title });
   if (!resolvedName) {
     return null;
   }
   const branch = resolvedName;
-  const worktreePath = options.path ?? join(worktreeRoot, sanitizeBranch(branch));
+  const worktreePath = options.path ?? join(worktreeRoot, `${parsed.repo}=${sanitizeBranch(branch)}`);
 
   if (!(await pathExists(worktreePath))) {
     return null;

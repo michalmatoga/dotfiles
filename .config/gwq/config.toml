@@ -1,7 +1,7 @@
 [worktree]
-basedir = "~/gwq"
+basedir = "~/ghq"
 auto_mkdir = true
 
 [naming]
-template = "{{.Host}}/{{.Owner}}/{{.Repository}}/{{.Branch}}"
+template = "{{.Host}}/{{.Owner}}/{{.Repository}}={{.Branch}}"
 sanitize_chars = { "/" = "-" }

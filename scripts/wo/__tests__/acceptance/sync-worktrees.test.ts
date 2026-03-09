@@ -142,13 +142,13 @@ describe("sync-worktrees", () => {
           cardId: "test-card",
           url: buildTestIssueUrl(1),
           branch: "1-test-issue",
-          path: "/home/user/gwq/schibsted.ghe.com/org/repo/1-test-issue",
+          path: "/home/user/ghq/schibsted.ghe.com/org/repo=1-test-issue",
         },
       };
       
       expect(event.type).toBe("worktree.added");
       expect(event.payload.branch).toBe("1-test-issue");
-      expect(event.payload.path).toContain("gwq");
+      expect(event.payload.path).toContain("ghq");
     });
 
     it("defines valid worktree.removed event", () => {
@@ -159,7 +159,7 @@ describe("sync-worktrees", () => {
           cardId: "test-card",
           url: buildTestIssueUrl(1),
           branch: "1-test-issue",
-          path: "/home/user/gwq/schibsted.ghe.com/org/repo/1-test-issue",
+          path: "/home/user/ghq/schibsted.ghe.com/org/repo=1-test-issue",
         },
       };
       

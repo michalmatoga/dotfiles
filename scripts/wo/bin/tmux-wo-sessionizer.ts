@@ -13,7 +13,8 @@ import {
   writeFileSync,
 } from "node:fs";
 import { homedir } from "node:os";
-import { join, relative } from "node:path";
+import { dirname, join, relative } from "node:path";
+import { fileURLToPath } from "node:url";
 
 type EntryKind = "worktree" | "repo";
 
@@ -30,7 +31,7 @@ type Entry = {
 
 const delimiter = "\u001f";
 
-const scriptDir = __dirname;
+const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(scriptDir, "../../..");
 const stateDir = join(repoRoot, "scripts/wo/state");
 const eventsPath = join(stateDir, "wo-events.jsonl");
@@ -41,7 +42,7 @@ const dirCacheTtlMs = 30_000;
 
 const args = process.argv.slice(2);
 const argPath = args.find((arg) => !arg.startsWith("--")) ?? null;
-const includeGhq = !args.includes("--gwq-only");
+const includeRepos = !(args.includes("--worktree-only") || args.includes("--gwq-only"));
 const dryRun = args.includes("--dry-run");
 const paneDelimiter = "\t";
 
@@ -201,8 +202,8 @@ const loadOpencodeSessionsFromDb = () => {
     }
     return map;
   }
-  const gwqRoot = normalizePath(join(homedir(), "gwq"));
-  const query = `select id, directory, time_updated from session where directory like '${gwqRoot.replace(/'/g, "''")}/%';`;
+  const ghqRoot = normalizePath(join(homedir(), "ghq"));
+  const query = `select id, directory, time_updated from session where directory like '${ghqRoot.replace(/'/g, "''")}/%';`;
   const raw = runOptional("opencode", ["db", "--format", "json", query]);
   if (!raw) {
     return map;
@@ -550,11 +551,61 @@ const ensureFzfPath = () => {
   return `${fzfDir}:${current}`;
 };
 
-const gatherEntries = () => {
+export const classifyGhqEntry = (options: {
+  entryPath: string;
+  ghqRoot?: string;
+  includeRepos?: boolean;
+  worktreeUrlMap?: Map<string, string>;
+  existsPath?: (path: string) => boolean;
+}): Entry | null => {
+  const ghqRoot = options.ghqRoot ?? join(homedir(), "ghq");
+  const normalized = normalizePath(options.entryPath);
+  const rel = relative(ghqRoot, normalized).split("/");
+  const host = rel[0] ?? null;
+  const owner = rel[1] ?? null;
+  const repoSegment = rel[2] ?? null;
+  if (!host || !owner || !repoSegment) {
+    return null;
+  }
+  const separatorIndex = repoSegment.indexOf("=");
+  if (separatorIndex > 0) {
+    const repo = repoSegment.slice(0, separatorIndex) || null;
+    const leaf = repoSegment.slice(separatorIndex + 1) || null;
+    return {
+      path: normalized,
+      kind: "worktree",
+      url: options.worktreeUrlMap?.get(normalized) ?? null,
+      host,
+      owner,
+      repo,
+      leaf,
+    };
+  }
+  if (options.includeRepos === false) {
+    return null;
+  }
+
+  const existsPath = options.existsPath ?? existsSync;
+  let leaf: string | null = null;
+  if (existsPath(join(normalized, ".git/refs/heads/main"))) {
+    leaf = "main";
+  } else if (existsPath(join(normalized, ".git/refs/heads/master"))) {
+    leaf = "master";
+  }
+  return {
+    path: normalized,
+    kind: "repo",
+    host,
+    owner,
+    repo: repoSegment,
+    leaf,
+  };
+};
+
+export const gatherEntries = () => {
   const entries: Entry[] = [];
   const worktreeUrlMap = loadWorktreeUrlMap();
 
-  const gwqRoot = join(homedir(), "gwq");
   const ghqRoot = join(homedir(), "ghq");
   const loadDirCache = (name: string, root: string, depth: number, minDepth: number) => {
     if (!existsSync(root)) {
@@ -582,47 +633,21 @@ const gatherEntries = () => {
     });
     return dirs;
   };
-  const gwqDirs = loadDirCache("gwq", gwqRoot, 4, 4);
-  for (const path of gwqDirs) {
+  const ghqDirs = loadDirCache("ghq", ghqRoot, 3, 3);
+  for (const path of ghqDirs) {
     if (!path) {
       continue;
     }
-    const normalized = normalizePath(path);
-    const rel = relative(gwqRoot, normalized).split("/");
-    entries.push({
-      path: normalized,
-      kind: "worktree",
-      url: worktreeUrlMap.get(normalized) ?? null,
-      host: rel[0] ?? null,
-      owner: rel[1] ?? null,
-      repo: rel[2] ?? null,
-      leaf: rel.slice(3).join("/") || null,
+    const entry = classifyGhqEntry({
+      entryPath: path,
+      ghqRoot,
+      includeRepos,
+      worktreeUrlMap,
     });
-  }
-
-  if (includeGhq) {
-    const ghqDirs = loadDirCache("ghq", ghqRoot, 3, 3);
-    for (const path of ghqDirs) {
-      if (!path) {
-        continue;
-      }
-      const normalized = normalizePath(path);
-      const rel = relative(ghqRoot, normalized).split("/");
-      let leaf: string | null = null;
-      if (existsSync(join(normalized, ".git/refs/heads/main"))) {
-        leaf = "main";
-      } else if (existsSync(join(normalized, ".git/refs/heads/master"))) {
-        leaf = "master";
-      }
-      entries.push({
-        path: normalized,
-        kind: "repo",
-        host: rel[0] ?? null,
-        owner: rel[1] ?? null,
-        repo: rel[2] ?? null,
-        leaf,
-      });
+    if (!entry) {
+      continue;
     }
+    entries.push(entry);
   }
 
   return entries;
@@ -694,36 +719,46 @@ const pickEntry = (entries: Entry[]) => {
   return parts[1] ?? null;
 };
 
-const selectedPath = argPath ?? pickEntry(gatherEntries());
-if (!selectedPath) {
-  process.exit(0);
-}
+export const main = () => {
+  const selectedPath = argPath ?? pickEntry(gatherEntries());
+  if (!selectedPath) {
+    process.exit(0);
+  }
 
-const sessionName = pathToSessionName(selectedPath);
-if (dryRun) {
-  console.log(`${selectedPath} -> ${sessionName}`);
-  process.exit(0);
-}
+  const sessionName = pathToSessionName(selectedPath);
+  if (dryRun) {
+    console.log(`${selectedPath} -> ${sessionName}`);
+    process.exit(0);
+  }
 
-const tmuxRunning = runOptional("pgrep", ["tmux"]);
-if (!process.env.TMUX && !tmuxRunning.trim()) {
-  run("tmux", ["new-session", "-s", sessionName, "-c", selectedPath]);
-  run("tmux", ["split-window", "-h", "-t", sessionName]);
-  run("tmux", ["resize-pane", "-t", sessionName, "-x", "70"]);
-  process.exit(0);
-}
+  const tmuxRunning = runOptional("pgrep", ["tmux"]);
+  if (!process.env.TMUX && !tmuxRunning.trim()) {
+    run("tmux", ["new-session", "-s", sessionName, "-c", selectedPath]);
+    run("tmux", ["split-window", "-h", "-t", sessionName]);
+    run("tmux", ["resize-pane", "-t", sessionName, "-x", "70"]);
+    process.exit(0);
+  }
 
-try {
-  run("tmux", ["has-session", "-t", sessionName]);
-} catch {
-  run("tmux", ["new-session", "-ds", sessionName, "-c", selectedPath]);
-  run("tmux", ["send-keys", "-t", sessionName, "vim", "C-m"]);
-  run("tmux", ["split-window", "-h", "-t", sessionName, "-c", selectedPath]);
-  run("tmux", ["resize-pane", "-t", sessionName, "-x", "70"]);
-}
+  try {
+    run("tmux", ["has-session", "-t", sessionName]);
+  } catch {
+    run("tmux", ["new-session", "-ds", sessionName, "-c", selectedPath]);
+    run("tmux", ["send-keys", "-t", sessionName, "vim", "C-m"]);
+    run("tmux", ["split-window", "-h", "-t", sessionName, "-c", selectedPath]);
+    run("tmux", ["resize-pane", "-t", sessionName, "-x", "70"]);
+  }
 
-if (!process.env.TMUX) {
-  run("tmux", ["attach", "-t", sessionName]);
-} else {
-  run("tmux", ["switch-client", "-t", sessionName]);
+  if (!process.env.TMUX) {
+    run("tmux", ["attach", "-t", sessionName]);
+  } else {
+    run("tmux", ["switch-client", "-t", sessionName]);
+  }
+};
+
+const isMainModule = process.argv[1]
+  ? fileURLToPath(import.meta.url) === process.argv[1]
+  : false;
+
+if (isMainModule) {
+  main();
 }

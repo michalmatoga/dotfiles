@@ -62,12 +62,17 @@ const formatTime = (date: Date): string => {
 
 const stripAnsi = (text: string): string => text.replace(/\x1b\[[0-9;]*m/g, "");
 
-const pathToLabel = (path: string): string => {
-  // Convert /home/nixos/gwq/github.com/org/repo/branch to org/repo
+export const pathToLabel = (path: string): string => {
+  // Convert /home/nixos/ghq/github.com/org/repo=branch to org/repo
   // or /home/nixos/ghq/github.com/org/repo to org/repo
-  const match = path.match(/\/(ghq|gwq)\/[^/]+\/([^/]+\/[^/]+)/);
+  const match = path.match(/\/ghq\/[^/]+\/([^/]+)\/([^/]+)/);
   if (match) {
-    return match[2];
+    const owner = match[1];
+    const repoSegment = match[2];
+    const repo = repoSegment.split("=")[0] ?? repoSegment;
+    if (owner && repo) {
+      return `${owner}/${repo}`;
+    }
   }
   // Fallback: last two path components
   const parts = path.split("/").filter((p) => p.length > 0);

@@ -92,7 +92,7 @@ Flags:
 
 ## Worktree automation
 
-- Worktrees are managed with `gwq` and stored under `~/gwq` using `host/owner/repo/<number>-<slug>` (slug from GitHub issue/PR title).
+- Worktrees are managed with `gwq` and stored under `~/ghq` using `host/owner/repo=<number>-<slug>` (slug from GitHub issue/PR title).
 - Worktree branch names mirror the path segment (`<number>-<slug>`); if a name collision is detected, `issue-` or `pr-` is prefixed.
 - Config lives in the repo at `.config/gwq/config.toml` and is synced to `~/.config/gwq/config.toml`.
 - Missing repos are auto-cloned with `ghq` using SSH: `schibsted@schibsted.ghe.com:org/repo.git`.
@@ -105,9 +105,28 @@ Flags:
 - Set `WO_SESSION_TRIGGER_LISTS` to customize which lists auto-initialize sessions (default: `Doing`).
 - When a worktree is removed (card moved to `Done`), the corresponding tmux session is also killed if it exists.
 
+## Migration to single-root worktrees
+
+Worktrees now live alongside repos under `~/ghq` using the `repo=branch` naming format.
+Run this once after the branch is merged to `main`, not before.
+
+Safe migration steps:
+
+1. Ensure worktrees are clean: `git -C <worktree-path> status`.
+2. For each existing worktree under `~/gwq`, move it with git:
+
+```bash
+git -C ~/ghq/<host>/<owner>/<repo> worktree move ~/gwq/<host>/<owner>/<repo>/<branch> ~/ghq/<host>/<owner>/<repo>=<branch>
+```
+
+3. Verify: `git -C ~/ghq/<host>/<owner>/<repo> worktree list`.
+4. After verification, remove the old `~/gwq` directory if it is empty.
+
 ## Tmux sessionizer
 
-- `scripts/wo/bin/tmux-wo-sessionizer.ts` is a picker for `~/gwq` worktrees and `~/ghq` repos.
+- `scripts/wo/bin/tmux-wo-sessionizer.ts` is a picker for `~/ghq` repos and worktrees.
+- Use `--worktree-only` to hide base repos and show only linked worktrees.
+- `scripts/tmux-ghq-sessionizer.sh` provides the shell version of the same `~/ghq` picker.
 - Entries are rendered as single-line paths (`host › owner › repo › worktree`), so fzf progressively filters as you type.
 - Worktree entries include a status dot: `●` = opencode active, `○` = opencode idle/unknown (derived from last 5 log files in `~/.local/share/opencode/log/`, mapping sessions to worktrees via `opencode db`, with running tmux opencode panes treated as active if no idle signal is found).
 - Run: `npx --yes tsx scripts/wo/bin/tmux-wo-sessionizer.ts`.
