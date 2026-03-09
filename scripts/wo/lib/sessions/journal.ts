@@ -62,7 +62,7 @@ const formatTime = (date: Date): string => {
 
 const stripAnsi = (text: string): string => text.replace(/\x1b\[[0-9;]*m/g, "");
 
-const pathToLabel = (path: string): string => {
+export const pathToLabel = (path: string): string => {
   // Convert /home/nixos/ghq/github.com/org/repo=branch to org/repo
   // or /home/nixos/ghq/github.com/org/repo to org/repo
   const match = path.match(/\/ghq\/[^/]+\/([^/]+)\/([^/]+)/);

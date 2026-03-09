@@ -108,6 +108,7 @@ Flags:
 ## Migration to single-root worktrees
 
 Worktrees now live alongside repos under `~/ghq` using the `repo=branch` naming format.
+Run this once after the branch is merged to `main`, not before.
 
 Safe migration steps:
 
@@ -124,6 +125,8 @@ git -C ~/ghq/<host>/<owner>/<repo> worktree move ~/gwq/<host>/<owner>/<repo>/<br
 ## Tmux sessionizer
 
 - `scripts/wo/bin/tmux-wo-sessionizer.ts` is a picker for `~/ghq` repos and worktrees.
+- Use `--worktree-only` to hide base repos and show only linked worktrees.
+- `scripts/tmux-ghq-sessionizer.sh` provides the shell version of the same `~/ghq` picker.
 - Entries are rendered as single-line paths (`host › owner › repo › worktree`), so fzf progressively filters as you type.
 - Worktree entries include a status dot: `●` = opencode active, `○` = opencode idle/unknown (derived from last 5 log files in `~/.local/share/opencode/log/`, mapping sessions to worktrees via `opencode db`, with running tmux opencode panes treated as active if no idle signal is found).
 - Run: `npx --yes tsx scripts/wo/bin/tmux-wo-sessionizer.ts`.

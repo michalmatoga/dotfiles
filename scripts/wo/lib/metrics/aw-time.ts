@@ -130,7 +130,7 @@ const findUrlForPath = (
 const isTrackablePath = (panePath: string, roots: string[]): boolean =>
   roots.some((root) => isPathWithin(root, panePath));
 
-const toRepoLabel = (panePath: string): string | null => {
+export const toRepoLabel = (panePath: string): string | null => {
   const match = panePath.match(/\/ghq\/([^/]+)\/([^/]+)\/([^/]+)/);
   if (!match) {
     return null;

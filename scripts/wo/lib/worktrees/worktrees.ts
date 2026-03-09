@@ -69,7 +69,7 @@ const resolveRepoInfoFromPath = (repoPath: string): RepoInfo | null => {
   };
 };
 
-const resolveRepoInfoFromWorktreePath = (worktreePath: string): (RepoInfo & { branch: string }) | null => {
+export const resolveRepoInfoFromWorktreePath = (worktreePath: string): (RepoInfo & { branch: string }) | null => {
   const ghqRoot = join(homedir(), "ghq");
   const rel = relative(ghqRoot, worktreePath);
   if (rel.startsWith("..") || rel === worktreePath) {
