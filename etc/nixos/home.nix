@@ -338,7 +338,7 @@ in
 
       # OpenCode model switcher
       if [ -z "''${OPENCODE_MODEL:-}" ] || [ "''${OPENCODE_MODEL}" = "litellm/bedrock-claude-opus-4-5" ]; then
-        export OPENCODE_MODEL="openai/gpt-5.3-codex"
+        export OPENCODE_MODEL="openai/gpt-5.4"
       fi
       OPENCODE_MODELS_CACHE="''${XDG_CACHE_HOME:-$HOME/.cache}/opencode-models"
       OPENCODE_MODELS_LRU="''${XDG_CACHE_HOME:-$HOME/.cache}/opencode-models-lru.json"
