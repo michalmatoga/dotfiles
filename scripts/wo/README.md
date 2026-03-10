@@ -30,6 +30,11 @@ Lists:
 
 Labels (lowercase):
 
+- business
+- career
+- health
+- growth
+- relationships
 - schibsted
 - review
 - household
@@ -214,14 +219,23 @@ Config file at `~/.config/wo/session.json` (symlinked from repo).
 Written to `/home/nixos/ghq/gitlab.com/michalmatoga/journal/YYYY-MM-DD.md`:
 
 ```markdown
-## Work Session - 2026-02-17
+# 2026-02-17
 
-**Total active time:** 4h 12m
+**Deep work time:** 4h 12m
 
-### Session Narrative
+## Business
+**Total:** 2h 30m
+Worked mainly on org/repo-a and supporting workflow updates, with most effort going into shipping and validating business-facing changes.
 
-Focused on org/repo-a and shipped several updates, with supporting exploration in org/repo-b.
-Shifted into investigation and validation work later in the day without new shipped updates.
+## Growth
+**Total:** 1h 27m
+Spent time refining the journaling and workflow model, with supporting exploration in org/repo-b.
+
+## Unmapped
+**Total:** 15m
+Worked on cards that did not have exactly one LSS area label, so their time stayed visible here instead of being guessed.
+
+```
 
 ## Reporting
 

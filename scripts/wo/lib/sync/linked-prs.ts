@@ -114,7 +114,7 @@ export const syncLinkedPrs = async (options: {
     return new Set();
   }
 
-  const context = await loadBoardContext({ boardId: options.boardId, allowCreate: false });
+  const context = await loadBoardContext({ boardId: options.boardId, allowCreate: false, allowCreateLabels: true });
   const cards = await fetchBoardCards(options.boardId);
   const cardByUrl = new Map<string, (typeof cards)[number]>();
   for (const card of cards) {

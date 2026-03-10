@@ -20,9 +20,9 @@ import { dirname, join } from "node:path";
 
 import {
   getEvents,
-  getTodayTimeRange,
   isServerAvailable,
 } from "../lib/sessions/activitywatch";
+import { loadEnvFile } from "../lib/env";
 import {
   buildJournalEntry,
   formatJournalEntry,
@@ -79,16 +79,33 @@ const journalEntryExists = async (filePath: string, date: Date): Promise<boolean
   try {
     const content = await readFile(filePath, "utf8");
     const dateStr = date.toISOString().split("T")[0];
-    const marker = `## Work Session - ${dateStr}`;
-    return content.includes(marker);
+    return content.includes(`## Work Session - ${dateStr}`) || content.includes(`# ${dateStr}`);
   } catch {
     return false;
   }
 };
 
 const run = async (options: Options): Promise<void> => {
+  try {
+    await loadEnvFile(".env");
+  } catch {
+    try {
+      await loadEnvFile(".env.local");
+      console.log("journal-write: Loaded .env.local as fallback");
+    } catch {
+      // No env file present; continue with existing environment variables
+    }
+  }
+
   const dateStr = options.date.toISOString().split("T")[0];
+  const boardId = process.env.TRELLO_BOARD_ID_WO;
+  const hasTrelloContext = Boolean(
+    boardId && process.env.TRELLO_API_KEY && process.env.TRELLO_TOKEN,
+  );
   console.log(`journal-write: Generating summary for ${dateStr}`);
+  if (!hasTrelloContext) {
+    console.log("journal-write: Trello board context unavailable; falling back to Unmapped grouping");
+  }
 
   // Check AW server
   if (!(await isServerAvailable())) {
@@ -111,7 +128,9 @@ const run = async (options: Options): Promise<void> => {
   console.log(`Found ${events.length} events`);
 
   // Build journal entry
-  const entry = buildJournalEntry(events, options.date);
+  const entry = await buildJournalEntry(events, options.date, {
+    boardId: hasTrelloContext ? boardId : undefined,
+  });
   const formatted = await formatJournalEntry(entry);
 
   if (options.dryRun) {

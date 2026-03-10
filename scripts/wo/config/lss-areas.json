@@ -1,0 +1,32 @@
+[
+  {
+    "label": "business",
+    "title": "Business",
+    "noteId": "ot-business"
+  },
+  {
+    "label": "career",
+    "title": "Career",
+    "noteId": "ot-career"
+  },
+  {
+    "label": "health",
+    "title": "Health",
+    "noteId": "ot-health"
+  },
+  {
+    "label": "growth",
+    "title": "Growth",
+    "noteId": "growth"
+  },
+  {
+    "label": "household",
+    "title": "Household",
+    "noteId": "household"
+  },
+  {
+    "label": "relationships",
+    "title": "Relationships",
+    "noteId": "ot-relations"
+  }
+]

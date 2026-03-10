@@ -15,7 +15,12 @@ export const listAliases: Record<string, string> = {
 export const labelNames = {
   schibsted: "schibsted",
   review: "review",
+  business: "business",
+  career: "career",
+  health: "health",
+  growth: "growth",
   household: "household",
+  relationships: "relationships",
   elikonas: "elikonas",
   journal: "journal",
   dotfiles: "dotfiles",

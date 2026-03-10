@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+
 import {
   aggregateUniqueDuration,
   aggregateUniqueDurationByDataKey,
@@ -6,6 +7,30 @@ import {
   collectDataKeyByHour,
   type AWEvent,
 } from "./activitywatch";
+import {
+  buildCardIndex,
+  buildPathToUrlMap,
+  findUrlForPath,
+  normalizePath,
+} from "../metrics/aw-time";
+import {
+  indexLssAreas,
+  loadLssAreas,
+  resolveLssArea,
+  UNMAPPED_LSS_AREA_KEY,
+  UNMAPPED_LSS_AREA_TITLE,
+  type LssArea,
+} from "../trello/lss-areas";
+
+type AreaStatus = "single" | "none" | "multiple";
+
+type PathAreaResolution = {
+  areaKey: string;
+  areaTitle: string;
+  status: AreaStatus;
+};
+
+type AreaSummaryGenerator = (summary: AreaSummary) => Promise<string>;
 
 export type HourlyBucket = {
   hour: number;
@@ -28,14 +53,19 @@ export type WorktreeSummary = {
   label: string;
   durationSeconds: number;
   commitCount: number;
+  areaKey: string;
+  areaTitle: string;
+  areaStatus: AreaStatus;
 };
 
-type NarrativeBlock = {
-  start: Date;
-  end: Date;
-  buckets: HourlyBucket[];
-  commits: CommitInfo[];
-  worktrees: Set<string>;
+export type AreaSummary = {
+  key: string;
+  title: string;
+  durationSeconds: number;
+  worktreeSummaries: WorktreeSummary[];
+  commitSubjects: string[];
+  hasUnlabeledCards: boolean;
+  hasAmbiguousCards: boolean;
 };
 
 export type JournalEntry = {
@@ -43,6 +73,7 @@ export type JournalEntry = {
   totalSeconds: number;
   hourlyBreakdown: HourlyBucket[];
   worktreeSummaries: WorktreeSummary[];
+  areaSummaries: AreaSummary[];
 };
 
 const formatDuration = (seconds: number): string => {
@@ -54,17 +85,9 @@ const formatDuration = (seconds: number): string => {
   return `${minutes}m`;
 };
 
-const formatTime = (date: Date): string => {
-  const hours = date.getHours().toString().padStart(2, "0");
-  const minutes = date.getMinutes().toString().padStart(2, "0");
-  return `${hours}:${minutes}`;
-};
-
 const stripAnsi = (text: string): string => text.replace(/\x1b\[[0-9;]*m/g, "");
 
 export const pathToLabel = (path: string): string => {
-  // Convert /home/nixos/ghq/github.com/org/repo=branch to org/repo
-  // or /home/nixos/ghq/github.com/org/repo to org/repo
   const match = path.match(/\/ghq\/[^/]+\/([^/]+)\/([^/]+)/);
   if (match) {
     const owner = match[1];
@@ -74,8 +97,7 @@ export const pathToLabel = (path: string): string => {
       return `${owner}/${repo}`;
     }
   }
-  // Fallback: last two path components
-  const parts = path.split("/").filter((p) => p.length > 0);
+  const parts = path.split("/").filter((part) => part.length > 0);
   if (parts.length >= 2) {
     return `${parts[parts.length - 2]}/${parts[parts.length - 1]}`;
   }
@@ -96,158 +118,52 @@ const uniqueCommitSubjects = (commits: CommitInfo[]): string[] => {
   return subjects;
 };
 
-const buildNarrativeBlocks = (hourlyBuckets: HourlyBucket[]): NarrativeBlock[] => {
-  const sorted = [...hourlyBuckets].sort((a, b) => a.hour - b.hour);
-  const blocks: NarrativeBlock[] = [];
-  let current: NarrativeBlock | null = null;
+const defaultAreaResolution = (): PathAreaResolution => ({
+  areaKey: UNMAPPED_LSS_AREA_KEY,
+  areaTitle: UNMAPPED_LSS_AREA_TITLE,
+  status: "none",
+});
 
-  for (const bucket of sorted) {
-    if (!current) {
-      current = {
-        start: new Date(bucket.startTime),
-        end: new Date(bucket.endTime),
-        buckets: [bucket],
-        commits: [...bucket.commits],
-        worktrees: new Set(bucket.worktrees),
-      };
-      continue;
-    }
+const getPathAreaResolution = (
+  path: string,
+  resolutions: Map<string, PathAreaResolution>,
+): PathAreaResolution => resolutions.get(path) ?? resolutions.get(normalizePath(path)) ?? defaultAreaResolution();
 
-    const lastBucket = current.buckets[current.buckets.length - 1];
-    const isContiguous = bucket.hour === lastBucket.hour + 1;
-    const withinTwoHours = current.buckets.length < 2;
+const buildPathAreaResolutions = async (
+  paths: string[],
+  boardId: string,
+  areas: LssArea[],
+): Promise<Map<string, PathAreaResolution>> => {
+  const [pathToUrl, cardIndex] = await Promise.all([buildPathToUrlMap(), buildCardIndex(boardId)]);
+  const entries = Array.from(pathToUrl.entries())
+    .map(([path, url]) => ({ path: normalizePath(path), url }))
+    .sort((a, b) => b.path.length - a.path.length);
+  const areaByLabel = indexLssAreas(areas);
+  const resolutions = new Map<string, PathAreaResolution>();
 
-    if (isContiguous && withinTwoHours) {
-      current.buckets.push(bucket);
-      current.end = new Date(bucket.endTime);
-      current.commits.push(...bucket.commits);
-      for (const path of bucket.worktrees) {
-        current.worktrees.add(path);
-      }
-      continue;
-    }
+  for (const originalPath of paths) {
+    const normalizedPath = normalizePath(originalPath);
+    const url = findUrlForPath(normalizedPath, entries);
+    const card = url ? cardIndex.get(url) : null;
+    const resolution = resolveLssArea({ labelNames: card?.labels ?? [], areaByLabel });
 
-    blocks.push(current);
-    current = {
-      start: new Date(bucket.startTime),
-      end: new Date(bucket.endTime),
-      buckets: [bucket],
-      commits: [...bucket.commits],
-      worktrees: new Set(bucket.worktrees),
-    };
+    const mapped = resolution.status === "single"
+      ? {
+          areaKey: resolution.area.label,
+          areaTitle: resolution.area.title,
+          status: "single" as const,
+        }
+      : {
+          areaKey: UNMAPPED_LSS_AREA_KEY,
+          areaTitle: UNMAPPED_LSS_AREA_TITLE,
+          status: resolution.status,
+        };
+
+    resolutions.set(originalPath, mapped);
+    resolutions.set(normalizedPath, mapped);
   }
 
-  if (current) {
-    blocks.push(current);
-  }
-
-  for (const block of blocks) {
-    const byHash = new Map<string, CommitInfo>();
-    for (const commit of block.commits) {
-      if (!byHash.has(commit.hash)) {
-        byHash.set(commit.hash, commit);
-      }
-    }
-    block.commits = Array.from(byHash.values()).sort(
-      (a, b) => a.timestamp.getTime() - b.timestamp.getTime(),
-    );
-  }
-
-  return blocks;
-};
-
-const pickDominantWorktree = (commits: CommitInfo[], worktrees: Set<string>): string | null => {
-  if (commits.length > 0) {
-    const counts = new Map<string, number>();
-    for (const commit of commits) {
-      counts.set(commit.worktree, (counts.get(commit.worktree) ?? 0) + 1);
-    }
-    let best: string | null = null;
-    let bestCount = 0;
-    for (const [path, count] of counts.entries()) {
-      if (count > bestCount) {
-        best = path;
-        bestCount = count;
-      }
-    }
-    return best;
-  }
-
-  for (const path of worktrees) {
-    return path;
-  }
-  return null;
-};
-
-const buildOpencodePrompt = (entry: JournalEntry, blocks: NarrativeBlock[]): string => {
-  const blockLines = blocks.map((block) => {
-    const timeRange = `${formatTime(block.start)}-${formatTime(block.end)}`;
-    const dominantPath = pickDominantWorktree(block.commits, block.worktrees);
-    const dominantLabel = dominantPath ? pathToLabel(dominantPath) : "unknown";
-    const subjects = uniqueCommitSubjects(block.commits).slice(0, 12);
-    const worktrees = Array.from(block.worktrees).map(pathToLabel);
-
-    return [
-      `- ${timeRange}`,
-      `  dominant: ${dominantLabel}`,
-      `  worktrees: ${worktrees.join(", ") || "none"}`,
-      `  commit_subjects: ${subjects.join(" | ") || "none"}`,
-      `  commit_count: ${block.commits.length}`,
-    ].join("\n");
-  });
-
-  return [
-    "You are generating a work session journal narrative.",
-    "Output Markdown with hour-by-hour narrative blocks.",
-    "Each block must be a Markdown sub-header and a single paragraph below it.",
-    "Sub-header format: #### HH:MM-HH:MM - <short title>",
-    "Do not use bullet points or lists.",
-    "Do not include commit hashes. Use commit subjects only as hints.",
-    "Keep it human-friendly and accomplishment-focused, 1-3 sentences per block.",
-    "Mention primary repositories within each block where relevant.",
-    "If a block has no commits, frame it as exploration or investigation.",
-    "",
-    `Date: ${entry.date}`,
-    `Total active time: ${formatDuration(entry.totalSeconds)}`,
-    "",
-    "Time blocks:",
-    ...blockLines,
-  ].join("\n");
-};
-
-const generateNarrativeWithOpencode = (entry: JournalEntry, blocks: NarrativeBlock[]): string => {
-  const prompt = buildOpencodePrompt(entry, blocks);
-
-  const result = spawnSync(
-    "opencode",
-    ["run", "--model", "openai/gpt-5.2-chat-latest", prompt],
-    {
-      encoding: "utf8",
-      timeout: 30_000,
-    },
-  );
-
-  if (result.error) {
-    if ((result.error as NodeJS.ErrnoException).code === "ENOENT") {
-      throw new Error("opencode not found on PATH; ensure it is available for journal-write.");
-    }
-    throw new Error(`opencode failed: ${stripAnsi(result.error.message)}`);
-  }
-
-  if (result.status !== 0 || !result.stdout) {
-    const errorText = result.stderr?.trim();
-    if (errorText) {
-      throw new Error(`opencode failed: ${stripAnsi(errorText)}`);
-    }
-    throw new Error("opencode failed with no output");
-  }
-
-  const output = result.stdout.trim();
-  if (output.length === 0) {
-    throw new Error("opencode returned empty output");
-  }
-
-  return output;
+  return resolutions;
 };
 
 export const getCommitsForWorktree = (
@@ -312,8 +228,6 @@ export const buildHourlyBreakdown = (
     }
 
     const worktrees = worktreesByHour.get(hour) ?? new Set<string>();
-
-    // Get commits for this hour from all touched worktrees
     const startTime = new Date(date);
     startTime.setHours(hour, 0, 0, 0);
     const endTime = new Date(date);
@@ -340,6 +254,7 @@ export const buildHourlyBreakdown = (
 export const buildWorktreeSummaries = (
   events: AWEvent[],
   hourlyBuckets: HourlyBucket[],
+  pathAreaResolutions: Map<string, PathAreaResolution>,
 ): WorktreeSummary[] => {
   const summaryMap = new Map<string, { duration: number; commits: number }>();
   const durationByPath = aggregateUniqueDurationByDataKey(events, "pane_path");
@@ -348,7 +263,6 @@ export const buildWorktreeSummaries = (
     summaryMap.set(path, { duration, commits: 0 });
   }
 
-  // Count commits per worktree
   for (const bucket of hourlyBuckets) {
     for (const commit of bucket.commits) {
       const existing = summaryMap.get(commit.worktree);
@@ -359,16 +273,179 @@ export const buildWorktreeSummaries = (
   }
 
   return Array.from(summaryMap.entries())
-    .map(([path, data]) => ({
-      path,
-      label: pathToLabel(path),
-      durationSeconds: data.duration,
-      commitCount: data.commits,
-    }))
+    .map(([path, data]) => {
+      const area = getPathAreaResolution(path, pathAreaResolutions);
+      return {
+        path,
+        label: pathToLabel(path),
+        durationSeconds: data.duration,
+        commitCount: data.commits,
+        areaKey: area.areaKey,
+        areaTitle: area.areaTitle,
+        areaStatus: area.status,
+      };
+    })
     .sort((a, b) => b.durationSeconds - a.durationSeconds);
 };
 
-export const formatJournalEntry = async (entry: JournalEntry): Promise<string> => {
+export const buildAreaSummaries = (options: {
+  hourlyBuckets: HourlyBucket[];
+  worktreeSummaries: WorktreeSummary[];
+  orderedAreaKeys?: string[];
+}): AreaSummary[] => {
+  const accumulators = new Map<string, AreaSummary & { subjectSet: Set<string> }>();
+  const summaryByPath = new Map(
+    options.worktreeSummaries.map((summary) => [normalizePath(summary.path), summary]),
+  );
+
+  const ensureArea = (key: string, title: string) => {
+    const existing = accumulators.get(key);
+    if (existing) {
+      return existing;
+    }
+    const created: AreaSummary & { subjectSet: Set<string> } = {
+      key,
+      title,
+      durationSeconds: 0,
+      worktreeSummaries: [],
+      commitSubjects: [],
+      hasUnlabeledCards: false,
+      hasAmbiguousCards: false,
+      subjectSet: new Set<string>(),
+    };
+    accumulators.set(key, created);
+    return created;
+  };
+
+  for (const worktree of options.worktreeSummaries) {
+    const area = ensureArea(worktree.areaKey, worktree.areaTitle);
+    area.durationSeconds += worktree.durationSeconds;
+    area.worktreeSummaries.push(worktree);
+    if (worktree.areaStatus === "none") {
+      area.hasUnlabeledCards = true;
+    }
+    if (worktree.areaStatus === "multiple") {
+      area.hasAmbiguousCards = true;
+    }
+  }
+
+  for (const bucket of options.hourlyBuckets) {
+    for (const commit of bucket.commits) {
+      const worktree = summaryByPath.get(normalizePath(commit.worktree));
+      if (!worktree) {
+        continue;
+      }
+      const area = ensureArea(worktree.areaKey, worktree.areaTitle);
+      const subject = commit.message.trim();
+      if (!subject || area.subjectSet.has(subject)) {
+        continue;
+      }
+      area.subjectSet.add(subject);
+      area.commitSubjects.push(subject);
+    }
+  }
+
+  const order = new Map<string, number>();
+  for (const [index, key] of (options.orderedAreaKeys ?? []).entries()) {
+    order.set(key, index);
+  }
+  order.set(UNMAPPED_LSS_AREA_KEY, Number.MAX_SAFE_INTEGER);
+
+  return Array.from(accumulators.values())
+    .map(({ subjectSet: _subjectSet, ...summary }) => ({
+      ...summary,
+      worktreeSummaries: [...summary.worktreeSummaries].sort(
+        (a, b) => b.durationSeconds - a.durationSeconds,
+      ),
+    }))
+    .filter((summary) => summary.durationSeconds > 0)
+    .sort((a, b) => {
+      const left = order.get(a.key) ?? Number.MAX_SAFE_INTEGER - 1;
+      const right = order.get(b.key) ?? Number.MAX_SAFE_INTEGER - 1;
+      if (left !== right) {
+        return left - right;
+      }
+      return b.durationSeconds - a.durationSeconds;
+    });
+};
+
+export const buildAreaSummaryPrompt = (summary: AreaSummary): string => {
+  const repositories = summary.worktreeSummaries
+    .slice(0, 5)
+    .map((worktree) => `${worktree.label} (${formatDuration(worktree.durationSeconds)})`)
+    .join(", ");
+  const commits = summary.commitSubjects.slice(0, 8).join(" | ");
+
+  const guidance: string[] = [];
+  if (summary.key === UNMAPPED_LSS_AREA_KEY) {
+    guidance.push(
+      "Explain that the work is kept here because the cards did not map to exactly one LSS area label.",
+    );
+    if (summary.hasUnlabeledCards) {
+      guidance.push("Mention that some cards had no LSS area label.");
+    }
+    if (summary.hasAmbiguousCards) {
+      guidance.push("Mention that some cards had multiple LSS area labels.");
+    }
+  } else if (summary.commitSubjects.length === 0) {
+    guidance.push("Frame the work as investigation, planning, maintenance, or coordination work.");
+  }
+
+  return [
+    "You are generating a work session journal summary for a single LSS area.",
+    "Output a single Markdown paragraph only.",
+    "Do not output headings, bullet points, or lists.",
+    "Keep it human-friendly and accomplishment-focused in 1-3 sentences.",
+    "Mention the primary repositories when relevant.",
+    "Do not include commit hashes.",
+    `Area: ${summary.title}`,
+    `Total active time: ${formatDuration(summary.durationSeconds)}`,
+    `Repositories: ${repositories || "none"}`,
+    `Commit subjects: ${commits || "none"}`,
+    `Guidance: ${guidance.join(" ") || "Summarize the main work and outcomes."}`,
+  ].join("\n");
+};
+
+const generateAreaSummaryWithOpencode = async (summary: AreaSummary): Promise<string> => {
+  const prompt = buildAreaSummaryPrompt(summary);
+
+  const result = spawnSync(
+    "opencode",
+    ["run", "--model", "openai/gpt-5.2-chat-latest", prompt],
+    {
+      encoding: "utf8",
+      timeout: 30_000,
+    },
+  );
+
+  if (result.error) {
+    if ((result.error as NodeJS.ErrnoException).code === "ENOENT") {
+      throw new Error("opencode not found on PATH; ensure it is available for journal-write.");
+    }
+    throw new Error(`opencode failed: ${stripAnsi(result.error.message)}`);
+  }
+
+  if (result.status !== 0 || !result.stdout) {
+    const errorText = result.stderr?.trim();
+    if (errorText) {
+      throw new Error(`opencode failed: ${stripAnsi(errorText)}`);
+    }
+    throw new Error("opencode failed with no output");
+  }
+
+  const output = result.stdout.trim();
+  if (output.length === 0) {
+    throw new Error("opencode returned empty output");
+  }
+
+  return output.replace(/^```[a-z]*\n?/i, "").replace(/\n```$/, "").trim();
+};
+
+export const formatJournalEntry = async (
+  entry: JournalEntry,
+  options: { generateAreaSummary?: AreaSummaryGenerator } = {},
+): Promise<string> => {
+  const generateAreaSummary = options.generateAreaSummary ?? generateAreaSummaryWithOpencode;
   const lines: string[] = [];
 
   lines.push(`# ${entry.date}`);
@@ -376,29 +453,47 @@ export const formatJournalEntry = async (entry: JournalEntry): Promise<string> =
   lines.push(`**Deep work time:** ${formatDuration(entry.totalSeconds)}`);
   lines.push("");
 
-  // Narrative breakdown (grouped)
-  if (entry.hourlyBreakdown.length > 0) {
-    const blocks = buildNarrativeBlocks(entry.hourlyBreakdown);
-    const narrative = generateNarrativeWithOpencode(entry, blocks);
-    lines.push(narrative.replace(/^####/gm, "##"));
+  const areaSummaries = await Promise.all(
+    entry.areaSummaries.map(async (area) => ({
+      area,
+      summaryText: (await generateAreaSummary(area)).replace(/\s*\n\s*/g, " ").trim(),
+    })),
+  );
+
+  for (const { area, summaryText } of areaSummaries) {
+    lines.push(`## ${area.title}`);
+    lines.push(`**Total:** ${formatDuration(area.durationSeconds)}`);
+    lines.push(summaryText);
     lines.push("");
   }
 
-  return lines.join("\n");
+  return lines.join("\n").trimEnd();
 };
 
-export const buildJournalEntry = (
+export const buildJournalEntry = async (
   events: AWEvent[],
   date: Date,
-): JournalEntry => {
+  options: { boardId?: string },
+): Promise<JournalEntry> => {
   const totalSeconds = aggregateUniqueDuration(events);
   const hourlyBreakdown = buildHourlyBreakdown(events, date);
-  const worktreeSummaries = buildWorktreeSummaries(events, hourlyBreakdown);
+  const trackedPaths = Array.from(aggregateUniqueDurationByDataKey(events, "pane_path").keys());
+  const areas = await loadLssAreas();
+  const pathAreaResolutions = options.boardId
+    ? await buildPathAreaResolutions(trackedPaths, options.boardId, areas)
+    : new Map<string, PathAreaResolution>();
+  const worktreeSummaries = buildWorktreeSummaries(events, hourlyBreakdown, pathAreaResolutions);
+  const areaSummaries = buildAreaSummaries({
+    hourlyBuckets: hourlyBreakdown,
+    worktreeSummaries,
+    orderedAreaKeys: areas.map((area) => area.label),
+  });
 
   return {
     date: date.toISOString().split("T")[0],
     totalSeconds,
     hourlyBreakdown,
     worktreeSummaries,
+    areaSummaries,
   };
 };

@@ -21,7 +21,7 @@ export const pruneWorktreesUseCase = async (options: { verbose: boolean }) => {
     return;
   }
 
-  const context = await loadBoardContext({ boardId, allowCreate: false });
+  const context = await loadBoardContext({ boardId, allowCreate: false, allowCreateLabels: true });
   const cards = await fetchBoardCardsAll(boardId);
   const cardByUrl = new Map<string, (typeof cards)[number]>();
   const listById = new Map(context.lists.map((list) => [list.id, list]));

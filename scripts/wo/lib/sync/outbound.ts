@@ -19,7 +19,7 @@ export const syncOutbound = async (options: {
   projectNumber: number;
   verbose: boolean;
 }) => {
-  const context = await loadBoardContext({ boardId: options.boardId, allowCreate: false });
+  const context = await loadBoardContext({ boardId: options.boardId, allowCreate: false, allowCreateLabels: true });
   const cards = await fetchBoardCards(options.boardId);
   const snapshot = await readLatestSnapshot();
   const previous = snapshot?.trello ?? {};

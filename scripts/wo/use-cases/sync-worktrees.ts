@@ -102,7 +102,7 @@ const pathExists = async (path: string): Promise<boolean> => {
 
 export const syncWorktreesUseCase = async (options: { verbose: boolean }) => {
   const boardId = requireEnv("TRELLO_BOARD_ID_WO");
-  const context = await loadBoardContext({ boardId, allowCreate: false });
+  const context = await loadBoardContext({ boardId, allowCreate: false, allowCreateLabels: true });
   const labelById = new Map(
     context.labels
       .filter((label) => Boolean(label.name))

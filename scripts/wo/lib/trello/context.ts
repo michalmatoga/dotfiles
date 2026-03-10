@@ -14,6 +14,7 @@ const canonicalListName = (name: string) => listAliases[name] ?? name;
 export const loadBoardContext = async (options: {
   boardId: string;
   allowCreate?: boolean;
+  allowCreateLabels?: boolean;
 }): Promise<BoardContext> => {
   const lists = await fetchBoardLists(options.boardId);
   const labels = await fetchBoardLabels(options.boardId);
@@ -42,12 +43,13 @@ export const loadBoardContext = async (options: {
     lists.push(created);
   }
 
+  const allowCreateLabels = options.allowCreateLabels ?? options.allowCreate ?? false;
   const requiredLabels = Object.values(labelNames);
   for (const name of requiredLabels) {
     if (labelByName.has(name)) {
       continue;
     }
-    if (!options.allowCreate) {
+    if (!allowCreateLabels) {
       throw new Error(`Missing Trello label: ${name}`);
     }
     const created = await createLabel({ boardId: options.boardId, name });

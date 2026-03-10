@@ -76,7 +76,7 @@ export const syncInbound = async (options: {
   items: WorkItem[];
   verbose: boolean;
 }) => {
-  const context = await loadBoardContext({ boardId: options.boardId, allowCreate: false });
+  const context = await loadBoardContext({ boardId: options.boardId, allowCreate: false, allowCreateLabels: true });
   const cards = await fetchBoardCards(options.boardId);
   const cardByUrl = new Map<string, TrelloCard>();
   const cardByItemId = new Map<string, TrelloCard>();

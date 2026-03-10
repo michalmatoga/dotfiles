@@ -19,7 +19,7 @@ export const moveClosedItemsToDone = async (options: {
     return;
   }
 
-  const context = await loadBoardContext({ boardId: options.boardId, allowCreate: false });
+  const context = await loadBoardContext({ boardId: options.boardId, allowCreate: false, allowCreateLabels: true });
   const cards = await fetchBoardCards(options.boardId);
   const doneList = context.listByName.get(listNames.done);
   if (!doneList) {

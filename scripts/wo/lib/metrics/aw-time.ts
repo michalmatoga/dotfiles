@@ -42,7 +42,7 @@ type WorktreeAddedEvent = {
   payload?: { path?: string; url?: string };
 };
 
-type CardIndexEntry = {
+export type CardIndexEntry = {
   cardId: string;
   url: string;
   title: string;
@@ -51,9 +51,9 @@ type CardIndexEntry = {
 
 const eventsPath = "scripts/wo/state/wo-events.jsonl";
 
-const normalizePath = (value: string): string => value.replace(/\/+$/, "");
+export const normalizePath = (value: string): string => value.replace(/\/+$/, "");
 
-const isPathWithin = (root: string, target: string): boolean => {
+export const isPathWithin = (root: string, target: string): boolean => {
   const normalizedRoot = normalizePath(root);
   const normalizedTarget = normalizePath(target);
   return normalizedTarget === normalizedRoot || normalizedTarget.startsWith(`${normalizedRoot}/`);
@@ -64,7 +64,7 @@ const extractUrlFromDesc = (desc: string): string | null => {
   return match?.[0] ?? null;
 };
 
-const buildPathToUrlMap = async (): Promise<Map<string, string>> => {
+export const buildPathToUrlMap = async (): Promise<Map<string, string>> => {
   const map = new Map<string, string>();
   const snapshot = await readLatestSnapshot();
   const byUrl = snapshot?.worktrees?.byUrl ?? {};
@@ -89,8 +89,8 @@ const buildPathToUrlMap = async (): Promise<Map<string, string>> => {
   return map;
 };
 
-const buildCardIndex = async (boardId: string): Promise<Map<string, CardIndexEntry>> => {
-  const context = await loadBoardContext({ boardId, allowCreate: false });
+export const buildCardIndex = async (boardId: string): Promise<Map<string, CardIndexEntry>> => {
+  const context = await loadBoardContext({ boardId, allowCreate: false, allowCreateLabels: true });
   const cards = await fetchBoardCardsAll(boardId);
   const labelById = new Map<string, string>();
   for (const label of context.labels) {
@@ -115,7 +115,7 @@ const buildCardIndex = async (boardId: string): Promise<Map<string, CardIndexEnt
   return index;
 };
 
-const findUrlForPath = (
+export const findUrlForPath = (
   panePath: string,
   entries: Array<{ path: string; url: string }>,
 ): string | null => {

@@ -105,7 +105,7 @@ export const reconcileReviewLifecycle = async (options: {
   user: string;
   verbose: boolean;
 }) => {
-  const context = await loadBoardContext({ boardId: options.boardId, allowCreate: false });
+  const context = await loadBoardContext({ boardId: options.boardId, allowCreate: false, allowCreateLabels: true });
   const cards = await fetchBoardCards(options.boardId);
   const reviewLabelId = context.labelByName.get(labelNames.review)?.id;
 
