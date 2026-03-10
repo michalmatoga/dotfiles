@@ -198,13 +198,9 @@ export const fetchAssignedProjectItemsGraphql = async (options: {
       break;
     }
 
-    let pageIsStale = Boolean(options.lastSyncAt) && !options.fullRefresh;
     for (const node of nodes) {
       if (!maxUpdatedAt || node.updatedAt > maxUpdatedAt) {
         maxUpdatedAt = node.updatedAt;
-      }
-      if (options.lastSyncAt && node.updatedAt > options.lastSyncAt) {
-        pageIsStale = false;
       }
       const assignees = node.content?.assignees?.nodes.map((assignee) => assignee.login) ?? [];
       if (!assignees.includes(options.assignee)) {
@@ -234,10 +230,6 @@ export const fetchAssignedProjectItemsGraphql = async (options: {
           : null,
         updatedAt: node.updatedAt,
       });
-    }
-
-    if (pageIsStale) {
-      break;
     }
 
     hasNextPage = project.items.pageInfo.hasNextPage;
