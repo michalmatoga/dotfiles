@@ -3,9 +3,11 @@ import * as path from "node:path";
 
 // State files used by wo system
 const STATE_FILES = ["wo-events.jsonl", "wo-snapshots.jsonl"];
+const METRICS_FILES = ["wo-metrics.csv", "wo-card-states.jsonl"];
 
 // Test-specific state directory (isolated from production state)
 const TEST_STATE_DIR = path.join(__dirname, "..", "state");
+const getMetricsStateDir = (): string => process.env.WO_METRICS_STATE_DIR ?? TEST_STATE_DIR;
 
 /**
  * Clear state files for test isolation.
@@ -18,6 +20,14 @@ export const clearStateFiles = async () => {
   // Clear/create empty state files
   for (const file of STATE_FILES) {
     const filePath = path.join(TEST_STATE_DIR, file);
+    await fs.writeFile(filePath, "");
+  }
+
+  // Clear lifecycle metrics state used by runtime code paths.
+  const metricsStateDir = getMetricsStateDir();
+  await fs.mkdir(metricsStateDir, { recursive: true });
+  for (const file of METRICS_FILES) {
+    const filePath = path.join(metricsStateDir, file);
     await fs.writeFile(filePath, "");
   }
 };

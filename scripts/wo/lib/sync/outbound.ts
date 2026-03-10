@@ -65,8 +65,9 @@ export const syncOutbound = async (options: {
       .map((id) => labelById.get(id))
       .filter((name): name is string => Boolean(name));
     const hasMappedLabel = labelNamesList.some((name) => labelRepoMap.has(name));
+    const hasHouseholdLabel = labelNamesList.includes(labelNames.household);
     const hasSchibstedLabel = schibstedLabelId ? card.idLabels.includes(schibstedLabelId) : false;
-    if (!hasSchibstedLabel && !hasMappedLabel) {
+    if (!hasSchibstedLabel && !hasMappedLabel && !hasHouseholdLabel) {
       continue;
     }
     const meta = parseSyncMetadata(card.desc);
@@ -86,7 +87,7 @@ export const syncOutbound = async (options: {
     const cardUrl = meta?.url ?? card.shortUrl ?? card.url ?? null;
 
     // Emit trello.card.moved for cards that changed lists and are relevant for worktrees
-    if (listChanged && cardUrl && (meta?.url || hasMappedLabel)) {
+    if (listChanged && cardUrl && (meta?.url || hasMappedLabel || hasHouseholdLabel)) {
       await writeEvent({
         ts: now,
         type: "trello.card.moved",

@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { fetchPrDetails, resolveLatestReviewState, type PrDetails } from "../gh/pr-details";
 import { fetchBoardCards, updateCard } from "../trello/cards";
 import { loadBoardContext } from "../trello/context";
-import { labelNames, listNames } from "../policy/mapping";
+import { labelNames, listAliases, listNames } from "../policy/mapping";
 import {
   extractDescriptionBase,
   formatSyncMetadata,
@@ -11,6 +11,7 @@ import {
   updateDescriptionWithSync,
 } from "./metadata";
 import { writeEvent } from "../state/events";
+import { recordCardMove } from "../metrics/lifecycle";
 
 const contentHash = (value: string): string =>
   createHash("sha256").update(value, "utf8").digest("hex");
@@ -115,6 +116,7 @@ export const syncLinkedPrs = async (options: {
   }
 
   const context = await loadBoardContext({ boardId: options.boardId, allowCreate: false, allowCreateLabels: true });
+  const labelById = new Map(context.labels.map((label) => [label.id, label.name]));
   const cards = await fetchBoardCards(options.boardId);
   const cardByUrl = new Map<string, (typeof cards)[number]>();
   for (const card of cards) {
@@ -210,10 +212,28 @@ export const syncLinkedPrs = async (options: {
         ? Array.from(new Set([...card.idLabels, reviewLabelId]))
         : undefined,
     });
+    const now = new Date().toISOString();
     await writeEvent({
-      ts: new Date().toISOString(),
+      ts: now,
       type: "trello.card.moved.linked-pr",
       payload: { cardId: card.id, list: desiredList, pr: newest.url },
+    });
+    const fromList = context.lists.find((entry) => entry.id === card.idList) ?? null;
+    const fromListName = fromList ? listAliases[fromList.name] ?? fromList.name : null;
+    const toListName = listAliases[list.name] ?? list.name;
+    const labels = card.idLabels
+      .map((id) => labelById.get(id))
+      .filter((name): name is string => Boolean(name));
+    if (reviewLabelId && !labels.includes(labelNames.review)) {
+      labels.push(labelNames.review);
+    }
+    await recordCardMove({
+      cardId: card.id,
+      url: meta?.url ?? newest.url,
+      fromList: fromListName,
+      toList: toListName,
+      labels,
+      now,
     });
   }
 

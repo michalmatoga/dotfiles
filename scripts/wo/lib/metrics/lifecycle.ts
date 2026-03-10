@@ -3,8 +3,10 @@ import { dirname } from "node:path";
 import type { MetricsRecord, CardListState } from "./types";
 import { formatMetricsRecord, parseMetricsRecord, getPrimaryLabel, listNames } from "./types";
 
-const metricsPath = "scripts/wo/state/wo-metrics.csv";
-const statePath = "scripts/wo/state/wo-card-states.jsonl";
+const defaultStateDir = "scripts/wo/state";
+const getStateDir = (): string => process.env.WO_METRICS_STATE_DIR ?? defaultStateDir;
+const getMetricsPath = (): string => `${getStateDir()}/wo-metrics.csv`;
+const getCardStatePath = (): string => `${getStateDir()}/wo-card-states.jsonl`;
 
 const ensureDir = async (filePath: string) => {
   await mkdir(dirname(filePath), { recursive: true });
@@ -20,6 +22,7 @@ const fileExists = async (path: string): Promise<boolean> => {
 };
 
 const ensureCsvHeader = async () => {
+  const metricsPath = getMetricsPath();
   const exists = await fileExists(metricsPath);
   if (!exists) {
     await ensureDir(metricsPath);
@@ -29,6 +32,7 @@ const ensureCsvHeader = async () => {
 };
 
 const readCardStates = async (): Promise<Map<string, CardListState>> => {
+  const statePath = getCardStatePath();
   try {
     const content = await readFile(statePath, "utf8");
     const lines = content.trim().split("\n").filter(Boolean);
@@ -51,6 +55,7 @@ const readCardStates = async (): Promise<Map<string, CardListState>> => {
 };
 
 const writeCardState = async (state: CardListState) => {
+  const statePath = getCardStatePath();
   await ensureDir(statePath);
   const states = await readCardStates();
   states.set(state.cardId, state);
@@ -59,6 +64,7 @@ const writeCardState = async (state: CardListState) => {
 };
 
 const deleteCardState = async (cardId: string) => {
+  const statePath = getCardStatePath();
   const states = await readCardStates();
   states.delete(cardId);
   const lines = Array.from(states.values()).map((s) => JSON.stringify(s));
@@ -71,9 +77,13 @@ const calculateSecondsInList = (enteredAt: string, exitedAt: string): number => 
   return Math.floor((end - start) / 1000);
 };
 
-const getCompletedDate = (list: string): string | null => {
-  if (list === listNames.done) {
-    return new Date().toISOString().split("T")[0] ?? null;
+const getCompletedDate = (options: {
+  list: string;
+  eventType: "entered" | "exited";
+  now: string;
+}): string | null => {
+  if (options.list === listNames.done && options.eventType === "entered") {
+    return options.now.split("T")[0] ?? null;
   }
   return null;
 };
@@ -90,6 +100,11 @@ export const recordCardMove = async (options: {
   const label = getPrimaryLabel(options.labels);
   const states = await readCardStates();
 
+  const currentState = states.get(options.cardId);
+  if (currentState && currentState.list === options.toList) {
+    return;
+  }
+
   // If card was in a previous list, record the exit
   if (options.fromList) {
     const previousState = states.get(options.cardId);
@@ -103,10 +118,11 @@ export const recordCardMove = async (options: {
         list: options.fromList,
         label: getPrimaryLabel(previousState.labels) ?? label,
         secondsInList,
-        completedDate: getCompletedDate(options.fromList),
+        completedDate: null,
       };
 
       await ensureCsvHeader();
+      const metricsPath = getMetricsPath();
       await writeFile(metricsPath, formatMetricsRecord(exitRecord) + "\n", { flag: "a" });
     }
   }
@@ -120,10 +136,11 @@ export const recordCardMove = async (options: {
     list: options.toList,
     label,
     secondsInList: null,
-    completedDate: null,
+    completedDate: getCompletedDate({ list: options.toList, eventType: "entered", now }),
   };
 
   await ensureCsvHeader();
+  const metricsPath = getMetricsPath();
   await writeFile(metricsPath, formatMetricsRecord(entryRecord) + "\n", { flag: "a" });
 
   // Update current state
@@ -161,15 +178,17 @@ export const recordCardExit = async (options: {
     list: options.list,
     label: getPrimaryLabel(state.labels),
     secondsInList,
-    completedDate: getCompletedDate(options.list),
+    completedDate: null,
   };
 
   await ensureCsvHeader();
+  const metricsPath = getMetricsPath();
   await writeFile(metricsPath, formatMetricsRecord(record) + "\n", { flag: "a" });
   await deleteCardState(options.cardId);
 };
 
 export const readMetrics = async (): Promise<MetricsRecord[]> => {
+  const metricsPath = getMetricsPath();
   try {
     const content = await readFile(metricsPath, "utf8");
     const lines = content.trim().split("\n");
@@ -188,11 +207,13 @@ export const getCardMetrics = async (cardId: string): Promise<{
   touchTime: number;
   waitTime: number;
   cycleTime: number | null;
+  leadTime: number | null;
 }> => {
   const metrics = await readMetrics();
   const cardMetrics = metrics.filter((m) => m.cardId === cardId);
 
   let touchTime = 0;
+  let enteredReadyAt: string | null = null;
   let enteredDoingAt: string | null = null;
   let completedAt: string | null = null;
 
@@ -202,13 +223,20 @@ export const getCardMetrics = async (cardId: string): Promise<{
   );
 
   for (const metric of sorted) {
+    if (metric.eventType === "entered" && metric.list === listNames.ready && !enteredReadyAt) {
+      enteredReadyAt = metric.timestamp;
+    }
     if (metric.eventType === "entered" && metric.list === listNames.doing) {
       enteredDoingAt = metric.timestamp;
     } else if (metric.eventType === "exited" && metric.list === listNames.doing) {
       if (metric.secondsInList) {
         touchTime += metric.secondsInList;
       }
-    } else if (metric.eventType === "exited" && metric.list === listNames.done && metric.completedDate) {
+    } else if (
+      ((metric.eventType === "entered" && metric.list === listNames.done) ||
+        (metric.eventType === "exited" && metric.list === listNames.done && metric.completedDate)) &&
+      !completedAt
+    ) {
       completedAt = metric.timestamp;
     }
   }
@@ -216,10 +244,13 @@ export const getCardMetrics = async (cardId: string): Promise<{
   const cycleTime = enteredDoingAt && completedAt
     ? Math.floor((new Date(completedAt).getTime() - new Date(enteredDoingAt).getTime()) / 1000)
     : null;
+  const leadTime = enteredReadyAt && completedAt
+    ? Math.floor((new Date(completedAt).getTime() - new Date(enteredReadyAt).getTime()) / 1000)
+    : null;
 
-  const waitTime = cycleTime ? cycleTime - touchTime : 0;
+  const waitTime = cycleTime ? Math.max(0, cycleTime - touchTime) : 0;
 
-  return { touchTime, waitTime, cycleTime };
+  return { touchTime, waitTime, cycleTime, leadTime };
 };
 
 export const getThroughput = async (options: {
@@ -229,7 +260,10 @@ export const getThroughput = async (options: {
 }): Promise<number> => {
   const metrics = await readMetrics();
   return metrics.filter((m) => {
-    if (m.eventType !== "exited" || m.list !== listNames.done || !m.completedDate) {
+    const isDoneCompletion =
+      (m.eventType === "entered" && m.list === listNames.done && m.completedDate) ||
+      (m.eventType === "exited" && m.list === listNames.done && m.completedDate);
+    if (!isDoneCompletion) {
       return false;
     }
     if (options.label && m.label !== options.label) {

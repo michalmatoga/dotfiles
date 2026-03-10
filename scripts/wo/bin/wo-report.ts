@@ -30,29 +30,50 @@ const buildTimeRange = (days: number): { start: string; end: string } => {
   return { start: start.toISOString(), end: end.toISOString() };
 };
 
-const computeCycleTimes = (metrics: MetricsRecord[]) => {
-  const byCard = new Map<string, { enteredDoingAt: string | null; completedAt: string | null }>();
+const computeLifecycleTimes = (metrics: MetricsRecord[]) => {
+  const byCard = new Map<
+    string,
+    { enteredReadyAt: string | null; enteredDoingAt: string | null; completedAt: string | null }
+  >();
   const sorted = [...metrics].sort(
     (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
   );
   for (const metric of sorted) {
-    const current = byCard.get(metric.cardId) ?? { enteredDoingAt: null, completedAt: null };
+    const current = byCard.get(metric.cardId) ?? {
+      enteredReadyAt: null,
+      enteredDoingAt: null,
+      completedAt: null,
+    };
+    if (metric.eventType === "entered" && metric.list === "Ready" && !current.enteredReadyAt) {
+      current.enteredReadyAt = metric.timestamp;
+    }
     if (metric.eventType === "entered" && metric.list === "Doing") {
       current.enteredDoingAt = metric.timestamp;
     }
-    if (metric.eventType === "exited" && metric.list === "Done" && metric.completedDate) {
+    if (
+      ((metric.eventType === "entered" && metric.list === "Done") ||
+        (metric.eventType === "exited" && metric.list === "Done" && metric.completedDate)) &&
+      !current.completedAt
+    ) {
       current.completedAt = metric.timestamp;
     }
     byCard.set(metric.cardId, current);
   }
   const cycleTimes = new Map<string, number | null>();
+  const leadTimes = new Map<string, number | null>();
+  const completionTimes = new Map<string, string | null>();
   for (const [cardId, state] of byCard.entries()) {
     const cycleTime = state.enteredDoingAt && state.completedAt
       ? Math.floor((new Date(state.completedAt).getTime() - new Date(state.enteredDoingAt).getTime()) / 1000)
       : null;
+    const leadTime = state.enteredReadyAt && state.completedAt
+      ? Math.floor((new Date(state.completedAt).getTime() - new Date(state.enteredReadyAt).getTime()) / 1000)
+      : null;
     cycleTimes.set(cardId, cycleTime);
+    leadTimes.set(cardId, leadTime);
+    completionTimes.set(cardId, state.completedAt);
   }
-  return cycleTimes;
+  return { cycleTimes, leadTimes, completionTimes };
 };
 
 const showSummary = async (days: number) => {
@@ -78,7 +99,7 @@ const showSummary = async (days: number) => {
     boardId,
   });
 
-  const cycleTimes = computeCycleTimes(metrics);
+  const lifecycle = computeLifecycleTimes(metrics);
 
   // Calculate active time per card
   const cardStats: Array<{
@@ -88,6 +109,7 @@ const showSummary = async (days: number) => {
     activeTime: number;
     waitTime: number;
     cycleTime: number | null;
+    leadTime: number | null;
     completed: boolean;
     label: string;
   }> = [];
@@ -95,7 +117,10 @@ const showSummary = async (days: number) => {
   for (const entry of cardTimes) {
     const cycleTime = entry.cardId === NO_CARD_BUCKET
       ? null
-      : cycleTimes.get(entry.cardId) ?? null;
+      : lifecycle.cycleTimes.get(entry.cardId) ?? null;
+    const leadTime = entry.cardId === NO_CARD_BUCKET
+      ? null
+      : lifecycle.leadTimes.get(entry.cardId) ?? null;
     const waitTime = cycleTime ? Math.max(0, cycleTime - entry.durationSeconds) : 0;
     cardStats.push({
       cardId: entry.cardId,
@@ -104,7 +129,8 @@ const showSummary = async (days: number) => {
       activeTime: entry.durationSeconds,
       waitTime,
       cycleTime,
-      completed: cycleTime !== null,
+      leadTime,
+      completed: (lifecycle.completionTimes.get(entry.cardId) ?? null) !== null,
       label: entry.label,
     });
   }
@@ -123,11 +149,13 @@ const showSummary = async (days: number) => {
     const avgActive = completed.reduce((sum, c) => sum + c.activeTime, 0) / completed.length;
     const avgWait = completed.reduce((sum, c) => sum + c.waitTime, 0) / completed.length;
     const avgCycle = completed.reduce((sum, c) => sum + (c.cycleTime ?? 0), 0) / completed.length;
+    const avgLead = completed.reduce((sum, c) => sum + (c.leadTime ?? 0), 0) / completed.length;
 
     console.log(`\n⏱️  Averages (completed items):`);
     console.log(`   Active time: ${formatDuration(avgActive)}`);
     console.log(`   Wait time:  ${formatDuration(avgWait)}`);
     console.log(`   Cycle time: ${formatDuration(avgCycle)}`);
+    console.log(`   Lead time:  ${formatDuration(avgLead)}`);
   }
 
   // Show top items by active time
@@ -207,18 +235,28 @@ const showCardDetails = async (cardId: string, days: number) => {
     }
   }
 
-  const cycleTimes = computeCycleTimes(metrics);
-  const cycleTime = cycleTimes.get(cardId) ?? null;
+  const lifecycle = computeLifecycleTimes(metrics);
+  const cycleTime = lifecycle.cycleTimes.get(cardId) ?? null;
+  const leadTime = lifecycle.leadTimes.get(cardId) ?? null;
   if (cycleTime !== null && cardTime) {
     const waitTime = Math.max(0, cycleTime - cardTime.durationSeconds);
     console.log(`\n📊 Aggregated:`);
     console.log(`  Active time: ${formatDuration(cardTime.durationSeconds)}`);
     console.log(`  Wait time:  ${formatDuration(waitTime)}`);
     console.log(`  Cycle time: ${formatDuration(cycleTime)}`);
+    if (leadTime !== null) {
+      console.log(`  Lead time:  ${formatDuration(leadTime)}`);
+    }
     console.log(`  Efficiency: ${((cardTime.durationSeconds / cycleTime) * 100).toFixed(1)}%`);
   } else if (cycleTime !== null) {
     console.log(`\n📊 Aggregated:`);
     console.log(`  Cycle time: ${formatDuration(cycleTime)}`);
+    if (leadTime !== null) {
+      console.log(`  Lead time:  ${formatDuration(leadTime)}`);
+    }
+  } else if (leadTime !== null) {
+    console.log(`\n📊 Aggregated:`);
+    console.log(`  Lead time:  ${formatDuration(leadTime)}`);
   } else {
     console.log(`\n📊 Aggregated:`);
     console.log(`  Cycle time: In progress...`);

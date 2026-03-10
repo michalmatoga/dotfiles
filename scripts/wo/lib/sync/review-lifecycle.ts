@@ -5,6 +5,7 @@ import { extractDescriptionBase, formatSyncMetadata, parseSyncMetadata, updateDe
 import { fetchPrDetails } from "../gh/pr-details";
 import { writeEvent } from "../state/events";
 import { createHash } from "node:crypto";
+import { recordCardMove } from "../metrics/lifecycle";
 
 const contentHash = (value: string): string =>
   createHash("sha256").update(value, "utf8").digest("hex");
@@ -108,6 +109,7 @@ export const reconcileReviewLifecycle = async (options: {
   const context = await loadBoardContext({ boardId: options.boardId, allowCreate: false, allowCreateLabels: true });
   const cards = await fetchBoardCards(options.boardId);
   const reviewLabelId = context.labelByName.get(labelNames.review)?.id;
+  const labelById = new Map(context.labels.map((label) => [label.id, label.name]));
 
   if (!reviewLabelId) {
     throw new Error("Missing review label in Trello board");
@@ -203,14 +205,16 @@ export const reconcileReviewLifecycle = async (options: {
           ? "trello.review.changes-requested"
           : "trello.review.re-requested";
 
+    const now = new Date().toISOString();
+
     await writeEvent({
-      ts: new Date().toISOString(),
+      ts: now,
       type: eventType,
       payload: { cardId: card.id, url, fromList: fromListName, toList: toListName },
     });
 
     await writeEvent({
-      ts: new Date().toISOString(),
+      ts: now,
       type: "trello.card.moved",
       payload: {
         cardId: card.id,
@@ -221,6 +225,18 @@ export const reconcileReviewLifecycle = async (options: {
         labels: card.idLabels,
         name: card.name,
       },
+    });
+
+    const labels = card.idLabels
+      .map((id) => labelById.get(id))
+      .filter((name): name is string => Boolean(name));
+    await recordCardMove({
+      cardId: card.id,
+      url,
+      fromList: fromListName,
+      toList: toListName,
+      labels,
+      now,
     });
   }
 };

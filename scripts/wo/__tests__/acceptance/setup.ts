@@ -25,6 +25,7 @@ const ENV_TEST_PATH = path.join(__dirname, ".env.test");
 // Hardcoded test board ID - dedicated board for acceptance tests
 // This ensures tests never accidentally hit production, even with NO_CACHE=true
 const TEST_BOARD_ID = "699311b922eee0934a5f52cd";
+const TEST_STATE_DIR = path.join(__dirname, "state");
 
 /**
  * Global setup - runs once before all tests.
@@ -49,6 +50,7 @@ beforeAll(async () => {
 
   // Always override board ID to test board - this is the critical safety measure
   process.env.TRELLO_BOARD_ID_WO = TEST_BOARD_ID;
+  process.env.WO_METRICS_STATE_DIR = TEST_STATE_DIR;
   console.log(`[setup] Using test board: ${TEST_BOARD_ID}`);
 
   // Initialize cache directories (clears if --no-cache)

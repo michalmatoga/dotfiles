@@ -79,11 +79,12 @@ export const formatMetricsRecord = (record: MetricsRecord): string => {
 
 export const parseMetricsRecord = (line: string): MetricsRecord => {
   const unescape = (s: string): string | null => {
-    if (s === "") return null;
-    if (s.startsWith('"') && s.endsWith('"')) {
-      return s.slice(1, -1).replace(/""/g, '"');
+    const normalized = s.endsWith("\r") ? s.slice(0, -1) : s;
+    if (normalized === "") return null;
+    if (normalized.startsWith('"') && normalized.endsWith('"')) {
+      return normalized.slice(1, -1).replace(/""/g, '"');
     }
-    return s;
+    return normalized;
   };
 
   const parts: string[] = [];

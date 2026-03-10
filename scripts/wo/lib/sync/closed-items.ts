@@ -2,10 +2,11 @@ import { createHash } from "node:crypto";
 
 import { fetchBoardCards, updateCard } from "../trello/cards";
 import { loadBoardContext } from "../trello/context";
-import { listNames } from "../policy/mapping";
+import { listAliases, listNames } from "../policy/mapping";
 import { extractDescriptionBase, formatSyncMetadata, parseSyncMetadata, updateDescriptionWithSync } from "./metadata";
 import type { WorkItem } from "../normalize";
 import { writeEvent } from "../state/events";
+import { recordCardMove } from "../metrics/lifecycle";
 
 const contentHash = (value: string): string =>
   createHash("sha256").update(value, "utf8").digest("hex");
@@ -21,6 +22,7 @@ export const moveClosedItemsToDone = async (options: {
 
   const context = await loadBoardContext({ boardId: options.boardId, allowCreate: false, allowCreateLabels: true });
   const cards = await fetchBoardCards(options.boardId);
+  const labelById = new Map(context.labels.map((label) => [label.id, label.name]));
   const doneList = context.listByName.get(listNames.done);
   if (!doneList) {
     throw new Error("Missing Done list in Trello board");
@@ -67,6 +69,20 @@ export const moveClosedItemsToDone = async (options: {
       console.log(`Moving closed item to Done: ${item.url}`);
     }
     await updateCard({ cardId: card.id, listId: doneList.id, desc, pos: "top" });
+    const fromList = context.lists.find((list) => list.id === card.idList) ?? null;
+    const fromListName = fromList ? listAliases[fromList.name] ?? fromList.name : null;
+    const toListName = listAliases[doneList.name] ?? doneList.name;
+    const labels = card.idLabels
+      .map((id) => labelById.get(id))
+      .filter((name): name is string => Boolean(name));
+    await recordCardMove({
+      cardId: card.id,
+      url: meta?.url ?? item.url ?? card.shortUrl ?? card.url ?? null,
+      fromList: fromListName,
+      toList: toListName,
+      labels,
+      now,
+    });
     await writeEvent({
       ts: now,
       type: "trello.card.done.closed",
