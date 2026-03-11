@@ -10,7 +10,10 @@ let
       rev = "v0.0.13";
       hash = "sha256-10An8tKs7z2NNnI+KU+tjL7ZUS97m4gxglQ3Z5WiyeQ=";
     };
-    patches = [ ./patches/gwq-ssh-url.patch ];
+    patches = [
+      ./patches/gwq-ssh-url.patch
+      ./patches/gwq-add-no-checkout-git-crypt.patch
+    ];
     vendorHash = "sha256-XoI6tu4Giy9IMDql4VmSP74FXaVD3nizOedmfPwIRCA=";
     subPackages = ["cmd/gwq"];
   };

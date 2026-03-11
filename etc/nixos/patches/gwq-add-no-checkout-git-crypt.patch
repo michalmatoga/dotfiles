@@ -1,0 +1,70 @@
+diff --git a/internal/git/git.go b/internal/git/git.go
+index 1dbdf22..e566a08 100644
+--- a/internal/git/git.go
++++ b/internal/git/git.go
+@@ -111,7 +111,21 @@ func (g *Git) AddWorktree(path, branch string, createBranch bool) error {
+ 	}
+ 
+ 	if _, err := g.run(args...); err != nil {
+-		return fmt.Errorf("failed to add worktree: %w", err)
++		if !isGitCryptSmudgeError(err) {
++			return fmt.Errorf("failed to add worktree: %w", err)
++		}
++
++		if createBranch {
++			// The first attempt may have created the branch before checkout failed.
++			if _, retryErr := g.run("worktree", "add", "--no-checkout", path, branch); retryErr == nil {
++				return nil
++			}
++		}
++
++		fallbackArgs := append([]string{"worktree", "add", "--no-checkout"}, args[2:]...)
++		if _, retryErr := g.run(fallbackArgs...); retryErr != nil {
++			return fmt.Errorf("failed to add worktree (with --no-checkout fallback): %w", retryErr)
++		}
+ 	}
+ 
+ 	return nil
+@@ -126,12 +140,41 @@ func (g *Git) AddWorktreeFromBase(path, branch, baseBranch string) error {
+ 	}
+ 
+ 	if _, err := g.run(args...); err != nil {
+-		return fmt.Errorf("failed to add worktree from base branch %s: %w", baseBranch, err)
++		if !isGitCryptSmudgeError(err) {
++			return fmt.Errorf("failed to add worktree from base branch %s: %w", baseBranch, err)
++		}
++
++		// The first attempt may have created the branch before checkout failed.
++		if _, retryErr := g.run("worktree", "add", "--no-checkout", path, branch); retryErr == nil {
++			return nil
++		}
++
++		fallbackArgs := []string{"worktree", "add", "--no-checkout", "-b", branch, path}
++		if baseBranch != "" {
++			fallbackArgs = append(fallbackArgs, baseBranch)
++		}
++
++		if _, retryErr := g.run(fallbackArgs...); retryErr != nil {
++			return fmt.Errorf("failed to add worktree from base branch %s (with --no-checkout fallback): %w", baseBranch, retryErr)
++		}
+ 	}
+ 
+ 	return nil
+ }
+ 
++func isGitCryptSmudgeError(err error) bool {
++	if err == nil {
++		return false
++	}
++
++	msg := strings.ToLower(err.Error())
++	if !strings.Contains(msg, "git-crypt") {
++		return false
++	}
++
++	return strings.Contains(msg, "smudge") || strings.Contains(msg, "smudge filter")
++}
++
+ // RemoveWorktree removes a worktree.
+ func (g *Git) RemoveWorktree(path string, force bool) error {
+ 	args := []string{"worktree", "remove"}
