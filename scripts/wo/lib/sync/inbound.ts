@@ -107,9 +107,10 @@ export const syncInbound = async (options: {
       throw new Error(`Missing Trello list mapping for ${targetList}`);
     }
 
-    const labelIds = [context.labelByName.get(labelNames.schibsted)?.id].filter(
-      Boolean,
-    ) as string[];
+    const labelIds = [
+      context.labelByName.get(labelNames.schibsted)?.id,
+      context.labelByName.get(labelNames.career)?.id,
+    ].filter(Boolean) as string[];
     if (item.type === "review") {
       const reviewLabel = context.labelByName.get(labelNames.review);
       if (reviewLabel) {
