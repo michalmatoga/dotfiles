@@ -735,7 +735,7 @@ export const main = () => {
   if (!process.env.TMUX && !tmuxRunning.trim()) {
     run("tmux", ["new-session", "-s", sessionName, "-c", selectedPath]);
     run("tmux", ["split-window", "-h", "-t", sessionName]);
-    run("tmux", ["resize-pane", "-t", sessionName, "-x", "70"]);
+    run("tmux", ["resize-pane", "-t", sessionName, "-x", "92"]);
     process.exit(0);
   }
 
@@ -745,7 +745,7 @@ export const main = () => {
     run("tmux", ["new-session", "-ds", sessionName, "-c", selectedPath]);
     run("tmux", ["send-keys", "-t", sessionName, "vim", "C-m"]);
     run("tmux", ["split-window", "-h", "-t", sessionName, "-c", selectedPath]);
-    run("tmux", ["resize-pane", "-t", sessionName, "-x", "70"]);
+    run("tmux", ["resize-pane", "-t", sessionName, "-x", "92"]);
   }
 
   if (!process.env.TMUX) {
