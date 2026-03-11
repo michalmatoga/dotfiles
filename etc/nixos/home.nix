@@ -336,9 +336,9 @@ in
         source "''${DOTFILES_DIR}/scripts/humioctl-wrapper.zsh"
       fi
 
-      # OpenCode model switcher
-      if [ -z "''${OPENCODE_MODEL:-}" ] || [ "''${OPENCODE_MODEL}" = "litellm/bedrock-claude-opus-4-5" ]; then
-        export OPENCODE_MODEL="openai/gpt-5.4"
+      # OpenCode default model
+      if [ -z "''${OPENCODE_MODEL:-}" ]; then
+        export OPENCODE_MODEL="openai/gpt-5.3-codex"
       fi
       OPENCODE_MODELS_CACHE="''${XDG_CACHE_HOME:-$HOME/.cache}/opencode-models"
       OPENCODE_MODELS_LRU="''${XDG_CACHE_HOME:-$HOME/.cache}/opencode-models-lru.json"
