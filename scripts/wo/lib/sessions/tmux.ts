@@ -123,7 +123,7 @@ const createDetachedSession = async (options: {
   await runCommand("tmux", ["split-window", "-h", "-t", options.sessionName, "-c", options.worktreePath], {
     verbose: options.verbose,
   });
-  await runCommand("tmux", ["resize-pane", "-t", options.sessionName, "-x", "93"], {
+  await runCommand("tmux", ["resize-pane", "-t", options.sessionName, "-x", "92"], {
     verbose: options.verbose,
   });
   if (options.opencodeResumeCommand) {
