@@ -1,12 +1,31 @@
 import { spawn } from "node:child_process";
 import { closeSync, openSync } from "node:fs";
-import { mkdir } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
 import { runCommandCapture } from "./command";
 
 const opencodeLogDir = join(homedir(), ".local/share/opencode/log");
+
+const loadOpenAiApiKeyFromSecrets = async (): Promise<string | null> => {
+  const dotfilesDir = process.env.DOTFILES_DIR;
+  if (!dotfilesDir) {
+    return null;
+  }
+  const secretsPath = join(dotfilesDir, "secrets.json");
+  try {
+    const content = await readFile(secretsPath, "utf8");
+    const parsed = JSON.parse(content) as { OPENAI_API_KEY?: unknown };
+    if (typeof parsed.OPENAI_API_KEY !== "string") {
+      return null;
+    }
+    const key = parsed.OPENAI_API_KEY.trim();
+    return key.length > 0 ? key : null;
+  } catch {
+    return null;
+  }
+};
 
 export const buildOpencodeResumeCommand = (sessionId: string) => `opencode -s ${sessionId}`;
 
@@ -57,6 +76,13 @@ export const runInitialOpencode = async (options: {
   cwd: string;
   verbose: boolean;
 }): Promise<{ sessionId: string; logPath: string }> => {
+  if (!process.env.OPENAI_API_KEY) {
+    const openAiApiKey = await loadOpenAiApiKeyFromSecrets();
+    if (openAiApiKey) {
+      process.env.OPENAI_API_KEY = openAiApiKey;
+    }
+  }
+
   const args = ["run", "--format", "json", "--title", options.title, options.prompt];
   await mkdir(opencodeLogDir, { recursive: true });
   const logPath = buildLogPath(options.title);
