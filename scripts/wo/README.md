@@ -95,6 +95,7 @@ Flags:
 - `--verbose` prints extra diagnostics.
 - `--init-board` creates the Trello board, lists, and labels.
 - `--full-refresh` clears local project sync state and forces a full refresh.
+- `--lss-dry-run` previews journal-driven LSS initiative actions without writes.
 
 ## Worktree automation
 

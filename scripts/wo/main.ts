@@ -6,13 +6,16 @@ import { syncWorkItemsUseCase } from "./use-cases/sync-work-items";
 import { reconcileReviewsUseCase } from "./use-cases/reconcile-reviews";
 import { syncWorktreesUseCase } from "./use-cases/sync-worktrees";
 import { pruneWorktreesUseCase } from "./use-cases/prune-worktrees";
+import { previewLssDryRunUseCase } from "./use-cases/preview-lss-dry-run";
 
-type Mode = "all" | "init" | "sync";
+type Mode = "all" | "init" | "sync" | "lss-dry-run";
 
 const parseArgs = (args: string[]) => {
   const flags = new Set(args);
   const mode: Mode = flags.has("--init-board")
     ? "init"
+    : flags.has("--lss-dry-run")
+      ? "lss-dry-run"
     : flags.has("--sync-only")
       ? "sync"
       : "all";
@@ -43,6 +46,11 @@ const main = async () => {
       existingBoardShortLink: "HZ7hcWZy",
       verbose,
     });
+    return;
+  }
+
+  if (mode === "lss-dry-run") {
+    await previewLssDryRunUseCase({ verbose });
     return;
   }
 
