@@ -16,7 +16,7 @@ describe("sync-review-requests", () => {
     it("can create and fetch cards on test board", async () => {
       // Create a test card
       const card = await createTestCard({
-        listName: "Inbox",
+        listName: "Triage",
         name: "Test review request",
         desc: "PR URL: https://example.com/pr/1",
       });

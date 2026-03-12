@@ -21,12 +21,13 @@ for Schibsted-labeled cards.
 
 Lists:
 
-- Inbox
 - Triage
 - Ready
 - Doing
 - Waiting
 - Done
+
+Note: native Trello Inbox is used outside this required workflow list set.
 
 Labels (lowercase):
 

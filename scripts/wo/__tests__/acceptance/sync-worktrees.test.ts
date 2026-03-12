@@ -62,9 +62,9 @@ describe("sync-worktrees", () => {
     it("identifies cards moved to Doing list", async () => {
       const doingListId = await getListIdByName("Doing");
       
-      // Create a card in Inbox
+      // Create a card in Triage
       const card = await createTestCard({
-        listName: "Inbox",
+        listName: "Triage",
         name: "Test issue for worktree",
         desc: `Issue: ${buildTestIssueUrl(42)}`,
       });

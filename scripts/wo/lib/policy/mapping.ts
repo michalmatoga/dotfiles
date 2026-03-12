@@ -1,5 +1,4 @@
 export const listNames = {
-  inbox: "Inbox",
   triage: "Triage",
   ready: "Ready",
   doing: "Doing",

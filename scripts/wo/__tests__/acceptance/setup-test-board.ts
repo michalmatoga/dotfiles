@@ -6,7 +6,7 @@
  * 
  * This will:
  *   1. Create a new board named "wo-test" in the same workspace as production
- *   2. Set up lists (Inbox, Triage, Ready, Doing, Waiting, Done)
+ *   2. Set up lists (Triage, Ready, Doing, Waiting, Done)
  *   3. Set up labels (schibsted, review, household, etc.)
  *   4. Print the board ID to add to .env.test
  */
