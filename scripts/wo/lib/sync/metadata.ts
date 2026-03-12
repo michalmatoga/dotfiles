@@ -8,6 +8,9 @@ export type SyncMetadata = {
   lastSeen?: string | null;
   lastTrelloMove?: string | null;
   contentHash?: string | null;
+  noteId?: string | null;
+  taskKey?: string | null;
+  journalState?: string | null;
 };
 
 const blockStart = "[wo-sync]";
@@ -55,6 +58,15 @@ export const parseSyncMetadata = (desc: string): SyncMetadata | null => {
       case "content_hash":
         data.contentHash = value;
         break;
+      case "note_id":
+        data.noteId = value;
+        break;
+      case "task_key":
+        data.taskKey = value;
+        break;
+      case "journal_state":
+        data.journalState = value;
+        break;
       default:
         break;
     }
@@ -73,6 +85,9 @@ export const formatSyncMetadata = (metadata: SyncMetadata): string => {
     metadata.lastSeen ? `last_seen=${metadata.lastSeen}` : null,
     metadata.lastTrelloMove ? `last_trello_move=${metadata.lastTrelloMove}` : null,
     metadata.contentHash ? `content_hash=${metadata.contentHash}` : null,
+    metadata.noteId ? `note_id=${metadata.noteId}` : null,
+    metadata.taskKey ? `task_key=${metadata.taskKey}` : null,
+    metadata.journalState ? `journal_state=${metadata.journalState}` : null,
   ].filter(Boolean);
 
   return `${blockStart}\n${lines.join("\n")}\n${blockEnd}`;

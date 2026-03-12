@@ -7,6 +7,7 @@ import { reconcileReviewsUseCase } from "./use-cases/reconcile-reviews";
 import { syncWorktreesUseCase } from "./use-cases/sync-worktrees";
 import { pruneWorktreesUseCase } from "./use-cases/prune-worktrees";
 import { previewLssDryRunUseCase } from "./use-cases/preview-lss-dry-run";
+import { syncLssInitiativesUseCase } from "./use-cases/sync-lss-initiatives";
 
 type Mode = "all" | "init" | "sync" | "lss-dry-run";
 
@@ -54,7 +55,9 @@ const main = async () => {
     return;
   }
 
-  requireEnv("TRELLO_BOARD_ID_WO");
+  const boardId = requireEnv("TRELLO_BOARD_ID_WO");
+
+  await syncLssInitiativesUseCase({ boardId, verbose });
 
   await syncWorkItemsUseCase({ verbose, fullRefresh });
   await syncReviewRequestsUseCase({ verbose });

@@ -263,7 +263,7 @@ in
       export NX_PARALLEL=12
 
       export NIX_LD=$(nix eval --impure --raw --expr 'let pkgs = import <nixpkgs> {}; NIX_LD = pkgs.lib.fileContents "${pkgs.stdenv.cc}/nix-support/dynamic-linker"; in NIX_LD')
-      export PATH="$HOME/.cache/npm/global/bin:$PATH"
+      export PATH="$HOME/.local/bin:$HOME/.cache/npm/global/bin:$PATH"
 
       dotfiles_is_repo() {
         git rev-parse --is-inside-work-tree >/dev/null 2>&1 || return 1

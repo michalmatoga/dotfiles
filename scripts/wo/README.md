@@ -8,6 +8,7 @@ for Schibsted-labeled cards.
 
 - Pulls assigned items from `svp` Project #5 and creates/updates Trello cards.
 - Pulls GitHub review requests and creates/updates Trello cards.
+- Syncs LSS journal initiatives into Trello (create/link/update-title + backlink write).
 - Moves Trello list changes back to GitHub project status (only for `schibsted` label).
 - Auto-moves review cards to Done once you approve the PR.
 
