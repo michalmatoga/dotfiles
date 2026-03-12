@@ -9,6 +9,7 @@ for Schibsted-labeled cards.
 - Pulls assigned items from `svp` Project #5 and creates/updates Trello cards.
 - Pulls GitHub review requests and creates/updates Trello cards.
 - Syncs LSS journal initiatives into Trello (create/link/update-title + backlink write).
+- Mirrors Trello Done state back to linked LSS journal checkboxes for `source=lss` cards.
 - Moves Trello list changes back to GitHub project status (only for `schibsted` label).
 - Auto-moves review cards to Done once you approve the PR.
 
@@ -144,6 +145,7 @@ git -C ~/ghq/<host>/<owner>/<repo> worktree move ~/gwq/<host>/<owner>/<repo>/<br
 - JSONL state lives in `scripts/wo/state/` (git-ignored).
 - `wo-events.jsonl` stores append-only events.
 - `wo-snapshots.jsonl` stores the latest snapshot for conflict resolution.
+- Snapshot includes LSS checkbox mirror markers (`lss.byUrl`) for reconciliation.
 - Trello wins if a card was moved since the last snapshot.
 - Project sync runs incrementally using `updatedAt`, with a daily full refresh.
 

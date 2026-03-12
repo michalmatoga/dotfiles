@@ -122,5 +122,6 @@ export const pruneWorktreesUseCase = async (options: { verbose: boolean }) => {
       lastEventTs: snapshot?.worktrees?.lastEventTs ?? null,
       byUrl: nextWorktrees,
     },
+    lss: snapshot?.lss ?? null,
   });
 };

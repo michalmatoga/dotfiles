@@ -166,6 +166,7 @@ export const syncOutbound = async (options: {
       meta: projectMeta,
     },
     worktrees: snapshot?.worktrees ?? null,
+    lss: snapshot?.lss ?? null,
   };
   await writeSnapshot(nextSnapshot);
 };

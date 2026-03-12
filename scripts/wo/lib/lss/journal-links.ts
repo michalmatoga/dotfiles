@@ -59,3 +59,37 @@ export const injectTrelloUrlIntoTaskLine = async (options: {
   await writeFile(options.filePath, lines.join("\n"), "utf8");
   return { updated: true };
 };
+
+export const setTaskCheckboxStateAtLine = async (options: {
+  filePath: string;
+  line: number;
+  checked: boolean;
+}): Promise<{ updated: boolean; reason?: string }> => {
+  const content = await readFile(options.filePath, "utf8");
+  const lines = content.split("\n");
+  const index = options.line - 1;
+  if (index < 0 || index >= lines.length) {
+    return { updated: false, reason: "line-out-of-range" };
+  }
+
+  const current = lines[index];
+  const match = current.match(/^(\s*)([-*])\s+\[([ xX])\]\s+(.+?)\s*$/);
+  if (!match) {
+    return { updated: false, reason: "not-checkbox-task" };
+  }
+
+  const [, indent, marker, state, text] = match;
+  const currentChecked = state.toLowerCase() === "x";
+  if (currentChecked === options.checked) {
+    return { updated: false, reason: "already-matching" };
+  }
+
+  lines[index] = buildCheckboxLine({
+    indent,
+    marker,
+    state: options.checked ? "x" : " ",
+    text,
+  });
+  await writeFile(options.filePath, lines.join("\n"), "utf8");
+  return { updated: true };
+};

@@ -566,6 +566,7 @@ export const syncWorktreesUseCase = async (options: { verbose: boolean }) => {
       trello: snapshot?.trello,
       project: snapshot?.project,
       worktrees: { lastEventTs: newestTs, byUrl: worktreeMap },
+      lss: snapshot?.lss ?? null,
     });
   }
 };

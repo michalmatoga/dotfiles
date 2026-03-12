@@ -2,7 +2,7 @@ import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
-import { injectTrelloUrlIntoTaskLine } from "../../lib/lss/journal-links";
+import { injectTrelloUrlIntoTaskLine, setTaskCheckboxStateAtLine } from "../../lib/lss/journal-links";
 import { formatSyncMetadata, parseSyncMetadata } from "../../lib/sync/metadata";
 
 describe("LSS journal backlink injection", () => {
@@ -74,6 +74,30 @@ describe("LSS journal backlink injection", () => {
     });
 
     expect(result).toEqual({ updated: false, reason: "already-linked" });
+  });
+
+  it("toggles checkbox marker only for linked task line", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "wo-lss-"));
+    const filePath = join(dir, "ot-business.md");
+    await writeFile(
+      filePath,
+      [
+        "## Goal Setting to the Now",
+        "### Week",
+        "- [ ] [Improve onboarding](https://trello.com/c/AbCd1234)",
+      ].join("\n"),
+      "utf8",
+    );
+
+    const result = await setTaskCheckboxStateAtLine({
+      filePath,
+      line: 3,
+      checked: true,
+    });
+
+    expect(result).toEqual({ updated: true });
+    const content = await readFile(filePath, "utf8");
+    expect(content.split("\n")[2]).toBe("- [x] [Improve onboarding](https://trello.com/c/AbCd1234)");
   });
 });
 

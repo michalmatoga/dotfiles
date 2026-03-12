@@ -1,12 +1,15 @@
 import {
+  canonicalizeTrelloUrl,
   derivePlannerCards,
   loadLssInitiativesFromJournal,
   planLssInitiativeActions,
   type LssInitiative,
 } from "../lib/lss/tasks";
-import { injectTrelloUrlIntoTaskLine } from "../lib/lss/journal-links";
+import { planLssCheckboxMirror } from "../lib/lss/checkbox-mirror";
+import { injectTrelloUrlIntoTaskLine, setTaskCheckboxStateAtLine } from "../lib/lss/journal-links";
 import { listNames, labelNames } from "../lib/policy/mapping";
 import { writeEvent } from "../lib/state/events";
+import { readLatestSnapshot, writeSnapshot } from "../lib/state/snapshots";
 import {
   formatSyncMetadata,
   parseSyncMetadata,
@@ -21,6 +24,9 @@ const buildInitiativeKey = (item: LssInitiative): string => `${item.noteId}:${it
 
 const resolveCardUrl = (card: { url?: string; shortUrl?: string } | null): string | null =>
   card?.url ?? card?.shortUrl ?? null;
+
+const resolveCanonicalCardUrl = (card: { url?: string; shortUrl?: string } | null): string | null =>
+  canonicalizeTrelloUrl(resolveCardUrl(card) ?? "");
 
 const buildSyncBlock = (options: {
   initiative: LssInitiative;
@@ -86,6 +92,105 @@ export const syncLssInitiativesUseCase = async (options: {
   }
 
   const allCards = await fetchBoardCards(options.boardId);
+  const listById = new Map(context.lists.map((list) => [list.id, list.name]));
+
+  const checkboxMirrorPlan = planLssCheckboxMirror({
+    initiatives: parsed.initiatives,
+    managedCards: allCards
+      .map((card) => {
+        const meta = parseSyncMetadata(card.desc);
+        if (meta?.source !== "lss") {
+          return null;
+        }
+        const trelloUrl = canonicalizeTrelloUrl(meta.url ?? "") ?? resolveCanonicalCardUrl(card);
+        if (!trelloUrl) {
+          return null;
+        }
+        return {
+          cardId: card.id,
+          listId: card.idList,
+          trelloUrl,
+        };
+      })
+      .filter((entry): entry is { cardId: string; listId: string; trelloUrl: string } => Boolean(entry)),
+    listById,
+  });
+
+  for (const warning of checkboxMirrorPlan.warnings) {
+    console.warn(`[wo:lss] ${warning}`);
+  }
+  for (const conflict of checkboxMirrorPlan.conflicts) {
+    await writeEvent({
+      ts: now,
+      type: "lss.checkbox.conflict",
+      payload: {
+        trelloUrl: conflict.trelloUrl,
+        reason: conflict.reason,
+        cardIds: conflict.cardIds,
+        targets: conflict.taskRefs,
+      },
+    });
+  }
+
+  let checkboxUpdates = 0;
+  for (const patch of checkboxMirrorPlan.patches) {
+    const result = await setTaskCheckboxStateAtLine({
+      filePath: patch.filePath,
+      line: patch.line,
+      checked: patch.checked,
+    });
+    if (!result.updated) {
+      console.warn(
+        `[wo:lss] Unable to mirror checkbox for ${patch.noteId}:${patch.line} (${patch.trelloUrl}): ${result.reason}`,
+      );
+      await writeEvent({
+        ts: now,
+        type: "lss.checkbox.skipped",
+        payload: {
+          noteId: patch.noteId,
+          line: patch.line,
+          trelloUrl: patch.trelloUrl,
+          cardId: patch.cardId,
+          reason: result.reason ?? "unknown",
+        },
+      });
+      continue;
+    }
+    checkboxUpdates += 1;
+    await writeEvent({
+      ts: now,
+      type: "lss.checkbox.mirrored",
+      payload: {
+        noteId: patch.noteId,
+        line: patch.line,
+        trelloUrl: patch.trelloUrl,
+        cardId: patch.cardId,
+        checked: patch.checked,
+      },
+    });
+    if (options.verbose) {
+      console.log(
+        `[wo:lss] checkbox ${patch.checked ? "check" : "uncheck"} ${patch.noteId}:${patch.line} <- ${patch.cardId}`,
+      );
+    }
+  }
+
+  const snapshot = await readLatestSnapshot();
+  await writeSnapshot({
+    ts: now,
+    trello: snapshot?.trello,
+    project: snapshot?.project ?? null,
+    worktrees: snapshot?.worktrees ?? null,
+    lss: {
+      lastSyncAt: now,
+      byUrl: checkboxMirrorPlan.markersByUrl,
+    },
+  });
+
+  const parsedForPlanner = checkboxUpdates > 0
+    ? await loadLssInitiativesFromJournal({ areas })
+    : parsed;
+
   const plannerCards = derivePlannerCards({
     cards: allCards,
     labelNameById: new Map(context.labels.map((label) => [label.id, label.name])),
@@ -93,16 +198,16 @@ export const syncLssInitiativesUseCase = async (options: {
   });
 
   const plan = planLssInitiativeActions({
-    initiatives: parsed.initiatives,
+    initiatives: parsedForPlanner.initiatives,
     cards: plannerCards,
-    listById: new Map(context.lists.map((list) => [list.id, list.name])),
+    listById,
   });
 
-  const initiativeByKey = new Map(parsed.initiatives.map((item) => [buildInitiativeKey(item), item]));
+  const initiativeByKey = new Map(parsedForPlanner.initiatives.map((item) => [buildInitiativeKey(item), item]));
   const trelloCardById = new Map(allCards.map((card) => [card.id, card]));
   const journalLabelId = context.labelByName.get(labelNames.journal)?.id ?? null;
 
-  for (const warning of parsed.warnings) {
+  for (const warning of parsedForPlanner.warnings) {
     console.warn(`[wo:lss] ${warning.message}`);
   }
   for (const warning of plan.warnings) {

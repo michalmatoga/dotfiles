@@ -14,11 +14,24 @@ export type ProjectSnapshot = {
   meta?: ProjectMetaSnapshot | null;
 };
 
+export type LssSnapshot = {
+  lastSyncAt?: string | null;
+  byUrl?: Record<string, {
+    cardId: string | null;
+    listId: string | null;
+    journalChecked: boolean | null;
+    noteId: string | null;
+    line: number | null;
+    conflict: boolean;
+  }>;
+};
+
 export type Snapshot = {
   ts: string;
   trello?: Record<string, { listId: string; labels: string[]; syncUrl?: string | null }>;
   project?: ProjectSnapshot | null;
   worktrees?: { lastEventTs?: string | null; byUrl?: Record<string, string> } | null;
+  lss?: LssSnapshot | null;
 };
 
 const snapshotPath = "scripts/wo/state/wo-snapshots.jsonl";
