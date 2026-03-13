@@ -6,6 +6,7 @@ import {
   planLssInitiativeActions,
   type LssPlannedAction,
 } from "../lib/lss/tasks";
+import { labelNames } from "../lib/policy/mapping";
 import { fetchBoardCards } from "../lib/trello/cards";
 import { loadLssAreas } from "../lib/trello/lss-areas";
 import { fetchBoardLabels } from "../lib/trello/labels";
@@ -55,6 +56,7 @@ export const previewLssDryRunUseCase = async (options: {
 
   const noteOrder = areas.map((area) => area.noteId);
   const noteRank = new Map(noteOrder.map((noteId, index) => [noteId, index]));
+  const initiativeByKey = new Map(parsed.initiatives.map((initiative) => [`${initiative.noteId}:${initiative.line}`, initiative]));
   const actionsByNote = new Map<string, LssPlannedAction[]>();
   for (const action of plan.actions) {
     const existing = actionsByNote.get(action.noteId) ?? [];
@@ -80,8 +82,16 @@ export const previewLssDryRunUseCase = async (options: {
     for (const action of actions) {
       const card = action.cardId ? ` card=${action.cardId}` : "";
       const link = action.trelloUrl ? ` url=${action.trelloUrl}` : "";
+      const initiative = initiativeByKey.get(`${action.noteId}:${action.line}`);
+      const areaLabel = areaByNoteId.get(action.noteId)?.label;
+      const plannedLabels = areaLabel
+        ? initiative?.repoLabelConflict
+          ? `${areaLabel},<conflict:${initiative.repoLabelCandidates.join("|")}>`
+          : `${areaLabel},${initiative?.repoLabel ?? labelNames.journal}`
+        : null;
+      const labelsInfo = plannedLabels ? ` labels=${plannedLabels}` : "";
       console.log(
-        `  - ${actionLabel[action.type]}:${action.line} ${action.text}${card}${link} (${action.reason})`,
+        `  - ${actionLabel[action.type]}:${action.line} ${action.text}${card}${link}${labelsInfo} (${action.reason})`,
       );
     }
   }

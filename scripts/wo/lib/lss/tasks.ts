@@ -27,6 +27,9 @@ export type LssInitiative = {
   trelloUrl: string | null;
   identity: TaskIdentity;
   conflict: boolean;
+  repoLabel: string | null;
+  repoLabelConflict: boolean;
+  repoLabelCandidates: string[];
 };
 
 export type LssTaskParseWarning = {
@@ -39,6 +42,11 @@ export type LssTaskParseResult = {
   initiatives: LssInitiative[];
   warnings: LssTaskParseWarning[];
 };
+
+type LssRepoLabelResolution =
+  | { status: "none" }
+  | { status: "single"; label: string }
+  | { status: "multiple"; labels: string[] };
 
 export type LssPlannerCard = {
   id: string;
@@ -124,6 +132,95 @@ const buildIdentity = (options: { noteId: string; text: string; trelloUrl: strin
   };
 };
 
+const stripWrappedQuotes = (value: string): string => {
+  const trimmed = value.trim();
+  if (
+    (trimmed.startsWith("\"") && trimmed.endsWith("\""))
+    || (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1).trim();
+  }
+  return trimmed;
+};
+
+const parseFrontmatterTags = (markdown: string): string[] => {
+  const lines = markdown.split("\n");
+  if (lines.length < 3 || lines[0].trim() !== "---") {
+    return [];
+  }
+
+  let end = -1;
+  for (let index = 1; index < lines.length; index++) {
+    if (lines[index].trim() === "---") {
+      end = index;
+      break;
+    }
+  }
+  if (end === -1) {
+    return [];
+  }
+
+  const tags: string[] = [];
+  for (let index = 1; index < end; index++) {
+    const line = lines[index];
+    const match = line.match(/^\s*tags\s*:\s*(.*)$/);
+    if (!match) {
+      continue;
+    }
+
+    const rest = match[1].trim();
+    if (rest.startsWith("[") && rest.endsWith("]")) {
+      const inline = rest.slice(1, -1).trim();
+      if (!inline) {
+        return [];
+      }
+      return inline
+        .split(",")
+        .map((item) => stripWrappedQuotes(item))
+        .filter(Boolean);
+    }
+
+    if (rest) {
+      return [stripWrappedQuotes(rest)].filter(Boolean);
+    }
+
+    for (let listIndex = index + 1; listIndex < end; listIndex++) {
+      const listLine = lines[listIndex];
+      if (!listLine.trim()) {
+        continue;
+      }
+      const listMatch = listLine.match(/^\s*-\s*(.+?)\s*$/);
+      if (!listMatch) {
+        break;
+      }
+      tags.push(stripWrappedQuotes(listMatch[1]));
+      index = listIndex;
+    }
+    return tags.filter(Boolean);
+  }
+
+  return [];
+};
+
+export const resolveRepoLabelFromFrontmatter = (markdown: string): LssRepoLabelResolution => {
+  const rawTags = parseFrontmatterTags(markdown);
+  const repoLabels = [...new Set(
+    rawTags
+      .map((tag) => tag.match(/^repo-(.+)$/)?.[1]?.trim() ?? null)
+      .filter((label): label is string => Boolean(label)),
+  )];
+
+  if (repoLabels.length === 0) {
+    return { status: "none" };
+  }
+
+  if (repoLabels.length > 1) {
+    return { status: "multiple", labels: repoLabels };
+  }
+
+  return { status: "single", label: repoLabels[0] };
+};
+
 export const parseLssInitiativesFromMarkdown = (options: {
   noteId: string;
   filePath: string;
@@ -180,6 +277,9 @@ export const parseLssInitiativesFromMarkdown = (options: {
       trelloUrl,
       identity: buildIdentity({ noteId: options.noteId, text, trelloUrl }),
       conflict: false,
+      repoLabel: null,
+      repoLabelConflict: false,
+      repoLabelCandidates: [],
     });
   }
 
@@ -214,12 +314,21 @@ export const loadLssInitiativesFromJournal = async (options: {
     const filePath = resolveLssAreaNotePath({ noteId: area.noteId, journalPath });
     try {
       const markdown = await readFile(filePath, "utf8");
-      initiatives.push(
-        ...parseLssInitiativesFromMarkdown({
+      const repoLabelResolution = resolveRepoLabelFromFrontmatter(markdown);
+      if (repoLabelResolution.status === "multiple") {
+        warnings.push({
           noteId: area.noteId,
           filePath,
-          markdown,
-        }),
+          message: `Multiple repo tags found in note frontmatter: ${repoLabelResolution.labels.join(", ")}`,
+        });
+      }
+      initiatives.push(
+        ...parseLssInitiativesFromMarkdown({ noteId: area.noteId, filePath, markdown }).map((initiative) => ({
+          ...initiative,
+          repoLabel: repoLabelResolution.status === "single" ? repoLabelResolution.label : null,
+          repoLabelConflict: repoLabelResolution.status === "multiple",
+          repoLabelCandidates: repoLabelResolution.status === "multiple" ? repoLabelResolution.labels : [],
+        })),
       );
     } catch (error) {
       warnings.push({

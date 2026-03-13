@@ -239,10 +239,47 @@ export const syncLssInitiativesUseCase = async (options: {
       if (!area) {
         continue;
       }
+
+      if (initiative.repoLabelConflict) {
+        const reason = `multiple repo-* tags in ${initiative.noteId}: ${initiative.repoLabelCandidates.join(", ")}`;
+        console.warn(`[wo:lss] ${reason}`);
+        await writeEvent({
+          ts: now,
+          type: "lss.initiative.skipped",
+          payload: {
+            noteId: initiative.noteId,
+            line: initiative.line,
+            text: initiative.text,
+            reason,
+          },
+        });
+        continue;
+      }
+
       const areaLabel = context.labelByName.get(area.label);
       if (!areaLabel) {
         throw new Error(`Missing Trello label mapping for ${area.label}`);
       }
+
+      const repoLabel = initiative.repoLabel
+        ? context.labelByName.get(initiative.repoLabel)
+        : null;
+      if (initiative.repoLabel && !repoLabel) {
+        const reason = `Missing Trello label mapping for repo tag repo-${initiative.repoLabel}`;
+        console.warn(`[wo:lss] ${reason}`);
+        await writeEvent({
+          ts: now,
+          type: "lss.initiative.skipped",
+          payload: {
+            noteId: initiative.noteId,
+            line: initiative.line,
+            text: initiative.text,
+            reason,
+          },
+        });
+        continue;
+      }
+
       const syncBlock = buildSyncBlock({
         initiative,
         now,
@@ -252,7 +289,7 @@ export const syncLssInitiativesUseCase = async (options: {
         listId: triageList.id,
         name: initiative.text,
         desc: updateDescriptionWithSync("", syncBlock),
-        labelIds: [areaLabel.id, journalLabelId].filter(Boolean) as string[],
+        labelIds: [areaLabel.id, repoLabel?.id ?? journalLabelId].filter(Boolean) as string[],
       });
       const canonicalUrl = resolveCardUrl(created);
       if (canonicalUrl) {
