@@ -1,6 +1,7 @@
 import {
   derivePlannerCards,
   parseLssInitiativesFromMarkdown,
+  planLssJournalBackfillActions,
   planLssInitiativeActions,
 } from "../../lib/lss/tasks";
 
@@ -160,5 +161,128 @@ describe("LSS dry-run planner", () => {
         line: 6,
       }),
     ]);
+  });
+
+  it("plans backfill only for ghe-sourced cards missing from journal", () => {
+    const initiatives = parseLssInitiativesFromMarkdown({
+      noteId: "ot-business",
+      filePath: "/tmp/ot-business.md",
+      markdown: [
+        "## Goal Setting to the Now",
+        "### Week",
+        "- [ ] [Already linked](https://trello.com/c/keep1111)",
+      ].join("\n"),
+    });
+
+    const plan = planLssJournalBackfillActions({
+      initiatives,
+      cards: [
+        {
+          id: "c1",
+          name: "Already linked",
+          desc: "[wo-sync]\nsource=ghe-project\nurl=https://schibsted.ghe.com/a/b/issues/1\n[/wo-sync]\n",
+          idLabels: ["label-business"],
+          url: "https://trello.com/c/keep1111/1-already-linked",
+        },
+        {
+          id: "c2",
+          name: "Needs backfill",
+          desc: "[wo-sync]\nsource=ghe-project\nurl=https://schibsted.ghe.com/a/b/issues/2\n[/wo-sync]\n",
+          idLabels: ["label-business"],
+          url: "https://trello.com/c/add22222/2-needs-backfill",
+        },
+        {
+          id: "c3",
+          name: "Ignore non-ghe",
+          desc: "[wo-sync]\nsource=lss\nurl=https://trello.com/c/lss33333\n[/wo-sync]\n",
+          idLabels: ["label-business"],
+          url: "https://trello.com/c/lss33333/3-ignore",
+        },
+      ],
+      labelNameById: new Map([["label-business", "business"]]),
+      areas: [{ label: "business", title: "Business", noteId: "ot-business" }],
+      journalPath: "/tmp",
+    });
+
+    expect(plan.warnings).toEqual([]);
+    expect(plan.actions).toEqual([
+      expect.objectContaining({
+        type: "backfill-journal",
+        cardId: "c2",
+        noteId: "ot-business",
+        filePath: "/tmp/ot-business.md",
+        text: "Needs backfill",
+        trelloUrl: "https://trello.com/c/add22222",
+      }),
+    ]);
+  });
+
+  it("skips backfill when card has multiple LSS area labels", () => {
+    const initiatives = parseLssInitiativesFromMarkdown({
+      noteId: "ot-business",
+      filePath: "/tmp/ot-business.md",
+      markdown: [
+        "## Goal Setting to the Now",
+        "### Week",
+      ].join("\n"),
+    });
+
+    const plan = planLssJournalBackfillActions({
+      initiatives,
+      cards: [
+        {
+          id: "c1",
+          name: "Ambiguous area",
+          desc: "[wo-sync]\nsource=ghe-project\nurl=https://schibsted.ghe.com/a/b/issues/3\n[/wo-sync]\n",
+          idLabels: ["label-business", "label-career"],
+          url: "https://trello.com/c/ambi1234/ambiguous",
+        },
+      ],
+      labelNameById: new Map([
+        ["label-business", "business"],
+        ["label-career", "career"],
+      ]),
+      areas: [
+        { label: "business", title: "Business", noteId: "ot-business" },
+        { label: "career", title: "Career", noteId: "ot-career" },
+      ],
+      journalPath: "/tmp",
+    });
+
+    expect(plan.actions).toEqual([]);
+    expect(plan.warnings).toEqual(["Skipping c1: multiple LSS area labels"]);
+  });
+
+  it("does not backfill review-labeled cards", () => {
+    const initiatives = parseLssInitiativesFromMarkdown({
+      noteId: "ot-career",
+      filePath: "/tmp/ot-career.md",
+      markdown: [
+        "## Goal Setting to the Now",
+        "### Week",
+      ].join("\n"),
+    });
+
+    const plan = planLssJournalBackfillActions({
+      initiatives,
+      cards: [
+        {
+          id: "c1",
+          name: "Review task",
+          desc: "[wo-sync]\nsource=ghe-review\nurl=https://schibsted.ghe.com/a/b/pull/4\n[/wo-sync]\n",
+          idLabels: ["label-career", "label-review"],
+          url: "https://trello.com/c/rev12345/review-task",
+        },
+      ],
+      labelNameById: new Map([
+        ["label-career", "career"],
+        ["label-review", "review"],
+      ]),
+      areas: [{ label: "career", title: "Career", noteId: "ot-career" }],
+      journalPath: "/tmp",
+    });
+
+    expect(plan.actions).toEqual([]);
+    expect(plan.warnings).toEqual([]);
   });
 });

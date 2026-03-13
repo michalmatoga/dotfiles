@@ -3,6 +3,7 @@ import {
   DEFAULT_JOURNAL_PATH,
   derivePlannerCards,
   loadLssInitiativesFromJournal,
+  planLssJournalBackfillActions,
   planLssInitiativeActions,
   type LssPlannedAction,
 } from "../lib/lss/tasks";
@@ -52,6 +53,13 @@ export const previewLssDryRunUseCase = async (options: {
     cards: plannerCards,
     listById,
   });
+  const backfillPlan = planLssJournalBackfillActions({
+    initiatives: parsed.initiatives,
+    cards,
+    labelNameById,
+    areas,
+    journalPath,
+  });
 
   const noteOrder = areas.map((area) => area.noteId);
   const noteRank = new Map(noteOrder.map((noteId, index) => [noteId, index]));
@@ -62,12 +70,25 @@ export const previewLssDryRunUseCase = async (options: {
     actionsByNote.set(action.noteId, existing);
   }
 
+  const backfillByNote = new Map<string, Array<{ line: string; text: string; cardId: string; url: string; reason: string }>>();
+  for (const action of backfillPlan.actions) {
+    const existing = backfillByNote.get(action.noteId) ?? [];
+    existing.push({
+      line: "?",
+      text: action.text,
+      cardId: action.cardId,
+      url: action.trelloUrl,
+      reason: action.reason,
+    });
+    backfillByNote.set(action.noteId, existing);
+  }
+
   console.log("[wo:lss] Dry-run preview (no writes)");
   console.log(`[wo:lss] Journal root: ${journalPath}`);
   console.log(`[wo:lss] Parsed initiatives: ${parsed.initiatives.length}`);
-  console.log(`[wo:lss] Planned actions: ${plan.actions.length}`);
+  console.log(`[wo:lss] Planned actions: ${plan.actions.length + backfillPlan.actions.length}`);
 
-  const sortedNotes = [...actionsByNote.keys()].sort((a, b) => {
+  const sortedNotes = [...new Set([...actionsByNote.keys(), ...backfillByNote.keys()])].sort((a, b) => {
     return (noteRank.get(a) ?? Number.MAX_SAFE_INTEGER) - (noteRank.get(b) ?? Number.MAX_SAFE_INTEGER)
       || a.localeCompare(b);
   });
@@ -77,6 +98,12 @@ export const previewLssDryRunUseCase = async (options: {
     const header = area ? `${area.title} (${noteId})` : noteId;
     console.log(`\n[wo:lss] ${header}`);
     const actions = actionsByNote.get(noteId) ?? [];
+    const backfills = backfillByNote.get(noteId) ?? [];
+    for (const action of backfills) {
+      console.log(
+        `  - backfill-journal:${action.line} ${action.text} card=${action.cardId} url=${action.url} (${action.reason})`,
+      );
+    }
     for (const action of actions) {
       const card = action.cardId ? ` card=${action.cardId}` : "";
       const link = action.trelloUrl ? ` url=${action.trelloUrl}` : "";
@@ -86,7 +113,7 @@ export const previewLssDryRunUseCase = async (options: {
     }
   }
 
-  const warnings = [...parsed.warnings.map((warning) => warning.message), ...plan.warnings];
+  const warnings = [...parsed.warnings.map((warning) => warning.message), ...backfillPlan.warnings, ...plan.warnings];
   if (warnings.length > 0) {
     console.log("\n[wo:lss] Warnings");
     for (const warning of warnings) {
@@ -94,7 +121,7 @@ export const previewLssDryRunUseCase = async (options: {
     }
   }
 
-  if (options.verbose && plan.actions.length === 0) {
+  if (options.verbose && plan.actions.length === 0 && backfillPlan.actions.length === 0) {
     console.log("[wo:lss] No actions required");
   }
 };

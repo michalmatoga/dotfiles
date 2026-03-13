@@ -1,12 +1,19 @@
 import {
+  DEFAULT_JOURNAL_PATH,
   canonicalizeTrelloUrl,
   derivePlannerCards,
   loadLssInitiativesFromJournal,
+  normalizeTaskText,
+  planLssJournalBackfillActions,
   planLssInitiativeActions,
   type LssInitiative,
 } from "../lib/lss/tasks";
 import { planLssCheckboxMirror } from "../lib/lss/checkbox-mirror";
-import { injectTrelloUrlIntoTaskLine, setTaskCheckboxStateAtLine } from "../lib/lss/journal-links";
+import {
+  appendTaskUnderDeepestPlanningHeading,
+  injectTrelloUrlIntoTaskLine,
+  setTaskCheckboxStateAtLine,
+} from "../lib/lss/journal-links";
 import { listNames, labelNames } from "../lib/policy/mapping";
 import { writeEvent } from "../lib/state/events";
 import { readLatestSnapshot, writeSnapshot } from "../lib/state/snapshots";
@@ -77,9 +84,10 @@ export const syncLssInitiativesUseCase = async (options: {
   verbose: boolean;
 }) => {
   const now = new Date().toISOString();
+  const journalPath = process.env.WO_JOURNAL_PATH ?? DEFAULT_JOURNAL_PATH;
   const areas = await loadLssAreas();
   const areaByNoteId = new Map(areas.map((area) => [area.noteId, area]));
-  const parsed = await loadLssInitiativesFromJournal({ areas });
+  let parsed = await loadLssInitiativesFromJournal({ areas, journalPath });
 
   const context = await loadBoardContext({
     boardId: options.boardId,
@@ -92,11 +100,83 @@ export const syncLssInitiativesUseCase = async (options: {
   }
 
   const allCards = await fetchBoardCards(options.boardId);
+  const trelloCardById = new Map(allCards.map((card) => [card.id, card]));
+
+  const backfillPlan = planLssJournalBackfillActions({
+    initiatives: parsed.initiatives,
+    cards: allCards,
+    labelNameById: new Map(context.labels.map((label) => [label.id, label.name])),
+    areas,
+    journalPath,
+  });
+  for (const warning of backfillPlan.warnings) {
+    console.warn(`[wo:lss] ${warning}`);
+  }
+  for (const action of backfillPlan.actions) {
+    const card = trelloCardById.get(action.cardId);
+    if (!card) {
+      continue;
+    }
+    const appended = await appendTaskUnderDeepestPlanningHeading({
+      filePath: action.filePath,
+      text: action.text,
+      trelloUrl: action.trelloUrl,
+    });
+    if (!appended.updated) {
+      await writeEvent({
+        ts: now,
+        type: "lss.journal.backfill_skipped",
+        payload: {
+          noteId: action.noteId,
+          cardId: action.cardId,
+          trelloUrl: action.trelloUrl,
+          reason: appended.reason ?? "unknown",
+        },
+      });
+      continue;
+    }
+
+    const nextSyncBlock = formatSyncMetadata({
+      source: "lss",
+      noteId: action.noteId,
+      taskKey: `${action.noteId}::${normalizeTaskText(action.text)}`,
+      journalState: "unchecked",
+      lastSeen: now,
+      url: resolveCardUrl(card),
+    });
+    const nextDesc = updateDescriptionWithSync(extractDescriptionBase(card.desc), nextSyncBlock);
+    const refreshed = nextDesc === card.desc
+      ? card
+      : await updateCard({
+          cardId: card.id,
+          desc: nextDesc,
+        });
+    trelloCardById.set(refreshed.id, refreshed);
+    await writeEvent({
+      ts: now,
+      type: "lss.journal.backfilled",
+      payload: {
+        noteId: action.noteId,
+        line: appended.line ?? null,
+        cardId: refreshed.id,
+        cardUrl: resolveCardUrl(refreshed),
+      },
+    });
+    if (options.verbose) {
+      console.log(`[wo:lss] backfill ${action.noteId}:${appended.line ?? "?"} <- ${refreshed.id}`);
+    }
+  }
+
+  if (backfillPlan.actions.length > 0) {
+    parsed = await loadLssInitiativesFromJournal({ areas, journalPath });
+  }
+
+  const cardsForPlanner = [...trelloCardById.values()];
   const listById = new Map(context.lists.map((list) => [list.id, list.name]));
 
   const checkboxMirrorPlan = planLssCheckboxMirror({
     initiatives: parsed.initiatives,
-    managedCards: allCards
+    managedCards: cardsForPlanner
       .map((card) => {
         const meta = parseSyncMetadata(card.desc);
         if (meta?.source !== "lss") {
@@ -188,11 +268,11 @@ export const syncLssInitiativesUseCase = async (options: {
   });
 
   const parsedForPlanner = checkboxUpdates > 0
-    ? await loadLssInitiativesFromJournal({ areas })
+    ? await loadLssInitiativesFromJournal({ areas, journalPath })
     : parsed;
 
   const plannerCards = derivePlannerCards({
-    cards: allCards,
+    cards: cardsForPlanner,
     labelNameById: new Map(context.labels.map((label) => [label.id, label.name])),
     areas,
   });
@@ -204,7 +284,6 @@ export const syncLssInitiativesUseCase = async (options: {
   });
 
   const initiativeByKey = new Map(parsedForPlanner.initiatives.map((item) => [buildInitiativeKey(item), item]));
-  const trelloCardById = new Map(allCards.map((card) => [card.id, card]));
   const journalLabelId = context.labelByName.get(labelNames.journal)?.id ?? null;
 
   for (const warning of parsedForPlanner.warnings) {

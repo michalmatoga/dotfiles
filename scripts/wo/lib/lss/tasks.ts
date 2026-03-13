@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 import type { LssArea } from "../trello/lss-areas";
 import { listAliases, listNames } from "../policy/mapping";
+import { parseSyncMetadata } from "../sync/metadata";
 
 export const DEFAULT_JOURNAL_PATH = "/home/nixos/ghq/gitlab.com/michalmatoga/journal";
 export const GOAL_SECTION_HEADING = "goal setting to the now";
@@ -60,6 +61,21 @@ export type LssPlannedAction = {
 
 export type LssPlanResult = {
   actions: LssPlannedAction[];
+  warnings: string[];
+};
+
+export type LssBackfillAction = {
+  type: "backfill-journal";
+  cardId: string;
+  noteId: string;
+  filePath: string;
+  text: string;
+  trelloUrl: string;
+  reason: string;
+};
+
+export type LssBackfillPlanResult = {
+  actions: LssBackfillAction[];
   warnings: string[];
 };
 
@@ -476,6 +492,114 @@ export const planLssInitiativeActions = (options: {
 
   return {
     actions: sortActions(actions),
+    warnings,
+  };
+};
+
+export const planLssJournalBackfillActions = (options: {
+  initiatives: LssInitiative[];
+  cards: Array<{
+    id: string;
+    name: string;
+    desc: string;
+    idLabels: string[];
+    url?: string;
+    shortUrl?: string;
+  }>;
+  labelNameById: Map<string, string>;
+  areas: LssArea[];
+  journalPath?: string;
+}): LssBackfillPlanResult => {
+  const warnings: string[] = [];
+  const actions: LssBackfillAction[] = [];
+  const journalPath = options.journalPath ?? process.env.WO_JOURNAL_PATH ?? DEFAULT_JOURNAL_PATH;
+
+  const noteIdByAreaLabel = new Map(options.areas.map((area) => [area.label, area.noteId]));
+  const existingByUrl = new Set(
+    options.initiatives
+      .map((initiative) => initiative.trelloUrl)
+      .filter((url): url is string => Boolean(url)),
+  );
+  const existingByFallback = new Set(
+    options.initiatives
+      .filter((initiative) => initiative.identity.kind === "note-text")
+      .map((initiative) => initiative.identity.key),
+  );
+  const candidateByFallback = new Map<string, string>();
+
+  const cards = [...options.cards].sort((a, b) => a.id.localeCompare(b.id));
+  for (const card of cards) {
+    const source = parseSyncMetadata(card.desc)?.source ?? "";
+    if (!source.startsWith("ghe-")) {
+      continue;
+    }
+
+    const cardLabelNames = card.idLabels
+      .map((id) => options.labelNameById.get(id))
+      .filter((name): name is string => Boolean(name));
+    if (cardLabelNames.some((name) => name.toLowerCase() === "review")) {
+      continue;
+    }
+
+    const trelloUrl = canonicalizeTrelloUrl(card.url ?? card.shortUrl ?? "");
+    if (!trelloUrl) {
+      warnings.push(`Skipping ${card.id}: card URL is missing or invalid`);
+      continue;
+    }
+
+    const areaNoteIds = card.idLabels
+      .map((id) => options.labelNameById.get(id))
+      .filter((name): name is string => Boolean(name))
+      .map((name) => noteIdByAreaLabel.get(name))
+      .filter((noteId): noteId is string => Boolean(noteId));
+    const uniqueAreaNoteIds = [...new Set(areaNoteIds)];
+    if (uniqueAreaNoteIds.length !== 1) {
+      if (uniqueAreaNoteIds.length > 1) {
+        warnings.push(`Skipping ${card.id}: multiple LSS area labels`);
+      }
+      continue;
+    }
+
+    if (existingByUrl.has(trelloUrl)) {
+      continue;
+    }
+
+    const noteId = uniqueAreaNoteIds[0];
+    const fallbackKey = `${noteId}::${normalizeTaskText(card.name)}`;
+    if (existingByFallback.has(fallbackKey)) {
+      continue;
+    }
+    const previousCardId = candidateByFallback.get(fallbackKey);
+    if (previousCardId) {
+      warnings.push(
+        `Skipping ${card.id}: ambiguous backfill match with ${previousCardId} (${noteId}, "${card.name}")`,
+      );
+      continue;
+    }
+
+    candidateByFallback.set(fallbackKey, card.id);
+    existingByUrl.add(trelloUrl);
+    existingByFallback.add(fallbackKey);
+    actions.push({
+      type: "backfill-journal",
+      cardId: card.id,
+      noteId,
+      filePath: resolveLssAreaNotePath({ noteId, journalPath }),
+      text: normalizeWhitespace(card.name),
+      trelloUrl,
+      reason: "ghe card missing in journal",
+    });
+  }
+
+  actions.sort((a, b) => {
+    if (a.noteId !== b.noteId) {
+      return a.noteId.localeCompare(b.noteId);
+    }
+    return a.text.localeCompare(b.text);
+  });
+
+  return {
+    actions,
     warnings,
   };
 };

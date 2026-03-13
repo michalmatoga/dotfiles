@@ -2,7 +2,11 @@ import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
-import { injectTrelloUrlIntoTaskLine, setTaskCheckboxStateAtLine } from "../../lib/lss/journal-links";
+import {
+  appendTaskUnderDeepestPlanningHeading,
+  injectTrelloUrlIntoTaskLine,
+  setTaskCheckboxStateAtLine,
+} from "../../lib/lss/journal-links";
 import { formatSyncMetadata, parseSyncMetadata } from "../../lib/sync/metadata";
 
 describe("LSS journal backlink injection", () => {
@@ -118,5 +122,57 @@ describe("sync metadata for lss source", () => {
       journalState: "checked",
       lastSeen: "2026-03-12T00:00:00.000Z",
     });
+  });
+});
+
+describe("LSS journal backfill insertion", () => {
+  it("appends task under deepest active planning heading", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "wo-lss-"));
+    const filePath = join(dir, "ot-business.md");
+    await writeFile(
+      filePath,
+      [
+        "## Goal Setting to the Now",
+        "### 2026",
+        "#### March",
+        "##### Week 12",
+        "- [ ] Existing task",
+        "##### Week 11",
+        "- [ ] Current week task",
+      ].join("\n"),
+      "utf8",
+    );
+
+    const result = await appendTaskUnderDeepestPlanningHeading({
+      filePath,
+      text: "Backfilled task",
+      trelloUrl: "https://trello.com/c/KWdx4kBz/154-something",
+    });
+
+    expect(result).toEqual({ updated: true, line: 8 });
+    const content = await readFile(filePath, "utf8");
+    expect(content.split("\n")[7]).toBe("- [ ] [Backfilled task](https://trello.com/c/KWdx4kBz)");
+  });
+
+  it("returns already-linked when URL already exists", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "wo-lss-"));
+    const filePath = join(dir, "ot-business.md");
+    await writeFile(
+      filePath,
+      [
+        "## Goal Setting to the Now",
+        "### Week",
+        "- [ ] [Existing](https://trello.com/c/KWdx4kBz)",
+      ].join("\n"),
+      "utf8",
+    );
+
+    const result = await appendTaskUnderDeepestPlanningHeading({
+      filePath,
+      text: "Backfilled task",
+      trelloUrl: "https://trello.com/c/KWdx4kBz/154-something",
+    });
+
+    expect(result).toEqual({ updated: false, reason: "already-linked" });
   });
 });
