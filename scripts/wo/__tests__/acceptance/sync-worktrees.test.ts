@@ -9,7 +9,7 @@ import { getRunCommandCalls } from "./cache/cli";
  * 
  * This use case:
  * - Reads trello.card.moved events from state
- * - Creates worktrees when cards move to "Ready" or "Doing" (default)
+ * - Creates worktrees when cards move to "Doing"
  * - Removes worktrees when cards move to "Done"
  * - Initializes tmux sessions for worktrees
  */
@@ -38,12 +38,12 @@ describe("sync-worktrees", () => {
         {
           ts: oldTs,
           type: "trello.card.moved",
-          payload: { cardId: "old-card", url: "https://example.com/1", toList: "Ready" },
+          payload: { cardId: "old-card", url: "https://example.com/1", toList: "Doing" },
         },
         {
           ts: newTs,
           type: "trello.card.moved", 
-          payload: { cardId: "new-card", url: "https://example.com/2", toList: "Ready" },
+          payload: { cardId: "new-card", url: "https://example.com/2", toList: "Doing" },
         },
       ]);
 
@@ -59,8 +59,8 @@ describe("sync-worktrees", () => {
   });
 
   describe("worktree triggers", () => {
-    it("identifies cards moved to Ready list", async () => {
-      const readyListId = await getListIdByName("Ready");
+    it("identifies cards moved to Doing list", async () => {
+      const doingListId = await getListIdByName("Doing");
       
       // Create a card in Triage
       const card = await createTestCard({
@@ -70,22 +70,9 @@ describe("sync-worktrees", () => {
       });
 
       expect(card).toBeDefined();
-      expect(card.idList).not.toBe(readyListId);
+      expect(card.idList).not.toBe(doingListId);
 
-      // Move to Ready
-      const movedCard = await moveTestCard(card.id, "Ready");
-      expect(movedCard.idList).toBe(readyListId);
-    });
-
-    it("supports Ready to Doing transition without additional trigger change", async () => {
-      const doingListId = await getListIdByName("Doing");
-
-      const card = await createTestCard({
-        listName: "Ready",
-        name: "Card promoted to active work",
-        desc: `Issue: ${buildTestIssueUrl(44)}`,
-      });
-
+      // Move to Doing
       const movedCard = await moveTestCard(card.id, "Doing");
       expect(movedCard.idList).toBe(doingListId);
     });

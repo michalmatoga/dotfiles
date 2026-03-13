@@ -105,14 +105,13 @@ Flags:
 - Worktree branch names mirror the path segment (`<number>-<slug>`); if a name collision is detected, `issue-` or `pr-` is prefixed.
 - Config lives in the repo at `.config/gwq/config.toml` and is synced to `~/.config/gwq/config.toml`.
 - Missing repos are auto-cloned with `ghq` using SSH: `schibsted@schibsted.ghe.com:org/repo.git`.
-- Trello list moves trigger actions; `Ready`/`Doing` create or reuse worktrees and `Done` removes them (skipped if dirty).
+- Trello list moves trigger actions; `Doing` creates worktrees and `Done` removes them (skipped if dirty).
 - Worktree actions run for cards with GitHub issue/PR URLs, or Trello-only cards that match a label mapping in `scripts/wo/config/label-repos.json`.
 - Trello-only cards without a mapped label are skipped (soft), and cards with multiple mapped labels are skipped with an error event.
-- When a worktree is created for a trigger list (default: `Ready,Doing`), a detached tmux session is initialized and the right pane runs `opencode -s <sessionId>`.
+- When a worktree is created for `Doing`, a detached tmux session is initialized and the right pane runs `opencode -s <sessionId>`.
 - Session prompts use `scripts/wo/prompts/review.md` for PRs and `scripts/wo/prompts/issue.md` for issues.
 - Trello-only sessions use `scripts/wo/prompts/trello.md`.
-- Set `WO_WORKTREE_TRIGGER_LISTS` to customize which lists create/reuse worktrees (default: `Ready,Doing`).
-- Set `WO_SESSION_TRIGGER_LISTS` to customize which lists auto-initialize sessions (default: same as `WO_WORKTREE_TRIGGER_LISTS`).
+- Set `WO_SESSION_TRIGGER_LISTS` to customize which lists auto-initialize sessions (default: `Doing`).
 - When a worktree is removed (card moved to `Done`), the corresponding tmux session is also killed if it exists.
 
 ## Migration to single-root worktrees
@@ -230,17 +229,19 @@ Written to `/home/nixos/ghq/gitlab.com/michalmatoga/journal/YYYY-MM-DD.md`:
 **Deep work time:** 4h 12m
 
 ## Business
+
 **Total:** 2h 30m
 Worked mainly on org/repo-a and supporting workflow updates, with most effort going into shipping and validating business-facing changes.
 
 ## Growth
+
 **Total:** 1h 27m
 Spent time refining the journaling and workflow model, with supporting exploration in org/repo-b.
 
 ## Unmapped
+
 **Total:** 15m
 Worked on cards that did not have exactly one LSS area label, so their time stayed visible here instead of being guessed.
-
 ```
 
 ## Reporting
@@ -268,7 +269,6 @@ Notes:
 | ---------- | ------ | ------- |
 | org/repo-a | 2h 30m | 8       |
 | org/repo-b | 1h 42m | 4       |
-```
 
 ### Tmux status bar
 
