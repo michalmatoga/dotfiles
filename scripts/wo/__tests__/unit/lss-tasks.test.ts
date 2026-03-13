@@ -2,6 +2,7 @@ import {
   derivePlannerCards,
   parseLssInitiativesFromMarkdown,
   planLssInitiativeActions,
+  resolveRepoLabelFromFrontmatter,
 } from "../../lib/lss/tasks";
 
 describe("LSS task parsing", () => {
@@ -160,5 +161,51 @@ describe("LSS dry-run planner", () => {
         line: 6,
       }),
     ]);
+  });
+});
+
+describe("LSS repo label resolution", () => {
+  it("returns single when note has exactly one repo-* tag", () => {
+    const markdown = [
+      "---",
+      "id: ot-business",
+      "tags:",
+      "  - repo-elikonas",
+      "  - focus",
+      "---",
+      "",
+      "# Business",
+    ].join("\n");
+
+    expect(resolveRepoLabelFromFrontmatter(markdown)).toEqual({
+      status: "single",
+      label: "elikonas",
+    });
+  });
+
+  it("returns none when note has no repo-* tag", () => {
+    const markdown = [
+      "---",
+      "id: ot-business",
+      "tags:",
+      "  - business",
+      "---",
+    ].join("\n");
+
+    expect(resolveRepoLabelFromFrontmatter(markdown)).toEqual({ status: "none" });
+  });
+
+  it("returns multiple when note has more than one repo-* tag", () => {
+    const markdown = [
+      "---",
+      "id: ot-business",
+      "tags: [repo-elikonas, repo-dotfiles]",
+      "---",
+    ].join("\n");
+
+    expect(resolveRepoLabelFromFrontmatter(markdown)).toEqual({
+      status: "multiple",
+      labels: ["elikonas", "dotfiles"],
+    });
   });
 });
