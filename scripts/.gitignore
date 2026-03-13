@@ -9,3 +9,4 @@ wo/__tests__/acceptance/.env.test
 
 # Test state (ephemeral per-test)
 wo/__tests__/acceptance/state/
+wo/__tests__/state/
