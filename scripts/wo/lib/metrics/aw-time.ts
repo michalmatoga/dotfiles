@@ -12,6 +12,7 @@ import { parseSyncMetadata } from "../sync/metadata";
 import { readLatestSnapshot } from "../state/snapshots";
 import { readJsonlEntries } from "../state/jsonl";
 import { getPrimaryLabel } from "./types";
+import { resolveWoStateDir } from "../paths";
 
 export const NO_CARD_BUCKET = "no-card";
 export const NO_LABEL_BUCKET = "no-label";
@@ -49,7 +50,7 @@ export type CardIndexEntry = {
   labels: string[];
 };
 
-const eventsPath = "scripts/wo/state/wo-events.jsonl";
+const getEventsPath = (): string => `${resolveWoStateDir()}/wo-events.jsonl`;
 
 export const normalizePath = (value: string): string => value.replace(/\/+$/, "");
 
@@ -74,7 +75,7 @@ export const buildPathToUrlMap = async (): Promise<Map<string, string>> => {
     }
   }
 
-  const events = await readJsonlEntries<WorktreeAddedEvent>(eventsPath);
+  const events = await readJsonlEntries<WorktreeAddedEvent>(getEventsPath());
   for (const event of events) {
     if (event.type !== "worktree.added") {
       continue;

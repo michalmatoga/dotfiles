@@ -22,11 +22,11 @@ import {
   getEvents,
   isServerAvailable,
 } from "../lib/sessions/activitywatch";
-import { loadEnvFile } from "../lib/env";
 import {
   buildJournalEntry,
   formatJournalEntry,
 } from "../lib/sessions/journal";
+import { loadJournalEnv } from "../lib/journal/env";
 
 const DEFAULT_JOURNAL_PATH = "/home/nixos/ghq/gitlab.com/michalmatoga/journal";
 
@@ -86,15 +86,11 @@ const journalEntryExists = async (filePath: string, date: Date): Promise<boolean
 };
 
 const run = async (options: Options): Promise<void> => {
-  try {
-    await loadEnvFile(".env");
-  } catch {
-    try {
-      await loadEnvFile(".env.local");
-      console.log("journal-write: Loaded .env.local as fallback");
-    } catch {
-      // No env file present; continue with existing environment variables
-    }
+  const envSource = await loadJournalEnv();
+  if (envSource === "dotfiles-local") {
+    console.log("journal-write: Loaded .env.local as fallback from dotfiles root");
+  } else if (envSource === "cwd-local") {
+    console.log("journal-write: Loaded .env.local as fallback from current directory");
   }
 
   const dateStr = options.date.toISOString().split("T")[0];

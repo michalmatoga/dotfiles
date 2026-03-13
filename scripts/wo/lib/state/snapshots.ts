@@ -1,4 +1,5 @@
 import { appendJsonl, readLastJsonlEntry } from "./jsonl";
+import { resolveWoStateDir } from "../paths";
 
 export type ProjectMetaSnapshot = {
   projectId: string;
@@ -34,10 +35,10 @@ export type Snapshot = {
   lss?: LssSnapshot | null;
 };
 
-const snapshotPath = "scripts/wo/state/wo-snapshots.jsonl";
+const getSnapshotPath = (): string => `${resolveWoStateDir()}/wo-snapshots.jsonl`;
 
 export const readLatestSnapshot = async (): Promise<Snapshot | null> =>
-  readLastJsonlEntry<Snapshot>(snapshotPath);
+  readLastJsonlEntry<Snapshot>(getSnapshotPath());
 
 export const writeSnapshot = async (snapshot: Snapshot) =>
-  appendJsonl(snapshotPath, snapshot);
+  appendJsonl(getSnapshotPath(), snapshot);
