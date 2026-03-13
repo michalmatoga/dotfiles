@@ -37,10 +37,22 @@ type TrelloMovedEvent = {
 
 const eventsPath = "scripts/wo/state/wo-events.jsonl";
 const titleCache = new Map<string, string | null>();
-const sessionTriggerLists = (process.env.WO_SESSION_TRIGGER_LISTS ?? listNames.doing)
-  .split(",")
-  .map((value) => value.trim())
-  .filter((value) => value.length > 0);
+export const parseListConfig = (value: string | undefined, fallback: string[]): string[] => {
+  const parsed = (value ?? "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+  return parsed.length > 0 ? parsed : fallback;
+};
+
+const worktreeTriggerLists = parseListConfig(process.env.WO_WORKTREE_TRIGGER_LISTS, [
+  listNames.ready,
+  listNames.doing,
+]);
+const sessionTriggerLists = parseListConfig(
+  process.env.WO_SESSION_TRIGGER_LISTS,
+  worktreeTriggerLists,
+);
 
 const extractHost = (url: string) => {
   const match = url.match(/^https:\/\/([^/]+)/);
@@ -147,7 +159,7 @@ export const syncWorktreesUseCase = async (options: { verbose: boolean }) => {
 
     const title = isGitHub ? (await fetchTitle(url)) ?? name ?? "work" : name ?? "work";
 
-    if (toList === listNames.doing) {
+    if (worktreeTriggerLists.includes(toList)) {
       if (isTrello) {
         const labelNames = (labels ?? [])
           .map((id) => labelById.get(id))
