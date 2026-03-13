@@ -125,9 +125,9 @@ Safe migration steps:
 1. Ensure worktrees are clean: `git -C <worktree-path> status`.
 2. For each existing worktree under `~/gwq`, move it with git:
 
-```bash
-git -C ~/ghq/<host>/<owner>/<repo> worktree move ~/gwq/<host>/<owner>/<repo>/<branch> ~/ghq/<host>/<owner>/<repo>=<branch>
-```
+   ```bash
+   git -C ~/ghq/<host>/<owner>/<repo> worktree move ~/gwq/<host>/<owner>/<repo>/<branch> ~/ghq/<host>/<owner>/<repo>=<branch>
+   ```
 
 3. Verify: `git -C ~/ghq/<host>/<owner>/<repo> worktree list`.
 4. After verification, remove the old `~/gwq` directory if it is empty.
