@@ -26,4 +26,17 @@ describe("tmux wo sessionizer formatting", () => {
     expect(header).toContain("🎯 Focus: Oldest Doing = 2d 0h");
     expect(header).toContain("🏆 Best (last 30 workdays): 1d 6h");
   });
+
+  it("ignores sub-minute outliers when computing best cycle", () => {
+    const header = buildHeader({
+      now: new Date("2026-03-16T12:00:00.000Z"),
+      oldestDoingAgeSeconds: null,
+      completedCycles: [
+        { completedAt: new Date("2026-03-14T10:00:00.000Z").getTime(), cycleSeconds: 2 },
+        { completedAt: new Date("2026-03-13T10:00:00.000Z").getTime(), cycleSeconds: 42 * 60 },
+      ],
+    });
+
+    expect(header).toContain("🏆 Best (last 30 workdays): 42m");
+  });
 });

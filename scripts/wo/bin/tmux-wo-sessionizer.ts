@@ -66,6 +66,7 @@ const cardStateByUrlCachePath = join(stateDir, "tmux-wo-sessionizer-card-state-b
 const lifecycleCachePath = join(stateDir, "tmux-wo-sessionizer-lifecycle-cache.json");
 const dirCacheTtlMs = 30_000;
 const headerWindowWorkdays = 30;
+const minCycleSecondsForBest = 60;
 
 const args = process.argv.slice(2);
 const argPath = args.find((arg) => !arg.startsWith("--")) ?? null;
@@ -555,7 +556,9 @@ export const buildHeader = (options: {
     })
     .map((entry) => entry.cycleSeconds)
     .filter((seconds) => Number.isFinite(seconds) && seconds > 0);
-  const best = candidates.length > 0 ? Math.min(...candidates) : null;
+  const meaningfulCandidates = candidates.filter((seconds) => seconds >= minCycleSecondsForBest);
+  const bestPool = meaningfulCandidates.length > 0 ? meaningfulCandidates : candidates;
+  const best = bestPool.length > 0 ? Math.min(...bestPool) : null;
   const bestText = best === null ? "--" : formatDurationCompact(best);
   return [
     `🎯 Focus: Oldest Doing = ${focusText}`,
