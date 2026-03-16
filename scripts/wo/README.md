@@ -138,7 +138,9 @@ Safe migration steps:
 - Use `--worktree-only` to hide base repos and show only linked worktrees.
 - `scripts/tmux-ghq-sessionizer.sh` provides the shell version of the same `~/ghq` picker.
 - Entries are rendered as single-line paths (`host › owner › repo › worktree`), so fzf progressively filters as you type.
-- Worktree entries include a status dot: `●` = opencode active, `○` = opencode idle/unknown (derived from last 5 log files in `~/.local/share/opencode/log/`, mapping sessions to worktrees via `opencode db`, with running tmux opencode panes treated as active if no idle signal is found).
+- Picker ordering emphasizes cycle time: `Doing` worktrees (oldest first), then `Ready` worktrees (oldest first), then other worktrees, then base repos.
+- Rows include a fixed-width badge: `[🛠️  <age>]` for `Doing` (cycle-time age), `[⏳  <age>]` for non-`Doing` cards with lead-time data, and `[·   --    ]` when no card timing is available.
+- Header highlights gamified focus metrics: oldest `Doing` age now, and best completed cycle time in the last 30 workdays.
 - Run: `npx --yes tsx scripts/wo/bin/tmux-wo-sessionizer.ts`.
 
 ## State & idempotency

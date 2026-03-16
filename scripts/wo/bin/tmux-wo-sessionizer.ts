@@ -1,20 +1,12 @@
 #!/usr/bin/env node
 
 import { spawnSync } from "node:child_process";
-import {
-  closeSync,
-  existsSync,
-  mkdirSync,
-  openSync,
-  readFileSync,
-  readSync,
-  readdirSync,
-  statSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { parseMetricsRecord } from "../lib/metrics/types";
 
 type EntryKind = "worktree" | "repo";
 
@@ -22,29 +14,47 @@ type Entry = {
   path: string;
   kind: EntryKind;
   url?: string | null;
-  title?: string | null;
   host?: string | null;
   owner?: string | null;
   repo?: string | null;
   leaf?: string | null;
 };
 
-const delimiter = "\u001f";
+type CardListState = {
+  cardId: string;
+  list: string;
+  enteredAt: string;
+  url: string | null;
+};
 
+type LifecycleData = {
+  leadStartByCardId: Map<string, number>;
+  completedCycles: Array<{ completedAt: number; cycleSeconds: number }>;
+};
+
+type RankedEntry = {
+  entry: Entry;
+  category: number;
+  ageSeconds: number | null;
+  label: string;
+  badge: string;
+};
+
+const delimiter = "\u001f";
+const defaultBadge = "[·   --    ]";
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(scriptDir, "../../..");
 const stateDir = join(repoRoot, "scripts/wo/state");
 const eventsPath = join(stateDir, "wo-events.jsonl");
-const opencodeLogDir = join(homedir(), ".local/share/opencode/log");
-const recentLogCount = 5;
-const opencodeDbCacheTtlMs = 10_000;
+const cardStatePath = join(stateDir, "wo-card-states.jsonl");
+const metricsPath = join(stateDir, "wo-metrics.csv");
 const dirCacheTtlMs = 30_000;
+const headerWindowWorkdays = 30;
 
 const args = process.argv.slice(2);
 const argPath = args.find((arg) => !arg.startsWith("--")) ?? null;
 const includeRepos = !(args.includes("--worktree-only") || args.includes("--gwq-only"));
 const dryRun = args.includes("--dry-run");
-const paneDelimiter = "\t";
 
 const run = (command: string, commandArgs: string[], options: { input?: string; env?: NodeJS.ProcessEnv } = {}) => {
   const result = spawnSync(command, commandArgs, {
@@ -62,12 +72,7 @@ const run = (command: string, commandArgs: string[], options: { input?: string; 
   return (result.stdout ?? "").toString();
 };
 
-const runOptional = (
-  command: string,
-  commandArgs: string[],
-  input?: string,
-  env?: NodeJS.ProcessEnv,
-) => {
+const runOptional = (command: string, commandArgs: string[], input?: string, env?: NodeJS.ProcessEnv) => {
   try {
     return run(command, commandArgs, { input, env });
   } catch {
@@ -110,25 +115,86 @@ const pathToSessionName = (path: string) => {
 };
 
 const normalizePath = (value: string) => value.replace(/\/+$/, "");
+const normalizeCardUrl = (value: string) => value.trim().replace(/\/+$/, "");
 
 const formatPathSegments = (segments: Array<string | null>) =>
   segments.filter((value): value is string => Boolean(value)).join(" › ");
-
-const formatRepoLabel = (entry: Entry) => {
-  const label = formatPathSegments([entry.host, entry.owner, entry.repo]);
-  return label || entry.path;
-};
 
 const formatWorktreeLabel = (entry: Entry) => {
   const label = formatPathSegments([entry.host, entry.owner, entry.repo, entry.leaf]);
   return label || entry.path;
 };
 
-const loadWorktreeUrlMap = () => {
-  if (!existsSync(eventsPath)) {
-    return new Map<string, string>();
+const formatRepoLabel = (entry: Entry) => {
+  const label = formatPathSegments([entry.host, entry.owner, entry.repo]);
+  return label || entry.path;
+};
+
+const ensureFzfPath = () => {
+  const fzfDir = join(homedir(), ".fzf", "bin");
+  const current = process.env.PATH ?? "";
+  if (current.split(":").includes(fzfDir)) {
+    return current;
   }
+  return `${fzfDir}:${current}`;
+};
+
+const parseIso = (value: string | null | undefined): number | null => {
+  if (!value) {
+    return null;
+  }
+  const ts = new Date(value).getTime();
+  return Number.isFinite(ts) ? ts : null;
+};
+
+const isWorkday = (date: Date) => {
+  const day = date.getDay();
+  return day >= 1 && day <= 5;
+};
+
+const windowStartForWorkdays = (now: Date, workdays: number) => {
+  const cursor = new Date(now);
+  cursor.setHours(0, 0, 0, 0);
+  let remaining = Math.max(0, workdays - 1);
+  while (remaining > 0) {
+    cursor.setDate(cursor.getDate() - 1);
+    if (isWorkday(cursor)) {
+      remaining -= 1;
+    }
+  }
+  return cursor.getTime();
+};
+
+export const formatDurationCompact = (seconds: number) => {
+  const safeSeconds = Math.max(0, Math.floor(seconds));
+  const minutes = Math.floor(safeSeconds / 60);
+  if (minutes < 60) {
+    return `${minutes}m`;
+  }
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  if (hours < 24) {
+    return `${hours}h ${remainingMinutes}m`;
+  }
+  const days = Math.floor(hours / 24);
+  const remainingHours = hours % 24;
+  return `${days}d ${remainingHours}h`;
+};
+
+export const formatMetricBadge = (options: { kind: "cycle" | "lead" | "none"; ageSeconds: number | null }) => {
+  if (options.kind === "none" || options.ageSeconds === null) {
+    return defaultBadge;
+  }
+  const icon = options.kind === "cycle" ? "🛠️" : "⏳";
+  const paddedAge = formatDurationCompact(options.ageSeconds).padEnd(6, " ");
+  return `[${icon}  ${paddedAge}]`;
+};
+
+const loadWorktreeUrlMap = () => {
   const map = new Map<string, string>();
+  if (!existsSync(eventsPath)) {
+    return map;
+  }
   const content = readFileSync(eventsPath, "utf8");
   for (const line of readLines(content)) {
     try {
@@ -139,7 +205,7 @@ const loadWorktreeUrlMap = () => {
       const path = event.payload?.path;
       const url = event.payload?.url;
       if (path && url) {
-        map.set(normalizePath(path), url);
+        map.set(normalizePath(path), normalizeCardUrl(url));
       }
     } catch {
       continue;
@@ -148,32 +214,19 @@ const loadWorktreeUrlMap = () => {
   return map;
 };
 
-const loadOpencodeSessionsFromEvents = () => {
-  const map = new Map<string, { sessionId: string; ts: number }>();
-  if (!existsSync(eventsPath)) {
+const loadCardStateByUrl = () => {
+  const map = new Map<string, CardListState>();
+  if (!existsSync(cardStatePath)) {
     return map;
   }
-  const content = readFileSync(eventsPath, "utf8");
+  const content = readFileSync(cardStatePath, "utf8");
   for (const line of readLines(content)) {
     try {
-      const event = JSON.parse(line) as {
-        ts?: string;
-        type?: string;
-        payload?: { worktreePath?: string; sessionId?: string | null };
-      };
-      if (event.type !== "opencode.session.created") {
+      const parsed = JSON.parse(line) as CardListState;
+      if (!parsed.url) {
         continue;
       }
-      const worktreePath = event.payload?.worktreePath;
-      const sessionId = event.payload?.sessionId ?? null;
-      if (!worktreePath || !sessionId) {
-        continue;
-      }
-      const ts = event.ts ? new Date(event.ts).getTime() : 0;
-      const current = map.get(worktreePath);
-      if (!current || ts >= current.ts) {
-        map.set(worktreePath, { sessionId, ts });
-      }
+      map.set(normalizeCardUrl(parsed.url), parsed);
     } catch {
       continue;
     }
@@ -181,374 +234,78 @@ const loadOpencodeSessionsFromEvents = () => {
   return map;
 };
 
-const loadOpencodeSessionsFromDb = () => {
-  const map = new Map<string, { sessionId: string; ts: number }>();
-  const cachePath = join(stateDir, "opencode-db-cache.json");
-  const cached = readJsonFile<{
-    savedAt?: number;
-    rows?: Array<{ id?: string; directory?: string; time_updated?: number }>;
-  }>(cachePath);
-  if (cached?.savedAt && cached.rows && Date.now() - cached.savedAt < opencodeDbCacheTtlMs) {
-    for (const row of cached.rows) {
-      if (!row.id || !row.directory) {
-        continue;
-      }
-      const ts = row.time_updated ?? 0;
-      const normalized = normalizePath(row.directory);
-      const current = map.get(normalized);
-      if (!current || ts >= current.ts) {
-        map.set(normalized, { sessionId: row.id, ts });
-      }
-    }
-    return map;
-  }
-  const ghqRoot = normalizePath(join(homedir(), "ghq"));
-  const query = `select id, directory, time_updated from session where directory like '${ghqRoot.replace(/'/g, "''")}/%';`;
-  const raw = runOptional("opencode", ["db", "--format", "json", query]);
-  if (!raw) {
-    return map;
-  }
-  try {
-    const rows = JSON.parse(raw) as Array<{ id?: string; directory?: string; time_updated?: number }>;
-    for (const row of rows) {
-      if (!row.id || !row.directory) {
-        continue;
-      }
-      const ts = row.time_updated ?? 0;
-      const normalized = normalizePath(row.directory);
-      const current = map.get(normalized);
-      if (!current || ts >= current.ts) {
-        map.set(normalized, { sessionId: row.id, ts });
-      }
-    }
-    writeJsonFile(cachePath, { savedAt: Date.now(), rows });
-  } catch {
-    return map;
-  }
-  return map;
-};
+const loadLifecycleData = (): LifecycleData => {
+  const leadStartByCardId = new Map<string, number>();
+  const completedCycles: Array<{ completedAt: number; cycleSeconds: number }> = [];
 
-const getRecentLogFiles = () => {
-  if (!existsSync(opencodeLogDir)) {
-    return [];
-  }
-  const entries = readdirSync(opencodeLogDir)
-    .filter((name) => name.endsWith(".log"))
-    .sort();
-  const recent = entries.slice(-recentLogCount);
-  return recent.map((name) => join(opencodeLogDir, name));
-};
-
-const extractSessionId = (line: string): string | null => {
-  const match = line.match(/sessionID=([A-Za-z0-9_-]+)/);
-  if (match) {
-    return match[1] ?? null;
-  }
-  const idMatch = line.match(/\bid=(ses_[A-Za-z0-9_-]+)/);
-  return idMatch ? idMatch[1] : null;
-};
-
-const extractSessionIdFromCommand = (command: string): string | null => {
-  const match = command.match(/\bopencode\b[^\n]*\s(?:-s|--session)\s+([^\s]+)/);
-  return match ? match[1] ?? null : null;
-};
-
-const extractDirectory = (line: string): string | null => {
-  const match = line.match(/\bdirectory=([^\s]+)/);
-  return match ? match[1] : null;
-};
-
-const opencodeInternalRunPrefix = join(homedir(), ".local/share/opencode/bin/");
-const ignoredOpencodeChildPatterns = [
-  opencodeInternalRunPrefix,
-  "typescript-language-server",
-  "bash-language-server",
-  "eslintServer.js",
-  "language-server",
-  "tsserver.js",
-  "typingsInstaller.js",
-  "marksman",
-  "node_modules/typescript",
-  "--stdio",
-];
-
-const isInteractiveOpencodeCommand = (command: string) => {
-  const runMatch = command.match(/\bopencode\b\s+run\s+(.+)$/);
-  if (runMatch) {
-    const arg = runMatch[1]?.trim() ?? "";
-    return !arg.startsWith(opencodeInternalRunPrefix);
-  }
-  return /\bopencode\b\s+(?:-s|--session)\b/.test(command);
-};
-
-const isIgnoredOpencodeChildCommand = (command: string) =>
-  ignoredOpencodeChildPatterns.some((pattern) => command.includes(pattern));
-
-const isActiveOpencodeChildCommand = (command: string) => !isIgnoredOpencodeChildCommand(command);
-
-const isIdleLine = (line: string) =>
-  line.includes("type=session.idle") ||
-  (line.includes("session.prompt") && (line.includes("exiting loop") || line.includes("cancel")));
-
-const isActiveLine = (line: string) =>
-  line.includes("session.prompt") && !line.includes("exiting loop") && !line.includes("cancel");
-
-const loadOpencodeLogState = () => {
-  const statusBySession = new Map<string, "idle" | "active">();
-  const sessionByPath = new Map<string, string>();
-  const logFiles = getRecentLogFiles();
-  if (logFiles.length === 0) {
-    return { statusBySession, sessionByPath };
-  }
-  const cachePath = join(stateDir, "opencode-log-cache.json");
-  const cached = readJsonFile<{
-    files?: Record<string, { mtimeMs: number; size: number; offset: number; lastSessionId?: string | null }>;
-    statusBySession?: Record<string, "idle" | "active">;
-    sessionByPath?: Record<string, string>;
-  }>(cachePath);
-  const cachedFiles = cached?.files ?? null;
-  let canUseCache = Boolean(cachedFiles) && logFiles.length > 0;
-  if (cachedFiles && logFiles.length !== Object.keys(cachedFiles).length) {
-    canUseCache = false;
-  }
-  if (cached?.statusBySession) {
-    for (const [sessionId, state] of Object.entries(cached.statusBySession)) {
-      statusBySession.set(sessionId, state);
-    }
-  }
-  if (cached?.sessionByPath) {
-    for (const [path, sessionId] of Object.entries(cached.sessionByPath)) {
-      sessionByPath.set(path, sessionId);
-    }
+  if (!existsSync(metricsPath)) {
+    return { leadStartByCardId, completedCycles };
   }
 
-  const nextFiles: Record<string, { mtimeMs: number; size: number; offset: number; lastSessionId?: string | null }> = {};
-
-  for (const logFile of logFiles) {
-    const stats = statSync(logFile);
-    const cachedEntry = cachedFiles?.[logFile];
-    if (!cachedEntry) {
-      canUseCache = false;
-    }
-    if (cachedEntry && (stats.mtimeMs < cachedEntry.mtimeMs || stats.size < cachedEntry.offset)) {
-      canUseCache = false;
-    }
-  }
-
-  for (const logFile of logFiles) {
-    const stats = statSync(logFile);
-    const cachedEntry = cachedFiles?.[logFile];
-    const shouldUseCache = canUseCache && cachedEntry;
-    const startOffset = shouldUseCache ? cachedEntry.offset : 0;
-    let lastSessionId = (shouldUseCache ? cachedEntry.lastSessionId : null) ?? null;
-    let content = "";
-    if (stats.size > startOffset) {
-      const fd = openSync(logFile, "r");
+  const content = readFileSync(metricsPath, "utf8");
+  const lines = content.split("\n").slice(1).map((line) => line.trim()).filter(Boolean);
+  const records = lines
+    .map((line) => {
       try {
-        const toRead = stats.size - startOffset;
-        const buffer = Buffer.alloc(toRead);
-        const bytes = readSync(fd, buffer, 0, toRead, startOffset);
-        content = buffer.subarray(0, bytes).toString("utf8");
-      } finally {
-        closeSync(fd);
+        return parseMetricsRecord(line);
+      } catch {
+        return null;
       }
+    })
+    .filter((record): record is NonNullable<typeof record> => record !== null)
+    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+  const doingStartByCardId = new Map<string, number>();
+  for (const record of records) {
+    const ts = parseIso(record.timestamp);
+    if (ts === null) {
+      continue;
     }
-    if (!content && !shouldUseCache) {
-      content = readFileSync(logFile, "utf8");
+    if (record.eventType === "entered" && record.list === "Ready" && !leadStartByCardId.has(record.cardId)) {
+      leadStartByCardId.set(record.cardId, ts);
+      continue;
     }
-    for (const line of readLines(content)) {
-      const sessionId = extractSessionId(line);
-      const directory = extractDirectory(line);
-      if (sessionId) {
-        lastSessionId = sessionId;
-      }
-      if (sessionId && directory) {
-        sessionByPath.set(normalizePath(directory), sessionId);
-      }
-      if (isIdleLine(line)) {
-        const target = sessionId ?? lastSessionId;
-        if (target) {
-          statusBySession.set(target, "idle");
-        }
+    if (record.eventType === "entered" && record.list === "Doing") {
+      doingStartByCardId.set(record.cardId, ts);
+      continue;
+    }
+    if (record.eventType === "entered" && record.list === "Done") {
+      const doingStart = doingStartByCardId.get(record.cardId);
+      if (!doingStart || ts <= doingStart) {
         continue;
       }
-      if (sessionId && isActiveLine(line)) {
-        statusBySession.set(sessionId, "active");
-      }
+      const cycleSeconds = Math.floor((ts - doingStart) / 1000);
+      completedCycles.push({ completedAt: ts, cycleSeconds });
     }
-    nextFiles[logFile] = {
-      mtimeMs: stats.mtimeMs,
-      size: stats.size,
-      offset: stats.size,
-      lastSessionId,
-    };
   }
 
-  writeJsonFile(cachePath, {
-    files: nextFiles,
-    statusBySession: Object.fromEntries(statusBySession.entries()),
-    sessionByPath: Object.fromEntries(sessionByPath.entries()),
-  });
-
-  return { statusBySession, sessionByPath };
+  return { leadStartByCardId, completedCycles };
 };
 
-const loadOpencodeSessionsFromTmux = () => {
-  const sessionByPath = new Map<string, string>();
-  const runningPaths = new Set<string>();
-  const paneOutput = runOptional("tmux", [
-    "list-panes",
-    "-a",
-    "-F",
-    `#{pane_pid}${paneDelimiter}#{pane_current_path}`,
-  ]);
-  if (!paneOutput) {
-    return { sessionByPath, runningPaths };
-  }
-  const panes: Array<{ pid: number; path: string }> = [];
-  for (const line of readLines(paneOutput)) {
-    const [pid, path] = line.split(paneDelimiter);
-    if (!pid || !path) {
-      continue;
-    }
-    const pidNumber = Number(pid);
-    if (!Number.isFinite(pidNumber)) {
-      continue;
-    }
-    panes.push({ pid: pidNumber, path: normalizePath(path) });
-  }
-  if (panes.length === 0) {
-    return { sessionByPath, runningPaths };
-  }
-  const processOutput = runOptional("ps", ["-eo", "pid=,ppid=,command="]).trim();
-  if (!processOutput) {
-    return { sessionByPath, runningPaths };
-  }
-  const processMap = new Map<number, { ppid: number; command: string }>();
-  for (const line of readLines(processOutput)) {
-    const match = line.match(/^(\d+)\s+(\d+)\s+(.*)$/);
-    if (!match) {
-      continue;
-    }
-    const pid = Number(match[1]);
-    const ppid = Number(match[2]);
-    const command = match[3] ?? "";
-    if (!Number.isFinite(pid) || !Number.isFinite(ppid)) {
-      continue;
-    }
-    processMap.set(pid, { ppid, command });
-  }
-  const paneByPid = new Map<number, string>();
-  for (const pane of panes) {
-    paneByPid.set(pane.pid, pane.path);
-  }
-  const paneCache = new Map<number, string | null>();
-  const paneStatus = new Map<string, { hasOpencode: boolean; hasActive: boolean }>();
-  const opencodePidsByPane = new Map<string, Set<number>>();
-  const resolvePanePath = (pid: number) => {
-    if (paneCache.has(pid)) {
-      return paneCache.get(pid) ?? null;
-    }
-    let current = pid;
-    let guard = 0;
-    while (processMap.has(current) && guard < 200) {
-      const panePath = paneByPid.get(current);
-      if (panePath) {
-        paneCache.set(pid, panePath);
-        return panePath;
+export const buildHeader = (options: {
+  now: Date;
+  oldestDoingAgeSeconds: number | null;
+  completedCycles: Array<{ completedAt: number; cycleSeconds: number }>;
+}) => {
+  const focusText = options.oldestDoingAgeSeconds === null
+    ? "none"
+    : formatDurationCompact(options.oldestDoingAgeSeconds);
+  const windowStart = windowStartForWorkdays(options.now, headerWindowWorkdays);
+  const candidates = options.completedCycles
+    .filter((entry) => {
+      if (entry.completedAt < windowStart) {
+        return false;
       }
-      const parent = processMap.get(current)?.ppid ?? 0;
-      if (parent <= 1 || parent === current) {
-        break;
-      }
-      current = parent;
-      guard += 1;
-    }
-    paneCache.set(pid, null);
-    return null;
-  };
-  for (const [pid, data] of processMap.entries()) {
-    const panePath = resolvePanePath(pid);
-    if (!panePath) {
-      continue;
-    }
-    if (!data.command.includes("opencode")) {
-      continue;
-    }
-    const status = paneStatus.get(panePath) ?? { hasOpencode: false, hasActive: false };
-    status.hasOpencode = true;
-    if (isInteractiveOpencodeCommand(data.command)) {
-      status.hasActive = true;
-    }
-    const sessionId = extractSessionIdFromCommand(data.command);
-    if (sessionId) {
-      sessionByPath.set(panePath, sessionId);
-    }
-    const opencodePids = opencodePidsByPane.get(panePath) ?? new Set<number>();
-    opencodePids.add(pid);
-    opencodePidsByPane.set(panePath, opencodePids);
-    paneStatus.set(panePath, status);
-  }
-  const descendantCache = new Map<string, boolean>();
-  const isDescendantOf = (pid: number, ancestors: Set<number>) => {
-    const cacheKey = `${pid}:${[...ancestors].join(",")}`;
-    if (descendantCache.has(cacheKey)) {
-      return descendantCache.get(cacheKey) ?? false;
-    }
-    let current = pid;
-    let guard = 0;
-    while (processMap.has(current) && guard < 200) {
-      const parent = processMap.get(current)?.ppid ?? 0;
-      if (ancestors.has(parent)) {
-        descendantCache.set(cacheKey, true);
-        return true;
-      }
-      if (parent <= 1 || parent === current) {
-        break;
-      }
-      current = parent;
-      guard += 1;
-    }
-    descendantCache.set(cacheKey, false);
-    return false;
-  };
-  for (const [pid, data] of processMap.entries()) {
-    if (data.command.includes("opencode")) {
-      continue;
-    }
-    const panePath = resolvePanePath(pid);
-    if (!panePath) {
-      continue;
-    }
-    const opencodePids = opencodePidsByPane.get(panePath);
-    if (!opencodePids || opencodePids.size === 0) {
-      continue;
-    }
-    if (!isDescendantOf(pid, opencodePids)) {
-      continue;
-    }
-    if (!isActiveOpencodeChildCommand(data.command)) {
-      continue;
-    }
-    const status = paneStatus.get(panePath) ?? { hasOpencode: true, hasActive: false };
-    status.hasActive = true;
-    paneStatus.set(panePath, status);
-  }
-  for (const [path, status] of paneStatus.entries()) {
-    if (status.hasOpencode && status.hasActive) {
-      runningPaths.add(path);
-    }
-  }
-  return { sessionByPath, runningPaths };
-};
-
-const ensureFzfPath = () => {
-  const fzfDir = join(homedir(), ".fzf", "bin");
-  const current = process.env.PATH ?? "";
-  if (current.split(":").includes(fzfDir)) {
-    return current;
-  }
-  return `${fzfDir}:${current}`;
+      return isWorkday(new Date(entry.completedAt));
+    })
+    .map((entry) => entry.cycleSeconds)
+    .filter((seconds) => Number.isFinite(seconds) && seconds > 0);
+  const best = candidates.length > 0 ? Math.min(...candidates) : null;
+  const bestText = best === null ? "--" : formatDurationCompact(best);
+  return [
+    `🎯 Focus: Oldest Doing = ${focusText}`,
+    `🏆 Best (last ${headerWindowWorkdays} workdays): ${bestText}`,
+  ].join("\n");
 };
 
 export const classifyGhqEntry = (options: {
@@ -653,61 +410,104 @@ export const gatherEntries = () => {
   return entries;
 };
 
-const formatEntry = (
-  entry: Entry,
-  sessionIdByPath: Map<string, string>,
-  statusBySession: Map<string, "idle" | "active">,
-  runningSessions: Set<string>,
-  runningPaths: Set<string>,
-): { line: string; rank: number; label: string } => {
-  const sessionId = sessionIdByPath.get(normalizePath(entry.path)) ?? null;
-  const status = sessionId ? statusBySession.get(sessionId) : null;
-  const isActive =
-    status === "active" ||
-    (status === undefined && sessionId && runningSessions.has(sessionId)) ||
-    runningPaths.has(normalizePath(entry.path));
-  const hasSession = Boolean(sessionId);
-  const dot = isActive ? "●" : hasSession ? "◐" : "○";
-  const label = `${dot} ${formatWorktreeLabel(entry)}`;
-  const rank = hasSession ? (isActive ? 1 : 0) : 2;
-  return { line: `${label}${delimiter}${entry.path}`, rank, label };
+const rankEntries = (entries: Entry[]) => {
+  const now = Date.now();
+  const cardStateByUrl = loadCardStateByUrl();
+  const { leadStartByCardId, completedCycles } = loadLifecycleData();
+
+  const ranked: RankedEntry[] = entries.map((entry) => {
+    const label = entry.kind === "worktree" ? formatWorktreeLabel(entry) : formatRepoLabel(entry);
+    if (entry.kind === "repo") {
+      return { entry, category: 3, ageSeconds: null, label, badge: defaultBadge };
+    }
+
+    const normalizedUrl = entry.url ? normalizeCardUrl(entry.url) : null;
+    const cardState = normalizedUrl ? cardStateByUrl.get(normalizedUrl) : undefined;
+    if (!cardState) {
+      return { entry, category: 2, ageSeconds: null, label, badge: defaultBadge };
+    }
+
+    const enteredAtTs = parseIso(cardState.enteredAt);
+    if (enteredAtTs === null) {
+      return { entry, category: 2, ageSeconds: null, label, badge: defaultBadge };
+    }
+
+    const enteredAge = Math.max(0, Math.floor((now - enteredAtTs) / 1000));
+    if (cardState.list === "Doing") {
+      return {
+        entry,
+        category: 0,
+        ageSeconds: enteredAge,
+        label,
+        badge: formatMetricBadge({ kind: "cycle", ageSeconds: enteredAge }),
+      };
+    }
+
+    if (cardState.list === "Ready") {
+      const leadStartTs = leadStartByCardId.get(cardState.cardId) ?? enteredAtTs;
+      const leadAge = Math.max(0, Math.floor((now - leadStartTs) / 1000));
+      return {
+        entry,
+        category: 1,
+        ageSeconds: enteredAge,
+        label,
+        badge: formatMetricBadge({ kind: "lead", ageSeconds: leadAge }),
+      };
+    }
+
+    const leadStartTs = leadStartByCardId.get(cardState.cardId);
+    if (leadStartTs === undefined) {
+      return { entry, category: 2, ageSeconds: null, label, badge: defaultBadge };
+    }
+    const leadAge = Math.max(0, Math.floor((now - leadStartTs) / 1000));
+    return {
+      entry,
+      category: 2,
+      ageSeconds: null,
+      label,
+      badge: formatMetricBadge({ kind: "lead", ageSeconds: leadAge }),
+    };
+  });
+
+  ranked.sort((a, b) => {
+    if (a.category !== b.category) {
+      return a.category - b.category;
+    }
+    const ageA = a.ageSeconds ?? -1;
+    const ageB = b.ageSeconds ?? -1;
+    if ((a.category === 0 || a.category === 1) && ageA !== ageB) {
+      return ageB - ageA;
+    }
+    return a.label.localeCompare(b.label);
+  });
+
+  const oldestDoingAgeSeconds = ranked
+    .filter((item) => item.category === 0 && item.ageSeconds !== null)
+    .reduce<number | null>((oldest, current) => {
+      if (current.ageSeconds === null) {
+        return oldest;
+      }
+      if (oldest === null || current.ageSeconds > oldest) {
+        return current.ageSeconds;
+      }
+      return oldest;
+    }, null);
+
+  return {
+    ranked,
+    header: buildHeader({ now: new Date(now), oldestDoingAgeSeconds, completedCycles }),
+  };
 };
 
 const pickEntry = (entries: Entry[]) => {
-  const dbSessions = loadOpencodeSessionsFromDb();
-  const opencodeSessionMap = loadOpencodeSessionsFromEvents();
-  const { statusBySession, sessionByPath: logSessionByPath } = loadOpencodeLogState();
-  const { sessionByPath: tmuxSessionByPath, runningPaths } = loadOpencodeSessionsFromTmux();
-  const sessionIdByPath = new Map<string, string>();
-  for (const [path, data] of dbSessions.entries()) {
-    sessionIdByPath.set(normalizePath(path), data.sessionId);
-  }
-  for (const [path, data] of opencodeSessionMap.entries()) {
-    if (!sessionIdByPath.has(path)) {
-      sessionIdByPath.set(normalizePath(path), data.sessionId);
-    }
-  }
-  for (const [path, sessionId] of logSessionByPath.entries()) {
-    if (!sessionIdByPath.has(path)) {
-      sessionIdByPath.set(path, sessionId);
-    }
-  }
-  for (const [path, sessionId] of tmuxSessionByPath.entries()) {
-    sessionIdByPath.set(path, sessionId);
-  }
-
-  const runningSessions = new Set(tmuxSessionByPath.values());
-
-  const lines = entries
-    .map((entry) => formatEntry(entry, sessionIdByPath, statusBySession, runningSessions, runningPaths))
-    .sort((a, b) => (a.rank === b.rank ? a.label.localeCompare(b.label) : a.rank - b.rank))
-    .map((item) => item.line);
-  if (lines.length === 0) {
+  const { ranked, header } = rankEntries(entries);
+  if (ranked.length === 0) {
     return null;
   }
+  const lines = ranked.map((item) => `${item.badge} ${item.label}${delimiter}${item.entry.path}`);
   const selected = runOptional(
     "fzf",
-    ["--ansi", "--delimiter", delimiter, "--with-nth", "1"],
+    ["--ansi", "--delimiter", delimiter, "--with-nth", "1", "--header", header],
     lines.join("\n"),
     { ...process.env, PATH: ensureFzfPath() },
   );
