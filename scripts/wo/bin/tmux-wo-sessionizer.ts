@@ -24,6 +24,7 @@ type CardListState = {
   cardId: string;
   list: string;
   enteredAt: string;
+  labels?: string[];
   url: string | null;
 };
 
@@ -49,10 +50,13 @@ type RankedEntry = {
   ageSeconds: number | null;
   label: string;
   badge: string;
+  isReviewRequest: boolean;
 };
 
 const delimiter = "\u001f";
 const defaultBadge = "[·   --    ]";
+const ansiReset = "\u001b[0m";
+const reviewLineAnsi = "\u001b[38;5;141m";
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(scriptDir, "../../..");
 const stateDir = join(repoRoot, "scripts/wo/state");
@@ -346,6 +350,15 @@ export const formatMetricBadge = (options: { kind: "cycle" | "lead" | "none"; ag
   const icon = options.kind === "cycle" ? "🛠️" : "⏳";
   const paddedAge = formatDurationCompact(options.ageSeconds).padEnd(6, " ");
   return `[${icon}  ${paddedAge}]`;
+};
+
+export const isReviewCardState = (state: CardListState | undefined) =>
+  Boolean(state?.labels?.some((label) => label.toLowerCase() === "review"));
+
+export const formatPickerLine = (item: RankedEntry) => {
+  const visible = `${item.badge} ${item.label}`;
+  const rendered = item.isReviewRequest ? `${reviewLineAnsi}${visible}${ansiReset}` : visible;
+  return `${rendered}${delimiter}${item.entry.path}`;
 };
 
 const loadWorktreeUrlMapFromSnapshot = (): { map: Map<string, string>; found: boolean } => {
@@ -676,18 +689,19 @@ const rankEntries = (entries: Entry[]) => {
   const ranked: RankedEntry[] = entries.map((entry) => {
     const label = entry.kind === "worktree" ? formatWorktreeLabel(entry) : formatRepoLabel(entry);
     if (entry.kind === "repo") {
-      return { entry, category: 3, ageSeconds: null, label, badge: defaultBadge };
+      return { entry, category: 3, ageSeconds: null, label, badge: defaultBadge, isReviewRequest: false };
     }
 
     const normalizedUrl = entry.url ? normalizeCardUrl(entry.url) : null;
     const cardState = normalizedUrl ? cardStateByUrl.get(normalizedUrl) : undefined;
+    const isReviewRequest = isReviewCardState(cardState);
     if (!cardState) {
-      return { entry, category: 2, ageSeconds: null, label, badge: defaultBadge };
+      return { entry, category: 2, ageSeconds: null, label, badge: defaultBadge, isReviewRequest };
     }
 
     const enteredAtTs = parseIso(cardState.enteredAt);
     if (enteredAtTs === null) {
-      return { entry, category: 2, ageSeconds: null, label, badge: defaultBadge };
+      return { entry, category: 2, ageSeconds: null, label, badge: defaultBadge, isReviewRequest };
     }
 
     const enteredAge = Math.max(0, Math.floor((now - enteredAtTs) / 1000));
@@ -698,6 +712,7 @@ const rankEntries = (entries: Entry[]) => {
         ageSeconds: enteredAge,
         label,
         badge: formatMetricBadge({ kind: "cycle", ageSeconds: enteredAge }),
+        isReviewRequest,
       };
     }
 
@@ -710,12 +725,13 @@ const rankEntries = (entries: Entry[]) => {
         ageSeconds: enteredAge,
         label,
         badge: formatMetricBadge({ kind: "lead", ageSeconds: leadAge }),
+        isReviewRequest,
       };
     }
 
     const leadStartTs = leadStartByCardId.get(cardState.cardId);
     if (leadStartTs === undefined) {
-      return { entry, category: 2, ageSeconds: null, label, badge: defaultBadge };
+      return { entry, category: 2, ageSeconds: null, label, badge: defaultBadge, isReviewRequest };
     }
     const leadAge = Math.max(0, Math.floor((now - leadStartTs) / 1000));
     return {
@@ -724,6 +740,7 @@ const rankEntries = (entries: Entry[]) => {
       ageSeconds: null,
       label,
       badge: formatMetricBadge({ kind: "lead", ageSeconds: leadAge }),
+      isReviewRequest,
     };
   });
 
@@ -762,7 +779,7 @@ const pickEntry = (entries: Entry[]) => {
   if (ranked.length === 0) {
     return null;
   }
-  const lines = ranked.map((item) => `${item.badge} ${item.label}${delimiter}${item.entry.path}`);
+  const lines = ranked.map(formatPickerLine);
   const selected = runOptional(
     "fzf",
     ["--ansi", "--delimiter", delimiter, "--with-nth", "1", "--header", header],

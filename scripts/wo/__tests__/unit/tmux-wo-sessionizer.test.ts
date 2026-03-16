@@ -1,4 +1,10 @@
-import { buildHeader, formatDurationCompact, formatMetricBadge } from "../../bin/tmux-wo-sessionizer";
+import {
+  buildHeader,
+  formatDurationCompact,
+  formatMetricBadge,
+  formatPickerLine,
+  isReviewCardState,
+} from "../../bin/tmux-wo-sessionizer";
 
 describe("tmux wo sessionizer formatting", () => {
   it("formats compact durations", () => {
@@ -38,5 +44,35 @@ describe("tmux wo sessionizer formatting", () => {
     });
 
     expect(header).toContain("🏆 Best (last 30 workdays): 42m");
+  });
+
+  it("detects review requests from card labels", () => {
+    expect(isReviewCardState({ cardId: "c1", list: "Ready", enteredAt: "now", labels: ["review"], url: null })).toBe(true);
+    expect(isReviewCardState({ cardId: "c2", list: "Doing", enteredAt: "now", labels: ["Review"], url: null })).toBe(true);
+    expect(isReviewCardState({ cardId: "c3", list: "Ready", enteredAt: "now", labels: ["feature"], url: null })).toBe(false);
+    expect(isReviewCardState(undefined)).toBe(false);
+  });
+
+  it("renders review rows in purple", () => {
+    const plain = formatPickerLine({
+      entry: { path: "/tmp/repo", kind: "worktree" },
+      category: 1,
+      ageSeconds: 120,
+      label: "github.com › me › repo › feat",
+      badge: "[⏳  2m   ]",
+      isReviewRequest: false,
+    });
+    const review = formatPickerLine({
+      entry: { path: "/tmp/review", kind: "worktree" },
+      category: 1,
+      ageSeconds: 120,
+      label: "github.com › me › repo › pr-12",
+      badge: "[⏳  2m   ]",
+      isReviewRequest: true,
+    });
+
+    expect(plain).toBe("[⏳  2m   ] github.com › me › repo › feat\u001f/tmp/repo");
+    expect(review).toContain("\u001b[38;5;141m");
+    expect(review).toContain("\u001b[0m\u001f/tmp/review");
   });
 });
