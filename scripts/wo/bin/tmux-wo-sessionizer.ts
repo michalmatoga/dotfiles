@@ -32,6 +32,17 @@ type LifecycleData = {
   completedCycles: Array<{ completedAt: number; cycleSeconds: number }>;
 };
 
+type FileSignature = {
+  mtimeMs: number;
+  size: number;
+};
+
+type SignatureCache<T> = {
+  sourcePath: string;
+  sourceSignature: FileSignature;
+  payload: T;
+};
+
 type RankedEntry = {
   entry: Entry;
   category: number;
@@ -48,6 +59,11 @@ const stateDir = join(repoRoot, "scripts/wo/state");
 const eventsPath = join(stateDir, "wo-events.jsonl");
 const cardStatePath = join(stateDir, "wo-card-states.jsonl");
 const metricsPath = join(stateDir, "wo-metrics.csv");
+const snapshotsPath = join(stateDir, "wo-snapshots.jsonl");
+const worktreeUrlMapCachePath = join(stateDir, "tmux-wo-sessionizer-worktree-url-map-cache.json");
+const snapshotWorktreeUrlMapCachePath = join(stateDir, "tmux-wo-sessionizer-snapshot-worktree-url-map-cache.json");
+const cardStateByUrlCachePath = join(stateDir, "tmux-wo-sessionizer-card-state-by-url-cache.json");
+const lifecycleCachePath = join(stateDir, "tmux-wo-sessionizer-lifecycle-cache.json");
 const dirCacheTtlMs = 30_000;
 const headerWindowWorkdays = 30;
 
@@ -117,6 +133,51 @@ const readJsonFile = <T>(path: string): T | null => {
 const writeJsonFile = (path: string, payload: unknown) => {
   ensureStateDir();
   writeFileSync(path, `${JSON.stringify(payload)}\n`, "utf8");
+};
+
+const getFileSignature = (path: string): FileSignature | null => {
+  if (!existsSync(path)) {
+    return null;
+  }
+  try {
+    const stats = statSync(path);
+    return { mtimeMs: stats.mtimeMs, size: stats.size };
+  } catch {
+    return null;
+  }
+};
+
+const isSameFileSignature = (a: FileSignature | null, b: FileSignature | null) => {
+  if (!a || !b) {
+    return false;
+  }
+  return a.mtimeMs === b.mtimeMs && a.size === b.size;
+};
+
+const readSignatureCache = <T>(cachePath: string, sourcePath: string, sourceSignature: FileSignature | null): T | null => {
+  if (!sourceSignature) {
+    return null;
+  }
+  const cached = readJsonFile<SignatureCache<T>>(cachePath);
+  if (!cached) {
+    return null;
+  }
+  if (cached.sourcePath !== sourcePath || !isSameFileSignature(cached.sourceSignature, sourceSignature)) {
+    return null;
+  }
+  return cached.payload;
+};
+
+const writeSignatureCache = <T>(
+  cachePath: string,
+  sourcePath: string,
+  sourceSignature: FileSignature | null,
+  payload: T,
+) => {
+  if (!sourceSignature) {
+    return;
+  }
+  writeJsonFile(cachePath, { sourcePath, sourceSignature, payload } satisfies SignatureCache<T>);
 };
 
 const pathToSessionName = (path: string) => {
@@ -231,11 +292,67 @@ export const formatMetricBadge = (options: { kind: "cycle" | "lead" | "none"; ag
   return `[${icon}  ${paddedAge}]`;
 };
 
-const loadWorktreeUrlMap = () => {
+const loadWorktreeUrlMapFromSnapshot = (): { map: Map<string, string>; found: boolean } => {
+  const sourceSignature = getFileSignature(snapshotsPath);
+  const cached = readSignatureCache<Record<string, string>>(
+    snapshotWorktreeUrlMapCachePath,
+    snapshotsPath,
+    sourceSignature,
+  );
+  if (cached) {
+    return { map: new Map(Object.entries(cached)), found: true };
+  }
+
   const map = new Map<string, string>();
-  if (!existsSync(eventsPath)) {
+  if (!sourceSignature) {
+    return { map, found: false };
+  }
+
+  const content = readFileSync(snapshotsPath, "utf8");
+  const lines = content.split("\n");
+  let lastLine: string | null = null;
+  for (let i = lines.length - 1; i >= 0; i -= 1) {
+    const line = lines[i]?.trim();
+    if (line) {
+      lastLine = line;
+      break;
+    }
+  }
+
+  if (!lastLine) {
+    writeSignatureCache(snapshotWorktreeUrlMapCachePath, snapshotsPath, sourceSignature, {});
+    return { map, found: true };
+  }
+
+  try {
+    const snapshot = JSON.parse(lastLine) as { worktrees?: { byUrl?: Record<string, string> | null } | null };
+    const byUrl = snapshot.worktrees?.byUrl ?? {};
+    for (const [url, path] of Object.entries(byUrl)) {
+      if (url && path) {
+        map.set(normalizePath(path), normalizeCardUrl(url));
+      }
+    }
+  } catch {
+    // Ignore invalid snapshot and fall back to events.
+    return { map, found: false };
+  }
+
+  writeSignatureCache(snapshotWorktreeUrlMapCachePath, snapshotsPath, sourceSignature, Object.fromEntries(map));
+  return { map, found: true };
+};
+
+const loadWorktreeUrlMapFromEvents = () => {
+  const map = new Map<string, string>();
+  const sourceSignature = getFileSignature(eventsPath);
+  const cached = readSignatureCache<Record<string, string>>(worktreeUrlMapCachePath, eventsPath, sourceSignature);
+  if (cached) {
+    return new Map(Object.entries(cached));
+  }
+
+  if (!sourceSignature) {
     return map;
   }
+
   const content = readFileSync(eventsPath, "utf8");
   for (const line of readLines(content)) {
     try {
@@ -252,14 +369,30 @@ const loadWorktreeUrlMap = () => {
       continue;
     }
   }
+  writeSignatureCache(worktreeUrlMapCachePath, eventsPath, sourceSignature, Object.fromEntries(map));
   return map;
 };
 
-const loadCardStateByUrl = () => {
-  const map = new Map<string, CardListState>();
-  if (!existsSync(cardStatePath)) {
+const loadWorktreeUrlMap = () => {
+  const { map, found } = loadWorktreeUrlMapFromSnapshot();
+  if (found) {
     return map;
   }
+  return loadWorktreeUrlMapFromEvents();
+};
+
+const loadCardStateByUrl = () => {
+  const sourceSignature = getFileSignature(cardStatePath);
+  const cached = readSignatureCache<Record<string, CardListState>>(cardStateByUrlCachePath, cardStatePath, sourceSignature);
+  if (cached) {
+    return new Map(Object.entries(cached));
+  }
+
+  const map = new Map<string, CardListState>();
+  if (!sourceSignature) {
+    return map;
+  }
+
   const content = readFileSync(cardStatePath, "utf8");
   for (const line of readLines(content)) {
     try {
@@ -272,32 +405,45 @@ const loadCardStateByUrl = () => {
       continue;
     }
   }
+  writeSignatureCache(cardStateByUrlCachePath, cardStatePath, sourceSignature, Object.fromEntries(map));
   return map;
 };
 
 const loadLifecycleData = (): LifecycleData => {
+  const sourceSignature = getFileSignature(metricsPath);
+  const cached = readSignatureCache<{
+    leadStartByCardIdEntries: Array<[string, number]>;
+    completedCycles: Array<{ completedAt: number; cycleSeconds: number }>;
+  }>(lifecycleCachePath, metricsPath, sourceSignature);
+  if (cached) {
+    return {
+      leadStartByCardId: new Map(cached.leadStartByCardIdEntries),
+      completedCycles: cached.completedCycles,
+    };
+  }
+
   const leadStartByCardId = new Map<string, number>();
   const completedCycles: Array<{ completedAt: number; cycleSeconds: number }> = [];
 
-  if (!existsSync(metricsPath)) {
+  if (!sourceSignature) {
     return { leadStartByCardId, completedCycles };
   }
 
   const content = readFileSync(metricsPath, "utf8");
-  const lines = content.split("\n").slice(1).map((line) => line.trim()).filter(Boolean);
-  const records = lines
-    .map((line) => {
-      try {
-        return parseMetricsRecord(line);
-      } catch {
-        return null;
-      }
-    })
-    .filter((record): record is NonNullable<typeof record> => record !== null)
-    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-
+  const lines = content.split("\n").slice(1);
   const doingStartByCardId = new Map<string, number>();
-  for (const record of records) {
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) {
+      continue;
+    }
+    let record: ReturnType<typeof parseMetricsRecord>;
+    try {
+      record = parseMetricsRecord(line);
+    } catch {
+      continue;
+    }
+
     const ts = parseIso(record.timestamp);
     if (ts === null) {
       continue;
@@ -319,6 +465,11 @@ const loadLifecycleData = (): LifecycleData => {
       completedCycles.push({ completedAt: ts, cycleSeconds });
     }
   }
+
+  writeSignatureCache(lifecycleCachePath, metricsPath, sourceSignature, {
+    leadStartByCardIdEntries: Array.from(leadStartByCardId.entries()),
+    completedCycles,
+  });
 
   return { leadStartByCardId, completedCycles };
 };
