@@ -532,8 +532,9 @@ export const main = () => {
   }
 
   const sessionName = pathToSessionName(selectedPath);
+  const sessionTarget = `=${sessionName}`;
   if (dryRun) {
-    console.log(`${selectedPath} -> ${sessionName}`);
+    console.log(`${selectedPath} -> ${sessionName} (${sessionTarget})`);
     process.exit(0);
   }
 
@@ -546,18 +547,18 @@ export const main = () => {
   }
 
   try {
-    run("tmux", ["has-session", "-t", sessionName]);
+    run("tmux", ["has-session", "-t", sessionTarget]);
   } catch {
     run("tmux", ["new-session", "-ds", sessionName, "-c", selectedPath]);
-    run("tmux", ["send-keys", "-t", sessionName, "vim", "C-m"]);
-    run("tmux", ["split-window", "-h", "-t", sessionName, "-c", selectedPath]);
-    run("tmux", ["resize-pane", "-t", sessionName, "-x", "92"]);
+    run("tmux", ["send-keys", "-t", sessionTarget, "vim", "C-m"]);
+    run("tmux", ["split-window", "-h", "-t", sessionTarget, "-c", selectedPath]);
+    run("tmux", ["resize-pane", "-t", sessionTarget, "-x", "92"]);
   }
 
   if (!process.env.TMUX) {
-    run("tmux", ["attach", "-t", sessionName]);
+    run("tmux", ["attach", "-t", sessionTarget]);
   } else {
-    run("tmux", ["switch-client", "-t", sessionName]);
+    run("tmux", ["switch-client", "-t", sessionTarget]);
   }
 };
 
