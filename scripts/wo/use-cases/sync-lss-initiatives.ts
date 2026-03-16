@@ -14,7 +14,7 @@ import {
   injectTrelloUrlIntoTaskLine,
   setTaskCheckboxStateAtLine,
 } from "../lib/lss/journal-links";
-import { listNames, labelNames } from "../lib/policy/mapping";
+import { listNames } from "../lib/policy/mapping";
 import { writeEvent } from "../lib/state/events";
 import { readLatestSnapshot, writeSnapshot } from "../lib/state/snapshots";
 import {
@@ -284,7 +284,6 @@ export const syncLssInitiativesUseCase = async (options: {
   });
 
   const initiativeByKey = new Map(parsedForPlanner.initiatives.map((item) => [buildInitiativeKey(item), item]));
-  const journalLabelId = context.labelByName.get(labelNames.journal)?.id ?? null;
 
   for (const warning of parsedForPlanner.warnings) {
     console.warn(`[wo:lss] ${warning.message}`);
@@ -368,7 +367,7 @@ export const syncLssInitiativesUseCase = async (options: {
         listId: triageList.id,
         name: initiative.text,
         desc: updateDescriptionWithSync("", syncBlock),
-        labelIds: [areaLabel.id, repoLabel?.id ?? journalLabelId].filter(Boolean) as string[],
+        labelIds: [areaLabel.id, repoLabel?.id].filter(Boolean) as string[],
       });
       const canonicalUrl = resolveCardUrl(created);
       if (canonicalUrl) {

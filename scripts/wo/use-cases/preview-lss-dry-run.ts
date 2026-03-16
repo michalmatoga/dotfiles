@@ -7,7 +7,6 @@ import {
   planLssInitiativeActions,
   type LssPlannedAction,
 } from "../lib/lss/tasks";
-import { labelNames } from "../lib/policy/mapping";
 import { fetchBoardCards } from "../lib/trello/cards";
 import { loadLssAreas } from "../lib/trello/lss-areas";
 import { fetchBoardLabels } from "../lib/trello/labels";
@@ -114,7 +113,9 @@ export const previewLssDryRunUseCase = async (options: {
       const plannedLabels = areaLabel
         ? initiative?.repoLabelConflict
           ? `${areaLabel},<conflict:${initiative.repoLabelCandidates.join("|")}>`
-          : `${areaLabel},${initiative?.repoLabel ?? labelNames.journal}`
+          : initiative?.repoLabel
+            ? `${areaLabel},${initiative.repoLabel}`
+            : areaLabel
         : null;
       const labelsInfo = plannedLabels ? ` labels=${plannedLabels}` : "";
       console.log(
