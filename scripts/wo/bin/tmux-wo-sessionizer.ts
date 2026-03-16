@@ -187,7 +187,62 @@ const pathToSessionName = (path: string) => {
 };
 
 const normalizePath = (value: string) => value.replace(/\/+$/, "");
-const normalizeCardUrl = (value: string) => value.trim().replace(/\/+$/, "");
+const normalizeCardUrl = (value: string) => {
+  const trimmed = value.trim();
+  try {
+    const parsed = new URL(trimmed);
+    parsed.search = "";
+    parsed.hash = "";
+    return parsed.toString().replace(/\/+$/, "");
+  } catch {
+    return trimmed.replace(/[?#].*$/, "").replace(/\/+$/, "");
+  }
+};
+
+const addWorktreeUrlMapping = (map: Map<string, string>, path: string, url: string) => {
+  const normalizedPath = normalizePath(path);
+  const normalizedUrl = normalizeCardUrl(url);
+  map.set(normalizedPath, normalizedUrl);
+
+  const home = homedir();
+  const rel = relative(home, normalizedPath);
+  const segments = rel.split("/").filter(Boolean);
+  if (segments.length < 4) {
+    return;
+  }
+
+  const root = segments[0];
+  const host = segments[1];
+  const owner = segments[2];
+  const repoSegment = segments[3];
+  if (!host || !owner || !repoSegment) {
+    return;
+  }
+
+  if (root === "gwq") {
+    const leaf = segments[segments.length - 1];
+    if (!leaf || segments.length < 5) {
+      return;
+    }
+    const ghqAlias = join(home, "ghq", host, owner, `${repoSegment}=${leaf}`);
+    map.set(normalizePath(ghqAlias), normalizedUrl);
+    return;
+  }
+
+  if (root === "ghq") {
+    const separatorIndex = repoSegment.indexOf("=");
+    if (separatorIndex <= 0) {
+      return;
+    }
+    const repo = repoSegment.slice(0, separatorIndex);
+    const leaf = repoSegment.slice(separatorIndex + 1);
+    if (!repo || !leaf) {
+      return;
+    }
+    const gwqAlias = join(home, "gwq", host, owner, repo, leaf);
+    map.set(normalizePath(gwqAlias), normalizedUrl);
+  }
+};
 
 const formatPathSegments = (segments: Array<string | null>) =>
   segments.filter((value): value is string => Boolean(value)).join(" › ");
@@ -300,7 +355,11 @@ const loadWorktreeUrlMapFromSnapshot = (): { map: Map<string, string>; found: bo
     sourceSignature,
   );
   if (cached) {
-    return { map: new Map(Object.entries(cached)), found: true };
+    const map = new Map<string, string>();
+    for (const [path, url] of Object.entries(cached)) {
+      addWorktreeUrlMapping(map, path, url);
+    }
+    return { map, found: true };
   }
 
   const map = new Map<string, string>();
@@ -329,7 +388,7 @@ const loadWorktreeUrlMapFromSnapshot = (): { map: Map<string, string>; found: bo
     const byUrl = snapshot.worktrees?.byUrl ?? {};
     for (const [url, path] of Object.entries(byUrl)) {
       if (url && path) {
-        map.set(normalizePath(path), normalizeCardUrl(url));
+        addWorktreeUrlMapping(map, path, url);
       }
     }
   } catch {
@@ -346,7 +405,11 @@ const loadWorktreeUrlMapFromEvents = () => {
   const sourceSignature = getFileSignature(eventsPath);
   const cached = readSignatureCache<Record<string, string>>(worktreeUrlMapCachePath, eventsPath, sourceSignature);
   if (cached) {
-    return new Map(Object.entries(cached));
+    const map = new Map<string, string>();
+    for (const [path, url] of Object.entries(cached)) {
+      addWorktreeUrlMapping(map, path, url);
+    }
+    return map;
   }
 
   if (!sourceSignature) {
@@ -363,7 +426,7 @@ const loadWorktreeUrlMapFromEvents = () => {
       const path = event.payload?.path;
       const url = event.payload?.url;
       if (path && url) {
-        map.set(normalizePath(path), normalizeCardUrl(url));
+        addWorktreeUrlMapping(map, path, url);
       }
     } catch {
       continue;
