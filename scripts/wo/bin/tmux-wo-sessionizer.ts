@@ -127,7 +127,13 @@ const formatWorktreeLabel = (entry: Entry) => {
 
 const formatRepoLabel = (entry: Entry) => {
   const label = formatPathSegments([entry.host, entry.owner, entry.repo]);
-  return label || entry.path;
+  if (!label) {
+    return entry.path;
+  }
+  if (entry.leaf) {
+    return `${label} › ${entry.leaf} (repo)`;
+  }
+  return `${label} (repo)`;
 };
 
 const ensureFzfPath = () => {
