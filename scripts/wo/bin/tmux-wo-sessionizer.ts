@@ -55,6 +55,7 @@ const args = process.argv.slice(2);
 const argPath = args.find((arg) => !arg.startsWith("--")) ?? null;
 const includeRepos = !(args.includes("--worktree-only") || args.includes("--gwq-only"));
 const dryRun = args.includes("--dry-run");
+const debugEnabled = args.includes("--debug") || process.env.WO_SESSIONIZER_DEBUG === "1";
 
 const run = (command: string, commandArgs: string[], options: { input?: string; env?: NodeJS.ProcessEnv } = {}) => {
   const result = spawnSync(command, commandArgs, {
@@ -78,6 +79,16 @@ const runOptional = (command: string, commandArgs: string[], input?: string, env
   } catch {
     return "";
   }
+};
+
+const debugLog = (message: string) => {
+  if (!debugEnabled) {
+    return;
+  }
+  ensureStateDir();
+  const logPath = join(stateDir, "tmux-wo-sessionizer-debug.log");
+  const ts = new Date().toISOString();
+  writeFileSync(logPath, `${ts} ${message}\n`, { encoding: "utf8", flag: "a" });
 };
 
 const readLines = (value: string) =>
@@ -143,6 +154,30 @@ const ensureFzfPath = () => {
     return current;
   }
   return `${fzfDir}:${current}`;
+};
+
+const resolveSessionIdByName = (sessionName: string): string | null => {
+  const output = runOptional("tmux", ["list-sessions", "-F", "#{session_id}\t#{session_name}"]);
+  if (!output) {
+    return null;
+  }
+  for (const line of readLines(output)) {
+    const [sessionId, name] = line.split("\t");
+    if (name === sessionName && sessionId) {
+      return sessionId;
+    }
+  }
+  return null;
+};
+
+const ensureSessionLayout = (sessionTarget: string, selectedPath: string) => {
+  const paneIds = readLines(runOptional("tmux", ["list-panes", "-t", sessionTarget, "-F", "#{pane_id}"]));
+  debugLog(`layout sessionTarget=${sessionTarget} panes=${paneIds.length}`);
+  if (paneIds.length >= 2 || paneIds.length === 0) {
+    return;
+  }
+  run("tmux", ["split-window", "-h", "-t", sessionTarget, "-c", selectedPath]);
+  run("tmux", ["resize-pane", "-t", sessionTarget, "-x", "92"]);
 };
 
 const parseIso = (value: string | null | undefined): number | null => {
@@ -532,9 +567,9 @@ export const main = () => {
   }
 
   const sessionName = pathToSessionName(selectedPath);
-  const sessionTarget = `=${sessionName}`;
+  debugLog(`selectedPath=${selectedPath} sessionName=${sessionName}`);
   if (dryRun) {
-    console.log(`${selectedPath} -> ${sessionName} (${sessionTarget})`);
+    console.log(`${selectedPath} -> ${sessionName}`);
     process.exit(0);
   }
 
@@ -546,14 +581,19 @@ export const main = () => {
     process.exit(0);
   }
 
-  try {
-    run("tmux", ["has-session", "-t", sessionTarget]);
-  } catch {
+  let sessionId = resolveSessionIdByName(sessionName);
+  if (!sessionId) {
+    debugLog(`session missing, creating name=${sessionName}`);
     run("tmux", ["new-session", "-ds", sessionName, "-c", selectedPath]);
-    run("tmux", ["send-keys", "-t", sessionTarget, "vim", "C-m"]);
-    run("tmux", ["split-window", "-h", "-t", sessionTarget, "-c", selectedPath]);
-    run("tmux", ["resize-pane", "-t", sessionTarget, "-x", "92"]);
+    sessionId = resolveSessionIdByName(sessionName);
+    const createdTarget = sessionId ?? `=${sessionName}`;
+    run("tmux", ["send-keys", "-t", createdTarget, "vim", "C-m"]);
+    ensureSessionLayout(createdTarget, selectedPath);
   }
+
+  const sessionTarget = sessionId ?? `=${sessionName}`;
+  debugLog(`sessionTarget=${sessionTarget}`);
+  ensureSessionLayout(sessionTarget, selectedPath);
 
   if (!process.env.TMUX) {
     run("tmux", ["attach", "-t", sessionTarget]);
