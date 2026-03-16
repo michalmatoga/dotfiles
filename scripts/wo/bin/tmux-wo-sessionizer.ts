@@ -31,6 +31,7 @@ type CardListState = {
 type LifecycleData = {
   leadStartByCardId: Map<string, number>;
   completedCycles: Array<{ completedAt: number; cycleSeconds: number }>;
+  completedCycleByCardId: Map<string, number>;
 };
 
 type FileSignature = {
@@ -71,6 +72,11 @@ const lifecycleCachePath = join(stateDir, "tmux-wo-sessionizer-lifecycle-cache.j
 const dirCacheTtlMs = 30_000;
 const headerWindowWorkdays = 30;
 const minCycleSecondsForBest = 60;
+const damDefenseDefaultLabels = ["career", "review", "elikonas"];
+const damDefenseFallbackTargetSeconds = 8 * 60 * 60;
+const damDefenseTargetPercentile = 0.7;
+const damDefenseLabelMinSamples = 4;
+const damDefenseBarWidth = 10;
 
 const args = process.argv.slice(2);
 const argPath = args.find((arg) => !arg.startsWith("--")) ?? null;
@@ -309,6 +315,37 @@ const parseIso = (value: string | null | undefined): number | null => {
   return Number.isFinite(ts) ? ts : null;
 };
 
+const parseDamDefenseLabels = () => {
+  const raw = process.env.WO_SESSIONIZER_DAM_LABELS;
+  if (!raw) {
+    return damDefenseDefaultLabels;
+  }
+  const parsed = raw
+    .split(",")
+    .map((value) => value.trim().toLowerCase())
+    .filter((value) => value.length > 0);
+  if (parsed.length === 0) {
+    return damDefenseDefaultLabels;
+  }
+  return Array.from(new Set(parsed));
+};
+
+const percentile = (values: number[], p: number): number | null => {
+  if (values.length === 0) {
+    return null;
+  }
+  const sorted = [...values].sort((a, b) => a - b);
+  const index = Math.round((sorted.length - 1) * Math.min(Math.max(p, 0), 1));
+  return sorted[index] ?? null;
+};
+
+const renderDamBar = (ratio: number) => {
+  const clamped = Math.min(Math.max(ratio, 0), 1);
+  const filled = Math.round(clamped * damDefenseBarWidth);
+  const empty = damDefenseBarWidth - filled;
+  return `[${"#".repeat(filled)}${".".repeat(empty)}]`;
+};
+
 const isWorkday = (date: Date) => {
   const day = date.getDay();
   return day >= 1 && day <= 5;
@@ -491,19 +528,22 @@ const loadLifecycleData = (): LifecycleData => {
   const cached = readSignatureCache<{
     leadStartByCardIdEntries: Array<[string, number]>;
     completedCycles: Array<{ completedAt: number; cycleSeconds: number }>;
+    completedCycleByCardIdEntries?: Array<[string, number]>;
   }>(lifecycleCachePath, metricsPath, sourceSignature);
-  if (cached) {
+  if (cached?.completedCycleByCardIdEntries) {
     return {
       leadStartByCardId: new Map(cached.leadStartByCardIdEntries),
       completedCycles: cached.completedCycles,
+      completedCycleByCardId: new Map(cached.completedCycleByCardIdEntries),
     };
   }
 
   const leadStartByCardId = new Map<string, number>();
   const completedCycles: Array<{ completedAt: number; cycleSeconds: number }> = [];
+  const completedCycleByCardId = new Map<string, number>();
 
   if (!sourceSignature) {
-    return { leadStartByCardId, completedCycles };
+    return { leadStartByCardId, completedCycles, completedCycleByCardId };
   }
 
   const content = readFileSync(metricsPath, "utf8");
@@ -540,15 +580,98 @@ const loadLifecycleData = (): LifecycleData => {
       }
       const cycleSeconds = Math.floor((ts - doingStart) / 1000);
       completedCycles.push({ completedAt: ts, cycleSeconds });
+      if (!completedCycleByCardId.has(record.cardId)) {
+        completedCycleByCardId.set(record.cardId, cycleSeconds);
+      }
     }
   }
 
   writeSignatureCache(lifecycleCachePath, metricsPath, sourceSignature, {
     leadStartByCardIdEntries: Array.from(leadStartByCardId.entries()),
     completedCycles,
+    completedCycleByCardIdEntries: Array.from(completedCycleByCardId.entries()),
   });
 
-  return { leadStartByCardId, completedCycles };
+  return { leadStartByCardId, completedCycles, completedCycleByCardId };
+};
+
+export const buildDamDefenseHeader = (options: {
+  now: Date;
+  labels: string[];
+  cardStates: CardListState[];
+  completedCycleByCardId: Map<string, number>;
+}) => {
+  const selectedLabels = options.labels.length > 0 ? options.labels : damDefenseDefaultLabels;
+  const cycleSamplesByLabel = new Map<string, number[]>();
+  const globalCycleSamples: number[] = [];
+  for (const cycleSeconds of options.completedCycleByCardId.values()) {
+    if (!Number.isFinite(cycleSeconds) || cycleSeconds < minCycleSecondsForBest) {
+      continue;
+    }
+    globalCycleSamples.push(cycleSeconds);
+  }
+  for (const label of selectedLabels) {
+    cycleSamplesByLabel.set(label, []);
+  }
+
+  const cardStateById = new Map<string, CardListState>();
+  for (const state of options.cardStates) {
+    cardStateById.set(state.cardId, state);
+  }
+
+  for (const state of cardStateById.values()) {
+    const labels = new Set(state.labels.map((label) => label.toLowerCase()));
+    const cycleSeconds = options.completedCycleByCardId.get(state.cardId);
+    if (!cycleSeconds || cycleSeconds < minCycleSecondsForBest) {
+      continue;
+    }
+    for (const selected of selectedLabels) {
+      if (labels.has(selected)) {
+        cycleSamplesByLabel.get(selected)?.push(cycleSeconds);
+      }
+    }
+  }
+
+  const globalTarget =
+    percentile(globalCycleSamples, damDefenseTargetPercentile) ?? damDefenseFallbackTargetSeconds;
+  const labelWidth = selectedLabels.reduce((max, label) => Math.max(max, label.length), 0);
+
+  const lines = selectedLabels.map((label) => {
+    const cycleSamples = cycleSamplesByLabel.get(label) ?? [];
+    const labelTarget = cycleSamples.length >= damDefenseLabelMinSamples
+      ? percentile(cycleSamples, damDefenseTargetPercentile) ?? globalTarget
+      : globalTarget;
+    const counts = { ready: 0, doing: 0, waiting: 0 };
+    let oldestActiveAgeSeconds = 0;
+    for (const state of cardStateById.values()) {
+      const labels = new Set(state.labels.map((value) => value.toLowerCase()));
+      if (!labels.has(label)) {
+        continue;
+      }
+      const enteredAt = parseIso(state.enteredAt);
+      const ageSeconds = enteredAt === null ? 0 : Math.max(0, Math.floor((options.now.getTime() - enteredAt) / 1000));
+      if (state.list === "Ready") {
+        counts.ready += 1;
+        oldestActiveAgeSeconds = Math.max(oldestActiveAgeSeconds, ageSeconds);
+      } else if (state.list === "Doing") {
+        counts.doing += 1;
+        oldestActiveAgeSeconds = Math.max(oldestActiveAgeSeconds, ageSeconds);
+      } else if (state.list === "Waiting") {
+        counts.waiting += 1;
+        oldestActiveAgeSeconds = Math.max(oldestActiveAgeSeconds, ageSeconds);
+      }
+    }
+
+    const ratio = labelTarget > 0 ? oldestActiveAgeSeconds / labelTarget : 0;
+    const percent = Math.round(ratio * 100);
+    const status = ratio >= 2 ? "!!" : ratio >= 1 ? "!" : "OK";
+    return `${label.padEnd(labelWidth, " ")} ${renderDamBar(ratio)} ${percent.toString().padStart(4, " ")}% R${counts.ready} D${counts.doing} W${counts.waiting} ${status}`;
+  });
+
+  return [
+    `DAM DEFENSE: ${selectedLabels.join(" | ")}`,
+    ...lines,
+  ].join("\n");
 };
 
 export const buildHeader = (options: {
@@ -684,7 +807,9 @@ export const gatherEntries = () => {
 const rankEntries = (entries: Entry[]) => {
   const now = Date.now();
   const cardStateByUrl = loadCardStateByUrl();
-  const { leadStartByCardId, completedCycles } = loadLifecycleData();
+  const { leadStartByCardId, completedCycleByCardId } = loadLifecycleData();
+  const headerCardStates: CardListState[] = [];
+  const headerCardStateIds = new Set<string>();
 
   const ranked: RankedEntry[] = entries.map((entry) => {
     const label = entry.kind === "worktree" ? formatWorktreeLabel(entry) : formatRepoLabel(entry);
@@ -694,6 +819,10 @@ const rankEntries = (entries: Entry[]) => {
 
     const normalizedUrl = entry.url ? normalizeCardUrl(entry.url) : null;
     const cardState = normalizedUrl ? cardStateByUrl.get(normalizedUrl) : undefined;
+    if (cardState && !headerCardStateIds.has(cardState.cardId)) {
+      headerCardStateIds.add(cardState.cardId);
+      headerCardStates.push(cardState);
+    }
     const isReviewRequest = isReviewCardState(cardState);
     if (!cardState) {
       return { entry, category: 2, ageSeconds: null, label, badge: defaultBadge, isReviewRequest };
@@ -756,21 +885,14 @@ const rankEntries = (entries: Entry[]) => {
     return a.label.localeCompare(b.label);
   });
 
-  const oldestDoingAgeSeconds = ranked
-    .filter((item) => item.category === 0 && item.ageSeconds !== null)
-    .reduce<number | null>((oldest, current) => {
-      if (current.ageSeconds === null) {
-        return oldest;
-      }
-      if (oldest === null || current.ageSeconds > oldest) {
-        return current.ageSeconds;
-      }
-      return oldest;
-    }, null);
-
   return {
     ranked,
-    header: buildHeader({ now: new Date(now), oldestDoingAgeSeconds, completedCycles }),
+    header: buildDamDefenseHeader({
+      now: new Date(now),
+      labels: parseDamDefenseLabels(),
+      cardStates: headerCardStates,
+      completedCycleByCardId,
+    }),
   };
 };
 

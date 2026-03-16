@@ -1,4 +1,5 @@
 import {
+  buildDamDefenseHeader,
   buildHeader,
   formatDurationCompact,
   formatMetricBadge,
@@ -44,6 +45,47 @@ describe("tmux wo sessionizer formatting", () => {
     });
 
     expect(header).toContain("🏆 Best (last 30 workdays): 42m");
+  });
+
+  it("builds dam defense header for selected labels", () => {
+    const header = buildDamDefenseHeader({
+      now: new Date("2026-03-16T12:00:00.000Z"),
+      labels: ["career", "business", "review", "household"],
+      cardStates: [
+        {
+          cardId: "c-career",
+          list: "Doing",
+          enteredAt: "2026-03-16T10:00:00.000Z",
+          labels: ["career"],
+          url: null,
+        },
+        {
+          cardId: "c-review",
+          list: "Ready",
+          enteredAt: "2026-03-16T11:00:00.000Z",
+          labels: ["review", "career"],
+          url: null,
+        },
+        {
+          cardId: "c-business",
+          list: "Waiting",
+          enteredAt: "2026-03-16T09:00:00.000Z",
+          labels: ["business"],
+          url: null,
+        },
+      ],
+      completedCycleByCardId: new Map([
+        ["c-career", 2 * 60 * 60],
+        ["c-review", 30 * 60],
+        ["c-business", 4 * 60 * 60],
+      ]),
+    });
+
+    expect(header).toContain("DAM DEFENSE: career | business | review | household");
+    expect(header).toContain("career    [##########]  100%");
+    expect(header).toContain("business  [##########]  150%");
+    expect(header).toContain("review    [#####.....]   50%");
+    expect(header).toContain("household [..........]    0%");
   });
 
   it("detects review requests from card labels", () => {

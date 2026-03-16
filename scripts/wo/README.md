@@ -141,7 +141,8 @@ Safe migration steps:
 - Entries are rendered as single-line paths (`host › owner › repo › worktree`), so fzf progressively filters as you type.
 - Picker ordering emphasizes cycle time: `Doing` worktrees (oldest first), then `Ready` worktrees (oldest first), then other worktrees, then base repos.
 - Rows include a fixed-width badge: `[🛠️  <age>]` for `Doing` (cycle-time age), `[⏳  <age>]` for non-`Doing` cards with lead-time data, and `[·   --    ]` when no card timing is available.
-- Header highlights gamified focus metrics: oldest `Doing` age now, and best completed cycle time in the last 30 workdays.
+- Header shows a `DAM DEFENSE` view for selected labels: water level rises with oldest active (`Ready`/`Doing`/`Waiting`) age relative to cycle-time target.
+- Default dam labels are `career,review,elikonas`; override with `WO_SESSIONIZER_DAM_LABELS` (comma-separated, lowercase).
 - Run: `npx --yes tsx scripts/wo/bin/tmux-wo-sessionizer.ts`.
 
 ## State & idempotency
