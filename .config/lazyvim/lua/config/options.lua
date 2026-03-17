@@ -15,12 +15,12 @@ opt.conceallevel = 0
 
 opt.spell = true
 opt.spelllang = { "en", "pl" }
+opt.showtabline = 0
 
 local dictionary_roots = {
   fn.expand("~/.nix-profile/share/hunspell"),
   fn.expand("~/.local/share/hunspell"),
-  (vim.env.USER and string.format("/etc/profiles/per-user/%s/share/hunspell", vim.env.USER))
-    or nil,
+  (vim.env.USER and string.format("/etc/profiles/per-user/%s/share/hunspell", vim.env.USER)) or nil,
 }
 
 local dictionaries = {
