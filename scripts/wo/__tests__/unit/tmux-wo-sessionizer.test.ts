@@ -1,5 +1,5 @@
 import {
-  buildDamDefenseHeader,
+  buildPitWallHeader,
   buildHeader,
   formatDurationCompact,
   formatMetricBadge,
@@ -47,8 +47,8 @@ describe("tmux wo sessionizer formatting", () => {
     expect(header).toContain("🏆 Best (last 30 workdays): 42m");
   });
 
-  it("builds dam defense header for selected labels", () => {
-    const header = buildDamDefenseHeader({
+  it("builds pit wall header for selected labels", () => {
+    const header = buildPitWallHeader({
       now: new Date("2026-03-16T12:00:00.000Z"),
       labels: ["career", "business", "review", "household"],
       cardStates: [
@@ -74,18 +74,41 @@ describe("tmux wo sessionizer formatting", () => {
           url: null,
         },
       ],
-      completedCycleByCardId: new Map([
-        ["c-career", 2 * 60 * 60],
-        ["c-review", 30 * 60],
-        ["c-business", 4 * 60 * 60],
+      completedCycles: [
+        {
+          cardId: "c-career",
+          completedAt: new Date("2026-03-15T10:00:00.000Z").getTime(),
+          cycleSeconds: 2 * 60 * 60,
+          label: "career",
+        },
+        {
+          cardId: "c-review",
+          completedAt: new Date("2026-03-15T11:00:00.000Z").getTime(),
+          cycleSeconds: 30 * 60,
+          label: "review",
+        },
+        {
+          cardId: "c-business",
+          completedAt: new Date("2026-03-15T09:00:00.000Z").getTime(),
+          cycleSeconds: 4 * 60 * 60,
+          label: "business",
+        },
+      ],
+      awSecondsByLabel: new Map([
+        ["career", 90 * 60],
+        ["business", 30 * 60],
       ]),
     });
 
-    expect(header).toContain("DAM DEFENSE: career | business | review | household");
-    expect(header).toContain("career    [##########]  100%");
-    expect(header).toContain("business  [##########]  150%");
-    expect(header).toContain("review    [#####.....]   50%");
-    expect(header).toContain("household [..........]    0%");
+    expect(header).toContain("PIT WALL: career | business | review | household");
+    expect(header).toContain("career    🏁  2/7d");
+    expect(header).toContain("business  🏁  1/7d");
+    expect(header).toContain("review    🏁  1/7d");
+    expect(header).toContain("household 🏁  0/7d");
+    expect(header).toContain("⏱ p70 2h 0m");
+    expect(header).toContain("🕒 1h 30m");
+    expect(header).toContain("🕒 30m");
+    expect(header).toContain("🕒 --");
   });
 
   it("detects review requests from card labels", () => {

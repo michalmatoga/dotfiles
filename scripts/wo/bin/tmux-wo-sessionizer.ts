@@ -2,11 +2,17 @@
 
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
+import { homedir, hostname } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { parseMetricsRecord } from "../lib/metrics/types";
+import {
+  aggregateUniqueDurationByDataKey,
+  getActivityWatchConfig,
+  getTodayTimeRange,
+  type AWEvent,
+} from "../lib/sessions/activitywatch";
 
 type EntryKind = "worktree" | "repo";
 
@@ -30,7 +36,7 @@ type CardListState = {
 
 type LifecycleData = {
   leadStartByCardId: Map<string, number>;
-  completedCycles: Array<{ completedAt: number; cycleSeconds: number }>;
+  completedCycles: Array<{ cardId: string; completedAt: number; cycleSeconds: number; label: string | null }>;
   completedCycleByCardId: Map<string, number>;
 };
 
@@ -54,6 +60,14 @@ type RankedEntry = {
   isReviewRequest: boolean;
 };
 
+type PitWallAwCache = {
+  savedAt: number;
+  start: string;
+  bucketId: string;
+  labels: string[];
+  totals: Record<string, number>;
+};
+
 const delimiter = "\u001f";
 const defaultBadge = "[·   --    ]";
 const ansiReset = "\u001b[0m";
@@ -69,14 +83,16 @@ const worktreeUrlMapCachePath = join(stateDir, "tmux-wo-sessionizer-worktree-url
 const snapshotWorktreeUrlMapCachePath = join(stateDir, "tmux-wo-sessionizer-snapshot-worktree-url-map-cache.json");
 const cardStateByUrlCachePath = join(stateDir, "tmux-wo-sessionizer-card-state-by-url-cache.json");
 const lifecycleCachePath = join(stateDir, "tmux-wo-sessionizer-lifecycle-cache.json");
+const pitWallAwCachePath = join(stateDir, "tmux-wo-sessionizer-pitwall-aw-cache.json");
 const dirCacheTtlMs = 30_000;
+const pitWallAwCacheTtlMs = 60_000;
 const headerWindowWorkdays = 30;
 const minCycleSecondsForBest = 60;
-const damDefenseDefaultLabels = ["career", "review", "elikonas"];
-const damDefenseFallbackTargetSeconds = 8 * 60 * 60;
-const damDefenseTargetPercentile = 0.7;
-const damDefenseLabelMinSamples = 4;
-const damDefenseBarWidth = 10;
+const pitWallDefaultLabels = ["career", "review", "business"];
+const pitWallFallbackCycleSeconds = 8 * 60 * 60;
+const pitWallCyclePercentile = 0.7;
+const pitWallLabelMinSamples = 4;
+const pitWallThroughputWindowDays = 7;
 
 const args = process.argv.slice(2);
 const argPath = args.find((arg) => !arg.startsWith("--")) ?? null;
@@ -315,19 +331,113 @@ const parseIso = (value: string | null | undefined): number | null => {
   return Number.isFinite(ts) ? ts : null;
 };
 
-const parseDamDefenseLabels = () => {
-  const raw = process.env.WO_SESSIONIZER_DAM_LABELS;
+const parsePitWallLabels = () => {
+  const raw = process.env.WO_SESSIONIZER_PITWALL_LABELS;
   if (!raw) {
-    return damDefenseDefaultLabels;
+    return pitWallDefaultLabels;
   }
   const parsed = raw
     .split(",")
     .map((value) => value.trim().toLowerCase())
     .filter((value) => value.length > 0);
   if (parsed.length === 0) {
-    return damDefenseDefaultLabels;
+    return pitWallDefaultLabels;
   }
   return Array.from(new Set(parsed));
+};
+
+const arraysEqual = (a: string[], b: string[]) =>
+  a.length === b.length && a.every((value, index) => value === b[index]);
+
+const findUrlForPanePath = (
+  panePath: string,
+  entries: Array<{ path: string; url: string }>,
+): string | null => {
+  for (const entry of entries) {
+    if (panePath === entry.path || panePath.startsWith(`${entry.path}/`)) {
+      return entry.url;
+    }
+  }
+  return null;
+};
+
+const loadPitWallAwSecondsByLabel = (options: {
+  labels: string[];
+  cardStateByUrl: Map<string, CardListState>;
+  worktreeUrlMap: Map<string, string>;
+}): Map<string, number> | null => {
+  if (options.labels.length === 0) {
+    return new Map();
+  }
+
+  const { start, end } = getTodayTimeRange();
+  const bucketId = process.env.WO_SESSIONIZER_AW_BUCKET_ID ?? `aw-watcher-tmux_${hostname()}`;
+  const now = Date.now();
+
+  const cached = readJsonFile<PitWallAwCache>(pitWallAwCachePath);
+  if (
+    cached
+    && now - cached.savedAt < pitWallAwCacheTtlMs
+    && cached.start === start
+    && cached.bucketId === bucketId
+    && arraysEqual(cached.labels, options.labels)
+  ) {
+    const totals = new Map<string, number>();
+    for (const label of options.labels) {
+      totals.set(label, cached.totals[label] ?? 0);
+    }
+    return totals;
+  }
+
+  const config = getActivityWatchConfig();
+  const params = new URLSearchParams({ start, end });
+  const response = runOptional("curl", ["-fsS", `${config.baseUrl}/buckets/${bucketId}/events?${params.toString()}`]);
+  if (!response) {
+    return null;
+  }
+
+  let events: AWEvent[];
+  try {
+    events = JSON.parse(response) as AWEvent[];
+  } catch {
+    return null;
+  }
+
+  const durationByPath = aggregateUniqueDurationByDataKey(events, "pane_path");
+  const paths = Array.from(options.worktreeUrlMap.entries())
+    .map(([path, url]) => ({ path: normalizePath(path), url: normalizeCardUrl(url) }))
+    .sort((a, b) => b.path.length - a.path.length);
+  const selected = new Set(options.labels);
+  const totals = new Map<string, number>(options.labels.map((label) => [label, 0]));
+
+  for (const [panePathRaw, seconds] of durationByPath.entries()) {
+    const panePath = normalizePath(panePathRaw);
+    const mappedUrl = findUrlForPanePath(panePath, paths);
+    if (!mappedUrl) {
+      continue;
+    }
+    const state = options.cardStateByUrl.get(mappedUrl);
+    if (!state) {
+      continue;
+    }
+    const labelsOnCard = new Set((state.labels ?? []).map((label) => label.toLowerCase()));
+    for (const label of labelsOnCard) {
+      if (!selected.has(label)) {
+        continue;
+      }
+      totals.set(label, (totals.get(label) ?? 0) + seconds);
+    }
+  }
+
+  writeJsonFile(pitWallAwCachePath, {
+    savedAt: now,
+    start,
+    bucketId,
+    labels: options.labels,
+    totals: Object.fromEntries(totals),
+  } satisfies PitWallAwCache);
+
+  return totals;
 };
 
 const percentile = (values: number[], p: number): number | null => {
@@ -337,13 +447,6 @@ const percentile = (values: number[], p: number): number | null => {
   const sorted = [...values].sort((a, b) => a - b);
   const index = Math.round((sorted.length - 1) * Math.min(Math.max(p, 0), 1));
   return sorted[index] ?? null;
-};
-
-const renderDamBar = (ratio: number) => {
-  const clamped = Math.min(Math.max(ratio, 0), 1);
-  const filled = Math.round(clamped * damDefenseBarWidth);
-  const empty = damDefenseBarWidth - filled;
-  return `[${"#".repeat(filled)}${".".repeat(empty)}]`;
 };
 
 const isWorkday = (date: Date) => {
@@ -488,11 +591,17 @@ const loadWorktreeUrlMapFromEvents = () => {
 };
 
 const loadWorktreeUrlMap = () => {
-  const { map, found } = loadWorktreeUrlMapFromSnapshot();
-  if (found) {
-    return map;
+  const { map: snapshotMap, found } = loadWorktreeUrlMapFromSnapshot();
+  const eventsMap = loadWorktreeUrlMapFromEvents();
+  if (!found) {
+    return eventsMap;
   }
-  return loadWorktreeUrlMapFromEvents();
+  for (const [path, url] of eventsMap.entries()) {
+    if (!snapshotMap.has(path)) {
+      snapshotMap.set(path, url);
+    }
+  }
+  return snapshotMap;
 };
 
 const loadCardStateByUrl = () => {
@@ -527,10 +636,11 @@ const loadLifecycleData = (): LifecycleData => {
   const sourceSignature = getFileSignature(metricsPath);
   const cached = readSignatureCache<{
     leadStartByCardIdEntries: Array<[string, number]>;
-    completedCycles: Array<{ completedAt: number; cycleSeconds: number }>;
+    completedCycles: Array<{ cardId: string; completedAt: number; cycleSeconds: number; label: string | null }>;
     completedCycleByCardIdEntries?: Array<[string, number]>;
   }>(lifecycleCachePath, metricsPath, sourceSignature);
-  if (cached?.completedCycleByCardIdEntries) {
+  const hasCompatibleCycleEntries = cached?.completedCycles.every((entry) => typeof entry.cardId === "string") ?? false;
+  if (cached?.completedCycleByCardIdEntries && hasCompatibleCycleEntries) {
     return {
       leadStartByCardId: new Map(cached.leadStartByCardIdEntries),
       completedCycles: cached.completedCycles,
@@ -539,7 +649,7 @@ const loadLifecycleData = (): LifecycleData => {
   }
 
   const leadStartByCardId = new Map<string, number>();
-  const completedCycles: Array<{ completedAt: number; cycleSeconds: number }> = [];
+  const completedCycles: Array<{ cardId: string; completedAt: number; cycleSeconds: number; label: string | null }> = [];
   const completedCycleByCardId = new Map<string, number>();
 
   if (!sourceSignature) {
@@ -579,7 +689,7 @@ const loadLifecycleData = (): LifecycleData => {
         continue;
       }
       const cycleSeconds = Math.floor((ts - doingStart) / 1000);
-      completedCycles.push({ completedAt: ts, cycleSeconds });
+      completedCycles.push({ cardId: record.cardId, completedAt: ts, cycleSeconds, label: record.label ?? null });
       if (!completedCycleByCardId.has(record.cardId)) {
         completedCycleByCardId.set(record.cardId, cycleSeconds);
       }
@@ -595,81 +705,78 @@ const loadLifecycleData = (): LifecycleData => {
   return { leadStartByCardId, completedCycles, completedCycleByCardId };
 };
 
-export const buildDamDefenseHeader = (options: {
+export const buildPitWallHeader = (options: {
   now: Date;
   labels: string[];
   cardStates: CardListState[];
-  completedCycleByCardId: Map<string, number>;
+  completedCycles: Array<{ cardId: string; completedAt: number; cycleSeconds: number; label: string | null }>;
+  awSecondsByLabel?: Map<string, number> | null;
 }) => {
-  const selectedLabels = options.labels.length > 0 ? options.labels : damDefenseDefaultLabels;
+  const selectedLabels = options.labels.length > 0 ? options.labels : pitWallDefaultLabels;
+  const selectedLabelSet = new Set(selectedLabels);
+  const throughputWindowStart = options.now.getTime() - pitWallThroughputWindowDays * 24 * 60 * 60 * 1000;
+  const throughputByLabel = new Map<string, number>();
   const cycleSamplesByLabel = new Map<string, number[]>();
   const globalCycleSamples: number[] = [];
-  for (const cycleSeconds of options.completedCycleByCardId.values()) {
+  for (const label of selectedLabels) {
+    cycleSamplesByLabel.set(label, []);
+    throughputByLabel.set(label, 0);
+  }
+
+  const cardLabelsById = new Map<string, Set<string>>();
+  for (const state of options.cardStates) {
+    cardLabelsById.set(state.cardId, new Set(state.labels.map((label) => label.toLowerCase())));
+  }
+
+  for (const completed of options.completedCycles) {
+    const cycleSeconds = completed.cycleSeconds;
     if (!Number.isFinite(cycleSeconds) || cycleSeconds < minCycleSecondsForBest) {
       continue;
     }
     globalCycleSamples.push(cycleSeconds);
-  }
-  for (const label of selectedLabels) {
-    cycleSamplesByLabel.set(label, []);
-  }
 
-  const cardStateById = new Map<string, CardListState>();
-  for (const state of options.cardStates) {
-    cardStateById.set(state.cardId, state);
-  }
-
-  for (const state of cardStateById.values()) {
-    const labels = new Set(state.labels.map((label) => label.toLowerCase()));
-    const cycleSeconds = options.completedCycleByCardId.get(state.cardId);
-    if (!cycleSeconds || cycleSeconds < minCycleSecondsForBest) {
+    const labelsFromState = cardLabelsById.get(completed.cardId);
+    const fallbackLabel = completed.label?.toLowerCase() ?? null;
+    const labels = labelsFromState && labelsFromState.size > 0
+      ? labelsFromState
+      : fallbackLabel
+        ? new Set([fallbackLabel])
+        : null;
+    if (!labels) {
       continue;
     }
-    for (const selected of selectedLabels) {
-      if (labels.has(selected)) {
-        cycleSamplesByLabel.get(selected)?.push(cycleSeconds);
+
+    for (const label of labels) {
+      if (!selectedLabelSet.has(label)) {
+        continue;
+      }
+      cycleSamplesByLabel.get(label)?.push(cycleSeconds);
+      if (completed.completedAt >= throughputWindowStart) {
+        throughputByLabel.set(label, (throughputByLabel.get(label) ?? 0) + 1);
       }
     }
   }
 
-  const globalTarget =
-    percentile(globalCycleSamples, damDefenseTargetPercentile) ?? damDefenseFallbackTargetSeconds;
+  const globalP70 = percentile(globalCycleSamples, pitWallCyclePercentile) ?? pitWallFallbackCycleSeconds;
+  const globalBest = globalCycleSamples.length > 0 ? Math.min(...globalCycleSamples) : null;
   const labelWidth = selectedLabels.reduce((max, label) => Math.max(max, label.length), 0);
 
   const lines = selectedLabels.map((label) => {
     const cycleSamples = cycleSamplesByLabel.get(label) ?? [];
-    const labelTarget = cycleSamples.length >= damDefenseLabelMinSamples
-      ? percentile(cycleSamples, damDefenseTargetPercentile) ?? globalTarget
-      : globalTarget;
-    const counts = { ready: 0, doing: 0, waiting: 0 };
-    let oldestActiveAgeSeconds = 0;
-    for (const state of cardStateById.values()) {
-      const labels = new Set(state.labels.map((value) => value.toLowerCase()));
-      if (!labels.has(label)) {
-        continue;
-      }
-      const enteredAt = parseIso(state.enteredAt);
-      const ageSeconds = enteredAt === null ? 0 : Math.max(0, Math.floor((options.now.getTime() - enteredAt) / 1000));
-      if (state.list === "Ready") {
-        counts.ready += 1;
-        oldestActiveAgeSeconds = Math.max(oldestActiveAgeSeconds, ageSeconds);
-      } else if (state.list === "Doing") {
-        counts.doing += 1;
-        oldestActiveAgeSeconds = Math.max(oldestActiveAgeSeconds, ageSeconds);
-      } else if (state.list === "Waiting") {
-        counts.waiting += 1;
-        oldestActiveAgeSeconds = Math.max(oldestActiveAgeSeconds, ageSeconds);
-      }
-    }
-
-    const ratio = labelTarget > 0 ? oldestActiveAgeSeconds / labelTarget : 0;
-    const percent = Math.round(ratio * 100);
-    const status = ratio >= 2 ? "!!" : ratio >= 1 ? "!" : "OK";
-    return `${label.padEnd(labelWidth, " ")} ${renderDamBar(ratio)} ${percent.toString().padStart(4, " ")}% R${counts.ready} D${counts.doing} W${counts.waiting} ${status}`;
+    const labelP70 = cycleSamples.length >= pitWallLabelMinSamples
+      ? percentile(cycleSamples, pitWallCyclePercentile) ?? globalP70
+      : globalP70;
+    const labelBest = cycleSamples.length > 0 ? Math.min(...cycleSamples) : globalBest;
+    const throughput = throughputByLabel.get(label) ?? 0;
+    const p70Text = formatDurationCompact(labelP70);
+    const bestText = labelBest === null ? "--" : formatDurationCompact(labelBest);
+    const awSeconds = options.awSecondsByLabel?.get(label);
+    const awText = awSeconds === undefined || awSeconds === null ? "--" : formatDurationCompact(Math.floor(awSeconds));
+    return `${label.padEnd(labelWidth, " ")} 🏁 ${throughput.toString().padStart(2, " ")}/${pitWallThroughputWindowDays}d ⏱ p70 ${p70Text} 🥇 ${bestText} 🕒 ${awText}`;
   });
 
   return [
-    `DAM DEFENSE: ${selectedLabels.join(" | ")}`,
+    `PIT WALL: ${selectedLabels.join(" | ")}`,
     ...lines,
   ].join("\n");
 };
@@ -807,9 +914,15 @@ export const gatherEntries = () => {
 const rankEntries = (entries: Entry[]) => {
   const now = Date.now();
   const cardStateByUrl = loadCardStateByUrl();
-  const { leadStartByCardId, completedCycleByCardId } = loadLifecycleData();
-  const headerCardStates: CardListState[] = [];
-  const headerCardStateIds = new Set<string>();
+  const worktreeUrlMap = loadWorktreeUrlMap();
+  const pitWallLabels = parsePitWallLabels();
+  const { leadStartByCardId, completedCycles } = loadLifecycleData();
+  const allCardStates = Array.from(cardStateByUrl.values());
+  const awSecondsByLabel = loadPitWallAwSecondsByLabel({
+    labels: pitWallLabels,
+    cardStateByUrl,
+    worktreeUrlMap,
+  });
 
   const ranked: RankedEntry[] = entries.map((entry) => {
     const label = entry.kind === "worktree" ? formatWorktreeLabel(entry) : formatRepoLabel(entry);
@@ -819,10 +932,6 @@ const rankEntries = (entries: Entry[]) => {
 
     const normalizedUrl = entry.url ? normalizeCardUrl(entry.url) : null;
     const cardState = normalizedUrl ? cardStateByUrl.get(normalizedUrl) : undefined;
-    if (cardState && !headerCardStateIds.has(cardState.cardId)) {
-      headerCardStateIds.add(cardState.cardId);
-      headerCardStates.push(cardState);
-    }
     const isReviewRequest = isReviewCardState(cardState);
     if (!cardState) {
       return { entry, category: 2, ageSeconds: null, label, badge: defaultBadge, isReviewRequest };
@@ -887,11 +996,12 @@ const rankEntries = (entries: Entry[]) => {
 
   return {
     ranked,
-    header: buildDamDefenseHeader({
+    header: buildPitWallHeader({
       now: new Date(now),
-      labels: parseDamDefenseLabels(),
-      cardStates: headerCardStates,
-      completedCycleByCardId,
+      labels: pitWallLabels,
+      cardStates: allCardStates,
+      completedCycles,
+      awSecondsByLabel,
     }),
   };
 };

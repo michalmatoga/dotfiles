@@ -141,8 +141,10 @@ Safe migration steps:
 - Entries are rendered as single-line paths (`host › owner › repo › worktree`), so fzf progressively filters as you type.
 - Picker ordering emphasizes cycle time: `Doing` worktrees (oldest first), then `Ready` worktrees (oldest first), then other worktrees, then base repos.
 - Rows include a fixed-width badge: `[🛠️  <age>]` for `Doing` (cycle-time age), `[⏳  <age>]` for non-`Doing` cards with lead-time data, and `[·   --    ]` when no card timing is available.
-- Header shows a `DAM DEFENSE` view for selected labels: water level rises with oldest active (`Ready`/`Doing`/`Waiting`) age relative to cycle-time target.
-- Default dam labels are `career,review,elikonas`; override with `WO_SESSIONIZER_DAM_LABELS` (comma-separated, lowercase).
+- Header shows a `PIT WALL` view for selected labels with throughput, cycle pace, and AW tracked time (`🕒`) for today.
+- Default PIT WALL labels are `career,review,business`; override with `WO_SESSIONIZER_PITWALL_LABELS` (comma-separated, lowercase).
+- Throughput window in PIT WALL is fixed to the last 7 days.
+- AW time uses bucket `aw-watcher-tmux_<hostname>` by default; override with `WO_SESSIONIZER_AW_BUCKET_ID`.
 - Run: `npx --yes tsx scripts/wo/bin/tmux-wo-sessionizer.ts`.
 
 ## State & idempotency

@@ -30,6 +30,11 @@ export const listNames = {
 export const labelNames = {
   schibsted: "schibsted",
   review: "review",
+  business: "business",
+  career: "career",
+  health: "health",
+  growth: "growth",
+  relationships: "relationships",
   household: "household",
   elikonas: "elikonas",
   journal: "journal",
@@ -39,20 +44,28 @@ export const labelNames = {
 export type LabelName = (typeof labelNames)[keyof typeof labelNames];
 
 export const getPrimaryLabel = (labels: string[]): string | null => {
+  const normalized = labels
+    .map((label) => label.trim().toLowerCase())
+    .filter((label) => label.length > 0);
   const priority = [
     labelNames.schibsted,
     labelNames.review,
+    labelNames.business,
+    labelNames.career,
+    labelNames.health,
+    labelNames.growth,
+    labelNames.relationships,
     labelNames.household,
     labelNames.elikonas,
     labelNames.journal,
     labelNames.dotfiles,
   ];
   for (const name of priority) {
-    if (labels.includes(name)) {
+    if (normalized.includes(name)) {
       return name;
     }
   }
-  return null;
+  return normalized[0] ?? null;
 };
 
 export const formatMetricsRecord = (record: MetricsRecord): string => {
