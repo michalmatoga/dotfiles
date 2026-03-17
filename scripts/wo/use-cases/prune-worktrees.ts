@@ -1,3 +1,7 @@
+import { readdir, rm } from "node:fs/promises";
+import { homedir } from "node:os";
+import { join, relative, resolve } from "node:path";
+
 import { requireEnv } from "../lib/env";
 import { fetchBoardCardsAll } from "../lib/trello/cards";
 import { loadBoardContext } from "../lib/trello/context";
@@ -9,9 +13,51 @@ import { removeWorktreeForUrl, removeWorktreeForPath } from "../lib/worktrees/wo
 import { cleanupWorkSession } from "../lib/sessions/tmux";
 
 type PruneReason = "done" | "archived";
+type ResidualPathCleanup = "removed" | "missing" | "skipped" | "unsafe";
 
 const canonicalListName = (name: string) => listAliases[name] ?? name;
 const isTrelloUrl = (url: string) => /^https:\/\/trello\.com\/c\//.test(url);
+
+const isPathWithin = (root: string, target: string) => {
+  const rel = relative(root, target);
+  return rel.length > 0 && !rel.startsWith("..") && rel !== target;
+};
+
+const cleanupResidualWorktreePath = async (options: { path: string; verbose: boolean }): Promise<ResidualPathCleanup> => {
+  const normalizedPath = resolve(options.path);
+  const home = homedir();
+  const allowedRoots = [join(home, "ghq"), join(home, "gwq")].map((root) => resolve(root));
+  const underAllowedRoot = allowedRoots.some((root) => isPathWithin(root, normalizedPath));
+  if (!underAllowedRoot) {
+    return "unsafe";
+  }
+
+  let entries;
+  try {
+    entries = await readdir(normalizedPath, { withFileTypes: true });
+  } catch {
+    return "missing";
+  }
+
+  if (entries.length === 0) {
+    await rm(normalizedPath, { recursive: false, force: true });
+    return "removed";
+  }
+
+  const allowedResidualNames = new Set([".nx", ".DS_Store"]);
+  if (entries.some((entry) => !allowedResidualNames.has(entry.name))) {
+    return "skipped";
+  }
+
+  for (const entry of entries) {
+    await rm(join(normalizedPath, entry.name), { recursive: true, force: true });
+  }
+  await rm(normalizedPath, { recursive: false, force: true });
+  if (options.verbose) {
+    console.log(`Cleaned residual worktree path: ${normalizedPath}`);
+  }
+  return "removed";
+};
 
 export const pruneWorktreesUseCase = async (options: { verbose: boolean }) => {
   const boardId = requireEnv("TRELLO_BOARD_ID_WO");
@@ -105,6 +151,21 @@ export const pruneWorktreesUseCase = async (options: { verbose: boolean }) => {
           url,
           sessionName: cleanup.sessionName,
           worktreePath: result.worktreePath,
+        },
+      });
+    }
+
+    const residualCleanup = await cleanupResidualWorktreePath({
+      path: result.worktreePath,
+      verbose: options.verbose,
+    });
+    if (residualCleanup === "removed") {
+      await writeEvent({
+        ts: new Date().toISOString(),
+        type: "worktree.path.cleaned",
+        payload: {
+          url,
+          path: result.worktreePath,
         },
       });
     }

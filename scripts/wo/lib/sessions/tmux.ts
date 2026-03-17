@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { relative } from "node:path";
+import { join, relative } from "node:path";
 
 import { runCommand, runCommandCapture } from "../command";
 import { ghJson } from "../gh/gh";
@@ -52,6 +52,63 @@ const sessionNameFromPath = (path: string) => {
   const home = process.env.HOME ?? "";
   const rel = path.startsWith(home) ? relative(home, path) : path;
   return rel.replace(/[/.]/g, "_");
+};
+
+const normalizePath = (value: string) => value.replace(/\/+$/, "");
+
+const expandPathAliases = (path: string): string[] => {
+  const normalized = normalizePath(path);
+  const aliases = new Set<string>([normalized]);
+  const home = process.env.HOME ?? "";
+  if (!home || !normalized.startsWith(home)) {
+    return Array.from(aliases);
+  }
+
+  const rel = relative(home, normalized);
+  const segments = rel.split("/").filter(Boolean);
+  if (segments.length < 4) {
+    return Array.from(aliases);
+  }
+
+  const root = segments[0];
+  const host = segments[1];
+  const owner = segments[2];
+  const repoSegment = segments[3];
+  if (!host || !owner || !repoSegment) {
+    return Array.from(aliases);
+  }
+
+  if (root === "ghq") {
+    const separatorIndex = repoSegment.indexOf("=");
+    if (separatorIndex > 0) {
+      const repo = repoSegment.slice(0, separatorIndex);
+      const leaf = repoSegment.slice(separatorIndex + 1);
+      if (repo && leaf) {
+        aliases.add(join(home, "gwq", host, owner, repo, leaf));
+      }
+    }
+  }
+
+  if (root === "gwq" && segments.length >= 5) {
+    const repo = repoSegment;
+    const leaf = segments[4];
+    if (repo && leaf) {
+      aliases.add(join(home, "ghq", host, owner, `${repo}=${leaf}`));
+    }
+  }
+
+  return Array.from(aliases);
+};
+
+const killSessionIfPresent = async (sessionName: string, verbose: boolean): Promise<boolean> => {
+  if (!(await hasSession(sessionName))) {
+    return false;
+  }
+  await runCommand("tmux", ["kill-session", "-t", sessionName], {
+    verbose,
+    allowFailure: true,
+  });
+  return true;
 };
 
 const ensureCommandAvailable = async (command: string) => {
@@ -142,15 +199,49 @@ export const cleanupWorkSession = async (options: {
   worktreePath: string;
   verbose: boolean;
 }): Promise<SessionCleanupResult> => {
-  const sessionName = sessionNameFromPath(options.worktreePath);
-  if (!(await hasSession(sessionName))) {
-    return { sessionName, status: "not_found" };
+  const aliasPaths = expandPathAliases(options.worktreePath);
+  const candidateSessionNames = Array.from(new Set(aliasPaths.map((path) => sessionNameFromPath(path))));
+
+  for (const sessionName of candidateSessionNames) {
+    const removed = await killSessionIfPresent(sessionName, options.verbose);
+    if (removed) {
+      return { sessionName, status: "removed" };
+    }
   }
-  await runCommand("tmux", ["kill-session", "-t", sessionName], {
-    verbose: options.verbose,
-    allowFailure: true,
-  });
-  return { sessionName, status: "removed" };
+
+  const aliasPathSet = new Set(aliasPaths.map((path) => normalizePath(path)));
+  let output = "";
+  try {
+    output = await runCommandCapture("tmux", ["list-panes", "-a", "-F", "#{session_name}\t#{pane_current_path}"]);
+  } catch {
+    return { sessionName: candidateSessionNames[0] ?? sessionNameFromPath(options.worktreePath), status: "not_found" };
+  }
+
+  const matchingSessions = new Set<string>();
+  for (const line of output.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      continue;
+    }
+    const [sessionName, panePathRaw] = trimmed.split("\t");
+    if (!sessionName || !panePathRaw) {
+      continue;
+    }
+    const panePath = normalizePath(panePathRaw);
+    const isMatching = Array.from(aliasPathSet).some((aliasPath) => panePath === aliasPath || panePath.startsWith(`${aliasPath}/`));
+    if (isMatching) {
+      matchingSessions.add(sessionName);
+    }
+  }
+
+  for (const sessionName of matchingSessions) {
+    const removed = await killSessionIfPresent(sessionName, options.verbose);
+    if (removed) {
+      return { sessionName, status: "removed" };
+    }
+  }
+
+  return { sessionName: candidateSessionNames[0] ?? sessionNameFromPath(options.worktreePath), status: "not_found" };
 };
 
 export const initializeWorkSession = async (options: {

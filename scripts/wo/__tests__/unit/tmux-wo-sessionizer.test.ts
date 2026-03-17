@@ -74,6 +74,28 @@ describe("tmux wo sessionizer formatting", () => {
           url: null,
         },
       ],
+      doneEntries: [
+        {
+          cardId: "c-career",
+          completedAt: new Date("2026-03-15T10:00:00.000Z").getTime(),
+          label: "career",
+        },
+        {
+          cardId: "c-review",
+          completedAt: new Date("2026-03-15T11:00:00.000Z").getTime(),
+          label: "review",
+        },
+        {
+          cardId: "c-business",
+          completedAt: new Date("2026-03-15T09:00:00.000Z").getTime(),
+          label: "business",
+        },
+        {
+          cardId: "c-fast-review",
+          completedAt: new Date("2026-03-15T12:00:00.000Z").getTime(),
+          label: "review",
+        },
+      ],
       completedCycles: [
         {
           cardId: "c-career",
@@ -103,7 +125,7 @@ describe("tmux wo sessionizer formatting", () => {
     expect(header).toContain("PIT WALL: career | business | review | household");
     expect(header).toContain("career    🏁  2/7d");
     expect(header).toContain("business  🏁  1/7d");
-    expect(header).toContain("review    🏁  1/7d");
+    expect(header).toContain("review    🏁  2/7d");
     expect(header).toContain("household 🏁  0/7d");
     expect(header).toContain("⏱ p70 2h 0m");
     expect(header).toContain("🕒 1h 30m");
