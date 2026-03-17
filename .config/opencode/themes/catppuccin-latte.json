@@ -37,10 +37,10 @@
     "success": "green",
     "info": "sapphire",
     "text": "text",
-    "textMuted": "overlay1",
+    "textMuted": "subtext0",
     "background": "base",
     "backgroundPanel": "mantle",
-    "backgroundElement": "surface0",
+    "backgroundElement": "surface1",
     "border": "surface1",
     "borderActive": "lavender",
     "borderSubtle": "surface0",
@@ -69,15 +69,15 @@
     "markdownListEnumeration": "teal",
     "markdownImage": "sapphire",
     "markdownImageText": "teal",
-    "markdownCodeBlock": "text",
-    "syntaxComment": "overlay0",
+    "markdownCodeBlock": "crust",
+    "syntaxComment": "subtext0",
     "syntaxKeyword": "mauve",
     "syntaxFunction": "blue",
-    "syntaxVariable": "flamingo",
+    "syntaxVariable": "maroon",
     "syntaxString": "green",
     "syntaxNumber": "peach",
     "syntaxType": "yellow",
     "syntaxOperator": "sky",
-    "syntaxPunctuation": "overlay1"
+    "syntaxPunctuation": "subtext1"
   }
 }
