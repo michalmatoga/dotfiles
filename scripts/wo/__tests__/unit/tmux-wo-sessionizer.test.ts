@@ -122,7 +122,6 @@ describe("tmux wo sessionizer formatting", () => {
       ]),
     });
 
-    expect(header).toContain("PIT WALL: career | business | review | household");
     expect(header).toContain("career    🏁  2/7d");
     expect(header).toContain("business  🏁  1/7d");
     expect(header).toContain("review    🏁  2/7d");

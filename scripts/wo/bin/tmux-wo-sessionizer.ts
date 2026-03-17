@@ -806,10 +806,7 @@ export const buildPitWallHeader = (options: {
     return `${label.padEnd(labelWidth, " ")} 🏁 ${throughput.toString().padStart(2, " ")}/${pitWallThroughputWindowDays}d ⏱ p70 ${p70Text} 🥇 ${bestText} 🕒 ${awText}`;
   });
 
-  return [
-    `PIT WALL: ${selectedLabels.join(" | ")}`,
-    ...lines,
-  ].join("\n");
+  return lines.join("\n");
 };
 
 export const buildHeader = (options: {
