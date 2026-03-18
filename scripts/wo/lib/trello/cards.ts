@@ -11,6 +11,35 @@ export type TrelloCard = {
   shortUrl?: string;
 };
 
+export type TrelloChecklistItem = {
+  id: string;
+  name: string;
+  state: "incomplete" | "complete";
+  pos: number;
+};
+
+export type TrelloChecklist = {
+  id: string;
+  name: string;
+  checkItems: TrelloChecklistItem[];
+};
+
+export type TrelloCardLabel = {
+  id: string;
+  name: string;
+  color: string | null;
+};
+
+export type TrelloCardDetails = {
+  id: string;
+  name: string;
+  desc: string;
+  url: string;
+  shortUrl: string;
+  labels: TrelloCardLabel[];
+  checklists: TrelloChecklist[];
+};
+
 export const fetchBoardCards = async (boardId: string): Promise<TrelloCard[]> =>
   trelloRequest<TrelloCard[]>(`boards/${boardId}/cards`, {
     fields: "name,desc,idLabels,idList,shortUrl,url",
@@ -20,6 +49,16 @@ export const fetchBoardCardsAll = async (boardId: string): Promise<TrelloCard[]>
   trelloRequest<TrelloCard[]>(`boards/${boardId}/cards`, {
     fields: "name,desc,idLabels,idList,shortUrl,url,closed",
     filter: "all",
+  });
+
+export const fetchCardDetailsByShortId = async (shortId: string): Promise<TrelloCardDetails> =>
+  trelloRequest<TrelloCardDetails>(`cards/${shortId}`, {
+    fields: "name,desc,url,shortUrl",
+    labels: "all",
+    label_fields: "name,color",
+    checklists: "all",
+    checklist_fields: "name",
+    checkItem_fields: "name,state,pos",
   });
 
 export const createCard = async (options: {

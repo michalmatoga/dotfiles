@@ -1,4 +1,4 @@
-import { access, cp, mkdir } from "node:fs/promises";
+import { access, cp, mkdir, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 
@@ -157,6 +157,106 @@ const addWorktreeNoCheckout = async (
     await runCommand("git", ["-C", repoPath, "worktree", "add", "--no-checkout", worktreePath, branch], {
       verbose: options.verbose,
     });
+  }
+};
+
+type NodePackageManager = "pnpm" | "yarn" | "bun" | "npm";
+
+const parsePackageManagerFromPackageJson = (raw: string): NodePackageManager | null => {
+  try {
+    const parsed = JSON.parse(raw) as { packageManager?: unknown };
+    if (typeof parsed.packageManager !== "string") {
+      return null;
+    }
+    const [name] = parsed.packageManager.split("@");
+    if (name === "pnpm" || name === "yarn" || name === "bun" || name === "npm") {
+      return name;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+};
+
+const commandAvailable = async (command: string): Promise<boolean> => {
+  try {
+    await runCommandCapture("which", [command]);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const installArgsForManager = (manager: NodePackageManager): string[] => {
+  if (manager === "pnpm") {
+    return ["install"];
+  }
+  if (manager === "yarn") {
+    return ["install"];
+  }
+  if (manager === "bun") {
+    return ["install"];
+  }
+  return ["install"];
+};
+
+const detectNodePackageManager = async (worktreePath: string): Promise<NodePackageManager | null> => {
+  const packageJsonPath = join(worktreePath, "package.json");
+  const packageJsonRaw = await readFile(packageJsonPath, "utf8");
+  const packageManagerFromPackageJson = parsePackageManagerFromPackageJson(packageJsonRaw);
+
+  const lockFileHints: Array<{ path: string; manager: NodePackageManager }> = [
+    { path: join(worktreePath, "pnpm-lock.yaml"), manager: "pnpm" },
+    { path: join(worktreePath, "yarn.lock"), manager: "yarn" },
+    { path: join(worktreePath, "bun.lockb"), manager: "bun" },
+    { path: join(worktreePath, "bun.lock"), manager: "bun" },
+    { path: join(worktreePath, "package-lock.json"), manager: "npm" },
+    { path: join(worktreePath, "npm-shrinkwrap.json"), manager: "npm" },
+  ];
+
+  const hintedByLockfiles: NodePackageManager[] = [];
+  for (const hint of lockFileHints) {
+    if (await pathExists(hint.path)) {
+      hintedByLockfiles.push(hint.manager);
+    }
+  }
+
+  const candidates = [
+    packageManagerFromPackageJson,
+    ...hintedByLockfiles,
+    "npm" as NodePackageManager,
+  ].filter((value): value is NodePackageManager => Boolean(value));
+  const uniqueCandidates = Array.from(new Set(candidates));
+
+  for (const manager of uniqueCandidates) {
+    if (await commandAvailable(manager)) {
+      return manager;
+    }
+  }
+
+  return null;
+};
+
+const installNodeDependenciesIfPresent = async (worktreePath: string, options: { verbose: boolean }) => {
+  const packageJsonPath = join(worktreePath, "package.json");
+  if (!(await pathExists(packageJsonPath))) {
+    return;
+  }
+
+  try {
+    const manager = await detectNodePackageManager(worktreePath);
+    if (!manager) {
+      console.warn(`No supported package manager found in ${worktreePath}; skipped dependency install.`);
+      return;
+    }
+
+    await runCommand(manager, installArgsForManager(manager), {
+      cwd: worktreePath,
+      verbose: options.verbose,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(`Dependency install failed in ${worktreePath}: ${message}`);
   }
 };
 
@@ -333,6 +433,8 @@ export const ensureWorktreeForUrl = async (options: {
     });
   }
 
+  await installNodeDependenciesIfPresent(worktreePath, options);
+
   return { branch, worktreePath };
 };
 
@@ -368,6 +470,9 @@ export const ensureWorktreeForRepo = async (options: {
       verbose: options.verbose,
     });
   }
+
+  await installNodeDependenciesIfPresent(worktreePath, options);
+
   return { branch, worktreePath };
 };
 
