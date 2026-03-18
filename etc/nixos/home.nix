@@ -497,6 +497,45 @@ in
     };
   };
 
+  systemd.user.services.wo-throughput-chart-data = {
+    Unit = {
+      Description = "Generate wo throughput chart data continuously";
+      After = [ "wo-sync.service" ];
+    };
+    Service = {
+      Type = "simple";
+      Environment = [
+        "PATH=%h/.cache/npm/global/bin:${pkgs.bash}/bin:${pkgs.nodejs_24}/bin:/run/current-system/sw/bin"
+        "DOTFILES_DIR=%h/ghq/github.com/michalmatoga/dotfiles"
+      ];
+      WorkingDirectory = "%h/ghq/github.com/michalmatoga/dotfiles";
+      ExecStart = "${pkgs.bash}/bin/bash -c '${pkgs.nodejs_24}/bin/npx --yes tsx \"$DOTFILES_DIR/scripts/wo/bin/wo-report.ts\" chart-data --labels career,review,business --watch 30 --output \"$DOTFILES_DIR/scripts/wo/state/wo-throughput-chart.json\"'";
+      Restart = "always";
+      RestartSec = "5s";
+    };
+    Install = {
+      WantedBy = [ "default.target" ];
+    };
+  };
+
+  systemd.user.services.wo-throughput-dashboard = {
+    Unit = {
+      Description = "Serve wo throughput dashboard";
+      After = [ "wo-throughput-chart-data.service" ];
+      Wants = [ "wo-throughput-chart-data.service" ];
+    };
+    Service = {
+      Type = "simple";
+      WorkingDirectory = "%h/ghq/github.com/michalmatoga/dotfiles";
+      ExecStart = "${pkgs.python3}/bin/python -m http.server 4173 --bind 127.0.0.1 --directory %h/ghq/github.com/michalmatoga/dotfiles";
+      Restart = "always";
+      RestartSec = "5s";
+    };
+    Install = {
+      WantedBy = [ "default.target" ];
+    };
+  };
+
   systemd.user.services.copilot-ghe-refresh = {
     Unit = {
       Description = "Refresh GitHub Copilot GHE session token";

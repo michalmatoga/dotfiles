@@ -1,12 +1,15 @@
 #!/usr/bin/env node
 import { readMetrics, getThroughput } from "../lib/metrics/lifecycle";
 import { loadEnvFile, requireEnv } from "../lib/env";
+import { dirname, resolve } from "node:path";
+import { mkdir, writeFile } from "node:fs/promises";
 import {
   NO_CARD_BUCKET,
   NO_LABEL_BUCKET,
   summarizeActivityWatchTime,
 } from "../lib/metrics/aw-time";
 import type { MetricsRecord } from "../lib/metrics/types";
+import { buildThroughputChartData, parseTrackedLabels } from "../lib/metrics/chart-data";
 
 const formatDuration = (seconds: number): string => {
   if (seconds === 0) return "0m";
@@ -29,6 +32,24 @@ const buildTimeRange = (days: number): { start: string; end: string } => {
   start.setHours(0, 0, 0, 0);
   return { start: start.toISOString(), end: end.toISOString() };
 };
+
+const wait = async (milliseconds: number): Promise<void> => {
+  await new Promise((resolveWait) => setTimeout(resolveWait, milliseconds));
+};
+
+const parseOptionValue = (args: string[], optionName: string): string | null => {
+  const index = args.indexOf(optionName);
+  if (index === -1) {
+    return null;
+  }
+  const value = args[index + 1] ?? null;
+  if (!value || value.startsWith("--")) {
+    return null;
+  }
+  return value;
+};
+
+const hasOption = (args: string[], optionName: string): boolean => args.includes(optionName);
 
 const computeLifecycleTimes = (metrics: MetricsRecord[]) => {
   const byCard = new Map<
@@ -300,6 +321,47 @@ const showThroughput = async (days: number, label?: string) => {
   }
 };
 
+const writeChartData = async (options: {
+  labels: string[];
+  outputPath: string;
+}) => {
+  const metrics = await readMetrics();
+  const chartData = buildThroughputChartData({ metrics, labels: options.labels });
+  await mkdir(dirname(options.outputPath), { recursive: true });
+  await writeFile(options.outputPath, `${JSON.stringify(chartData, null, 2)}\n`, "utf8");
+  const labelsText = chartData.labels.length > 0 ? chartData.labels.join(", ") : "(none)";
+  console.log(`Wrote chart data: ${options.outputPath}`);
+  console.log(`Labels: ${labelsText}`);
+  console.log(`Date range: ${chartData.startDate ?? "--"} to ${chartData.endDate ?? "--"}`);
+  console.log(`Data points: ${chartData.points.length}`);
+  console.log(`Completed cards: ${chartData.totalCompletedCards}`);
+};
+
+const showChartData = async (args: string[]) => {
+  const outputPath = resolve(
+    parseOptionValue(args, "--output") ?? "scripts/wo/state/wo-throughput-chart.json",
+  );
+  const labels = parseTrackedLabels(
+    parseOptionValue(args, "--labels") ?? process.env.WO_CHART_LABELS,
+  );
+  const watchEnabled = hasOption(args, "--watch");
+  const watchSecondsRaw = parseOptionValue(args, "--watch");
+  const watchSeconds = watchSecondsRaw ? parseInt(watchSecondsRaw, 10) : 30;
+
+  if (watchEnabled) {
+    if (!Number.isFinite(watchSeconds) || watchSeconds < 1) {
+      throw new Error("--watch must be >= 1 second");
+    }
+    console.log(`Watching metrics every ${watchSeconds}s (Ctrl+C to stop)...`);
+    while (true) {
+      await writeChartData({ labels, outputPath });
+      await wait(watchSeconds * 1000);
+    }
+  }
+
+  await writeChartData({ labels, outputPath });
+};
+
 const showHelp = () => {
   console.log(`
 Usage: wo-report <command> [options]
@@ -308,6 +370,7 @@ Commands:
   summary [days]     Show summary for last N days (default: 7)
   card <id> [days]   Show detailed metrics for a specific card (default: 30 days)
   throughput [days]  Show throughput for last N days (default: 7)
+  chart-data         Generate chart JSON for website (all time)
   help               Show this help message
 
 Examples:
@@ -316,6 +379,9 @@ Examples:
   wo-report card abc123       # Card details (last 30 days)
   wo-report card abc123 90    # Card details (last 90 days)
   wo-report throughput 14     # 2-week throughput
+  wo-report chart-data --labels career,review,business
+  wo-report chart-data --labels career,review,business --watch 30
+  wo-report chart-data --output scripts/wo/state/wo-throughput-chart.json
 `);
 };
 
@@ -352,6 +418,10 @@ const main = async () => {
       case "throughput": {
         const days = parseInt(args[1] ?? "7", 10);
         await showThroughput(days);
+        break;
+      }
+      case "chart-data": {
+        await showChartData(args.slice(1));
         break;
       }
       case "help":
