@@ -217,13 +217,15 @@ const pathToSessionName = (path: string) => {
 const normalizePath = (value: string) => value.replace(/\/+$/, "");
 const normalizeCardUrl = (value: string) => {
   const trimmed = value.trim();
+  const markdownMatch = trimmed.match(/^\[[^\]]+\]\((https?:\/\/[^\s)]+)(?:\s+"[^"]*")?\)$/i);
+  const candidate = markdownMatch?.[1] ?? trimmed.match(/https?:\/\/[^\s)\]"]+/i)?.[0] ?? trimmed;
   try {
-    const parsed = new URL(trimmed);
+    const parsed = new URL(candidate);
     parsed.search = "";
     parsed.hash = "";
     return parsed.toString().replace(/\/+$/, "");
   } catch {
-    return trimmed.replace(/[?#].*$/, "").replace(/\/+$/, "");
+    return candidate.replace(/[?#].*$/, "").replace(/\/+$/, "");
   }
 };
 
@@ -609,7 +611,11 @@ const loadCardStateByUrl = () => {
   const sourceSignature = getFileSignature(cardStatePath);
   const cached = readSignatureCache<Record<string, CardListState>>(cardStateByUrlCachePath, cardStatePath, sourceSignature);
   if (cached) {
-    return new Map(Object.entries(cached));
+    const map = new Map<string, CardListState>();
+    for (const [url, state] of Object.entries(cached)) {
+      map.set(normalizeCardUrl(url), state);
+    }
+    return map;
   }
 
   const map = new Map<string, CardListState>();

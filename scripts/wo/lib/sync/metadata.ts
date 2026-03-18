@@ -16,6 +16,28 @@ export type SyncMetadata = {
 const blockStart = "[wo-sync]";
 const blockEnd = "[/wo-sync]";
 
+const markdownLinkUrlPattern = /^\[[^\]]+\]\((https?:\/\/[^\s)]+)(?:\s+"[^"]*")?\)$/i;
+const firstHttpUrlPattern = /https?:\/\/[^\s)\]"]+/i;
+
+const normalizeMetadataUrlValue = (value: string): string => {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return trimmed;
+  }
+
+  const markdownMatch = trimmed.match(markdownLinkUrlPattern);
+  if (markdownMatch?.[1]) {
+    return markdownMatch[1];
+  }
+
+  const firstUrlMatch = trimmed.match(firstHttpUrlPattern);
+  if (firstUrlMatch?.[0]) {
+    return firstUrlMatch[0];
+  }
+
+  return trimmed;
+};
+
 export const parseSyncMetadata = (desc: string): SyncMetadata | null => {
   const start = desc.indexOf(blockStart);
   const end = desc.indexOf(blockEnd);
@@ -44,7 +66,7 @@ export const parseSyncMetadata = (desc: string): SyncMetadata | null => {
         data.prId = value;
         break;
       case "url":
-        data.url = value;
+        data.url = normalizeMetadataUrlValue(value);
         break;
       case "status":
         data.status = value;

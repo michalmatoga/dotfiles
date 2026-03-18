@@ -8,6 +8,25 @@ const getStateDir = (): string => process.env.WO_METRICS_STATE_DIR ?? defaultSta
 const getMetricsPath = (): string => `${getStateDir()}/wo-metrics.csv`;
 const getCardStatePath = (): string => `${getStateDir()}/wo-card-states.jsonl`;
 
+const normalizeTrackedUrl = (value: string | null): string | null => {
+  if (!value) {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const markdownMatch = trimmed.match(/^\[[^\]]+\]\((https?:\/\/[^\s)]+)(?:\s+"[^"]*")?\)$/i);
+  if (markdownMatch?.[1]) {
+    return markdownMatch[1];
+  }
+  const firstUrlMatch = trimmed.match(/https?:\/\/[^\s)\]"]+/i);
+  if (firstUrlMatch?.[0]) {
+    return firstUrlMatch[0];
+  }
+  return trimmed;
+};
+
 const ensureDir = async (filePath: string) => {
   await mkdir(dirname(filePath), { recursive: true });
 };
@@ -97,6 +116,7 @@ export const recordCardMove = async (options: {
   now?: string;
 }): Promise<void> => {
   const now = options.now ?? new Date().toISOString();
+  const trackedUrl = normalizeTrackedUrl(options.url);
   const label = getPrimaryLabel(options.labels);
   const states = await readCardStates();
 
@@ -113,7 +133,7 @@ export const recordCardMove = async (options: {
       const exitRecord: MetricsRecord = {
         timestamp: now,
         cardId: options.cardId,
-        url: options.url ?? previousState.url,
+        url: trackedUrl ?? previousState.url,
         eventType: "exited",
         list: options.fromList,
         label: getPrimaryLabel(previousState.labels) ?? label,
@@ -131,7 +151,7 @@ export const recordCardMove = async (options: {
   const entryRecord: MetricsRecord = {
     timestamp: now,
     cardId: options.cardId,
-    url: options.url,
+    url: trackedUrl,
     eventType: "entered",
     list: options.toList,
     label,
@@ -149,7 +169,7 @@ export const recordCardMove = async (options: {
     list: options.toList,
     enteredAt: now,
     labels: options.labels,
-    url: options.url,
+    url: trackedUrl,
   });
 };
 
@@ -161,6 +181,7 @@ export const recordCardExit = async (options: {
   now?: string;
 }): Promise<void> => {
   const now = options.now ?? new Date().toISOString();
+  const trackedUrl = normalizeTrackedUrl(options.url);
   const states = await readCardStates();
   const state = states.get(options.cardId);
 
@@ -173,7 +194,7 @@ export const recordCardExit = async (options: {
   const record: MetricsRecord = {
     timestamp: now,
     cardId: options.cardId,
-    url: options.url ?? state.url,
+    url: trackedUrl ?? state.url,
     eventType: "exited",
     list: options.list,
     label: getPrimaryLabel(state.labels),

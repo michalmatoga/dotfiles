@@ -123,6 +123,20 @@ describe("sync metadata for lss source", () => {
       lastSeen: "2026-03-12T00:00:00.000Z",
     });
   });
+
+  it("normalizes markdown smart-card URLs from metadata", () => {
+    const block = [
+      "[wo-sync]",
+      "source=lss",
+      "url=[https://trello.com/c/cNzVuXpR/157-lock-in-metrics](https://trello.com/c/cNzVuXpR/157-lock-in-metrics \"smartCard-inline\")",
+      "[/wo-sync]",
+    ].join("\n");
+
+    expect(parseSyncMetadata(block)).toMatchObject({
+      source: "lss",
+      url: "https://trello.com/c/cNzVuXpR/157-lock-in-metrics",
+    });
+  });
 });
 
 describe("LSS journal backfill insertion", () => {
