@@ -152,6 +152,21 @@
       let latestData = null;
       let visibleLabels = null;
 
+      const formatDateTime = (value) => {
+        if (!value) {
+          return "--";
+        }
+        return new Intl.DateTimeFormat(undefined, {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: false,
+        }).format(new Date(value));
+      };
+
       const normalizeLabels = (labels) => Array.isArray(labels)
         ? labels.map((label) => String(label).trim().toLowerCase()).filter((label) => label.length > 0)
         : [];
@@ -194,9 +209,9 @@
             return `<button type="button" class="chip chip-toggle${active ? " is-active" : ""}" data-label="${label}">${label}</button>`;
           }).join("")
           : "<span class=\"chip\">No series</span>";
-        const generatedAt = data.generatedAt ? new Date(data.generatedAt).toLocaleString() : "--";
+        const generatedAt = formatDateTime(data.generatedAt);
         const range = data.startAt && data.endAt
-          ? `${new Date(data.startAt).toLocaleString()} to ${new Date(data.endAt).toLocaleString()}`
+          ? `${formatDateTime(data.startAt)} to ${formatDateTime(data.endAt)}`
           : data.startDate && data.endDate
             ? `${data.startDate} to ${data.endDate}`
             : "--";
@@ -265,7 +280,12 @@
         const chartPoints = normalizedPoints.filter((point) => visibleLabelSet.has(point.label));
 
         const sharedEncoding = {
-          x: { field: "at", type: "temporal", title: "Time" },
+          x: {
+            field: "at",
+            type: "temporal",
+            title: "Time",
+            axis: { format: "%Y-%m-%d %H:%M", labelAngle: -25 },
+          },
           color: {
             field: "label",
             type: "nominal",
@@ -276,7 +296,7 @@
           detail: { field: "label", type: "nominal" },
           order: { field: "at", type: "temporal" },
           tooltip: [
-            { field: "at", type: "temporal", title: "Time" },
+            { field: "at", type: "temporal", title: "Time", format: "%Y-%m-%d %H:%M:%S" },
             { field: "label", type: "nominal", title: "Label" },
             { field: "completed", type: "quantitative", title: "Completed (event)" },
             { field: "cumulativeCompleted", type: "quantitative", title: "Completed (cumulative)" },
