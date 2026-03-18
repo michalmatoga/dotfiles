@@ -78,22 +78,22 @@ describe("tmux wo sessionizer formatting", () => {
         {
           cardId: "c-career",
           completedAt: new Date("2026-03-15T10:00:00.000Z").getTime(),
-          label: "career",
+          labels: ["career"],
         },
         {
           cardId: "c-review",
           completedAt: new Date("2026-03-15T11:00:00.000Z").getTime(),
-          label: "review",
+          labels: ["review"],
         },
         {
           cardId: "c-business",
           completedAt: new Date("2026-03-15T09:00:00.000Z").getTime(),
-          label: "business",
+          labels: ["business"],
         },
         {
           cardId: "c-fast-review",
           completedAt: new Date("2026-03-15T12:00:00.000Z").getTime(),
-          label: "review",
+          labels: ["review", "career"],
         },
       ],
       completedCycles: [
@@ -101,19 +101,19 @@ describe("tmux wo sessionizer formatting", () => {
           cardId: "c-career",
           completedAt: new Date("2026-03-15T10:00:00.000Z").getTime(),
           cycleSeconds: 2 * 60 * 60,
-          label: "career",
+          labels: ["career"],
         },
         {
           cardId: "c-review",
           completedAt: new Date("2026-03-15T11:00:00.000Z").getTime(),
           cycleSeconds: 30 * 60,
-          label: "review",
+          labels: ["review"],
         },
         {
           cardId: "c-business",
           completedAt: new Date("2026-03-15T09:00:00.000Z").getTime(),
           cycleSeconds: 4 * 60 * 60,
-          label: "business",
+          labels: ["business"],
         },
       ],
       awSecondsByLabel: new Map([
@@ -122,7 +122,7 @@ describe("tmux wo sessionizer formatting", () => {
       ]),
     });
 
-    expect(header).toContain("career    🏁  2/7d");
+    expect(header).toContain("career    🏁  3/7d");
     expect(header).toContain("business  🏁  1/7d");
     expect(header).toContain("review    🏁  2/7d");
     expect(header).toContain("household 🏁  0/7d");

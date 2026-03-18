@@ -6,7 +6,7 @@ export type MetricsRecord = {
   url: string | null;
   eventType: MetricsEventType;
   list: string;
-  label: string | null;
+  labels: string[];
   secondsInList: number | null;
   completedDate: string | null;
 };
@@ -43,10 +43,20 @@ export const labelNames = {
 
 export type LabelName = (typeof labelNames)[keyof typeof labelNames];
 
+export const normalizeMetricLabels = (labels: string[]): string[] => {
+  const unique = new Set<string>();
+  for (const label of labels) {
+    const normalized = label.trim().toLowerCase();
+    if (!normalized) {
+      continue;
+    }
+    unique.add(normalized);
+  }
+  return Array.from(unique.values()).sort((a, b) => a.localeCompare(b));
+};
+
 export const getPrimaryLabel = (labels: string[]): string | null => {
-  const normalized = labels
-    .map((label) => label.trim().toLowerCase())
-    .filter((label) => label.length > 0);
+  const normalized = normalizeMetricLabels(labels);
   const priority = [
     labelNames.schibsted,
     labelNames.review,
@@ -83,7 +93,7 @@ export const formatMetricsRecord = (record: MetricsRecord): string => {
     escape(record.url),
     escape(record.eventType),
     escape(record.list),
-    escape(record.label),
+    escape(record.labels.join("|")),
     record.secondsInList?.toString() ?? "",
     escape(record.completedDate),
   ].join(",");
@@ -122,7 +132,7 @@ export const parseMetricsRecord = (line: string): MetricsRecord => {
     url: unescape(parts[2] ?? ""),
     eventType: (unescape(parts[3] ?? "") as MetricsEventType) ?? "entered",
     list: unescape(parts[4] ?? "") ?? "",
-    label: unescape(parts[5] ?? ""),
+    labels: normalizeMetricLabels((unescape(parts[5] ?? "") ?? "").split("|")),
     secondsInList: parts[6] ? parseInt(parts[6], 10) : null,
     completedDate: unescape(parts[7] ?? ""),
   };

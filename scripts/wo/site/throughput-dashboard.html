@@ -83,12 +83,31 @@
         font-size: 0.85rem;
       }
 
+      button.chip {
+        font: inherit;
+        line-height: inherit;
+      }
+
+      .chip-toggle {
+        cursor: pointer;
+      }
+
+      .chip-toggle:not(.is-active) {
+        opacity: 0.45;
+      }
+
       .status-ok {
         color: var(--success);
       }
 
       #chart {
         margin-top: 0.8rem;
+        min-height: 420px;
+      }
+
+      #chart .vega-embed,
+      #chart svg {
+        max-width: 100%;
       }
 
       .error {
@@ -128,40 +147,176 @@
       const refreshSeconds = Number.isFinite(refreshSecondsRaw) && refreshSecondsRaw >= 5 ? refreshSecondsRaw : 30;
 
       const metaEl = document.getElementById("meta");
+      const chartEl = document.getElementById("chart");
       const errorEl = document.getElementById("error");
+      let latestData = null;
+      let visibleLabels = null;
+
+      const normalizeLabels = (labels) => Array.isArray(labels)
+        ? labels.map((label) => String(label).trim().toLowerCase()).filter((label) => label.length > 0)
+        : [];
+
+      const getEffectiveVisibleLabels = (allLabels) => {
+        const normalized = normalizeLabels(allLabels);
+        if (normalized.length === 0) {
+          return new Set();
+        }
+        if (visibleLabels === null) {
+          return new Set(normalized);
+        }
+        const pruned = new Set(Array.from(visibleLabels).filter((label) => normalized.includes(label)));
+        if (pruned.size === 0) {
+          return new Set(normalized);
+        }
+        return pruned;
+      };
+
+      const setVisibleLabels = (labelsSet, allLabels) => {
+        const normalized = normalizeLabels(allLabels);
+        if (normalized.length === 0) {
+          visibleLabels = null;
+          return;
+        }
+        if (labelsSet.size >= normalized.length) {
+          visibleLabels = null;
+          return;
+        }
+        visibleLabels = new Set(Array.from(labelsSet));
+      };
 
       const renderMeta = (data) => {
         const labels = data.labels.length > 0 ? data.labels.join(", ") : "none";
+        const visibleLabelSet = getEffectiveVisibleLabels(data.labels);
+        const toggleButtons = data.labels.length > 0
+          ? data.labels.map((label) => {
+            const normalizedLabel = String(label).trim().toLowerCase();
+            const active = visibleLabelSet.has(normalizedLabel);
+            return `<button type="button" class="chip chip-toggle${active ? " is-active" : ""}" data-label="${label}">${label}</button>`;
+          }).join("")
+          : "<span class=\"chip\">No series</span>";
         const generatedAt = data.generatedAt ? new Date(data.generatedAt).toLocaleString() : "--";
-        const range = data.startDate && data.endDate ? `${data.startDate} to ${data.endDate}` : "--";
+        const range = data.startAt && data.endAt
+          ? `${new Date(data.startAt).toLocaleString()} to ${new Date(data.endAt).toLocaleString()}`
+          : data.startDate && data.endDate
+            ? `${data.startDate} to ${data.endDate}`
+            : "--";
         metaEl.innerHTML = [
           `<span class="chip">Labels: ${labels}</span>`,
+          `<span class="chip">Series:</span>${toggleButtons}`,
           `<span class="chip">Completed cards: ${data.totalCompletedCards}</span>`,
           `<span class="chip">Range: ${range}</span>`,
           `<span class="chip status-ok">Updated: ${generatedAt}</span>`,
           `<span class="chip">Auto-refresh: ${refreshSeconds}s</span>`,
         ].join("");
+
+        metaEl.querySelectorAll(".chip-toggle").forEach((buttonEl) => {
+          buttonEl.addEventListener("click", async () => {
+            if (!latestData) {
+              return;
+            }
+            const label = buttonEl.getAttribute("data-label");
+            if (!label) {
+              return;
+            }
+            const allLabels = Array.isArray(latestData.labels) ? latestData.labels : [];
+            const next = new Set(Array.from(getEffectiveVisibleLabels(allLabels)));
+            const normalized = label.trim().toLowerCase();
+            if (next.has(normalized)) {
+              next.delete(normalized);
+            } else {
+              next.add(normalized);
+            }
+            if (next.size === 0) {
+              next.add(normalized);
+            }
+            setVisibleLabels(next, allLabels);
+            renderMeta(latestData);
+            await renderChart(latestData);
+          });
+        });
       };
 
       const renderChart = async (data) => {
+        const containerWidth = chartEl ? chartEl.clientWidth : 0;
+        const chartWidth = Math.max(280, Math.min(containerWidth > 0 ? containerWidth - 28 : window.innerWidth - 80, 980));
+        const allLabels = normalizeLabels(data.labels);
+        const normalizedPoints = Array.isArray(data.points)
+          ? data.points
+            .map((point) => {
+              if (!point || !point.at || !point.label) {
+                return null;
+              }
+              const completed = Number(point.completed);
+              const cumulativeCompleted = Number(point.cumulativeCompleted);
+              if (!Number.isFinite(cumulativeCompleted)) {
+                return null;
+              }
+              const at = String(point.at);
+              return {
+                at,
+                label: String(point.label),
+                completed: Number.isFinite(completed) ? completed : 0,
+                cumulativeCompleted,
+              };
+            })
+            .filter((point) => point !== null)
+          : [];
+        const visibleLabelSet = getEffectiveVisibleLabels(data.labels);
+        const chartPoints = normalizedPoints.filter((point) => visibleLabelSet.has(point.label));
+
+        const sharedEncoding = {
+          x: { field: "at", type: "temporal", title: "Time" },
+          color: {
+            field: "label",
+            type: "nominal",
+            title: "Label",
+            scale: allLabels.length > 0 ? { domain: allLabels } : undefined,
+            legend: { orient: "bottom", direction: "horizontal" },
+          },
+          detail: { field: "label", type: "nominal" },
+          order: { field: "at", type: "temporal" },
+          tooltip: [
+            { field: "at", type: "temporal", title: "Time" },
+            { field: "label", type: "nominal", title: "Label" },
+            { field: "completed", type: "quantitative", title: "Completed (event)" },
+            { field: "cumulativeCompleted", type: "quantitative", title: "Completed (cumulative)" },
+          ],
+        };
+
         const spec = {
           $schema: "https://vega.github.io/schema/vega-lite/v5.json",
-          data: { values: data.points },
-          autosize: { type: "fit", contains: "padding" },
-          width: "container",
+          data: { values: chartPoints },
+          width: chartWidth,
           height: 420,
-          mark: { type: "line", interpolate: "monotone", point: { filled: true, size: 35 }, strokeWidth: 2.4 },
-          encoding: {
-            x: { field: "date", type: "temporal", title: "Date" },
-            y: { field: "cumulativeCompleted", type: "quantitative", title: "Cumulative completed tasks" },
-            color: { field: "label", type: "nominal", title: "Label" },
-            tooltip: [
-              { field: "date", type: "temporal", title: "Date" },
-              { field: "label", type: "nominal", title: "Label" },
-              { field: "completed", type: "quantitative", title: "Completed (day)" },
-              { field: "cumulativeCompleted", type: "quantitative", title: "Completed (cumulative)" },
-            ],
-          },
+          layer: [
+            {
+              mark: { type: "line", interpolate: "step-after", strokeWidth: 2.4 },
+              encoding: {
+                ...sharedEncoding,
+                y: { field: "cumulativeCompleted", type: "quantitative", title: "Cumulative completed tasks" },
+              },
+            },
+            {
+              mark: {
+                type: "point",
+                filled: false,
+                strokeWidth: 2.2,
+                opacity: 1,
+              },
+              encoding: {
+                ...sharedEncoding,
+                y: { field: "cumulativeCompleted", type: "quantitative", title: "Cumulative completed tasks" },
+                color: { field: "label", type: "nominal", legend: null },
+                shape: { field: "label", type: "nominal", legend: null },
+                size: {
+                  field: "label",
+                  type: "nominal",
+                  legend: null,
+                  scale: { range: [70, 105, 140, 175, 210] },
+                },
+              },
+            },
+          ],
           config: {
             background: "#fffdf8",
             axis: { labelColor: "#1f2a35", titleColor: "#1f2a35", gridColor: "#e6e0cf" },
@@ -180,6 +335,7 @@
             throw new Error(`HTTP ${response.status}`);
           }
           const data = await response.json();
+          latestData = data;
           renderMeta(data);
           await renderChart(data);
           errorEl.hidden = true;

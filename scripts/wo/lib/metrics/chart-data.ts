@@ -1,7 +1,8 @@
 import type { MetricsRecord } from "./types";
+import { normalizeMetricLabels } from "./types";
 
 export type ThroughputPoint = {
-  date: string;
+  at: string;
   label: string;
   completed: number;
   cumulativeCompleted: number;
@@ -12,6 +13,8 @@ export type ThroughputChartData = {
   labels: string[];
   startDate: string | null;
   endDate: string | null;
+  startAt: string | null;
+  endAt: string | null;
   totalCompletedCards: number;
   points: ThroughputPoint[];
 };
@@ -39,17 +42,6 @@ const isDoneCompletion = (metric: MetricsRecord): boolean => {
     return false;
   }
   return metric.eventType === "entered" || metric.eventType === "exited";
-};
-
-const buildDateRange = (startDate: string, endDate: string): string[] => {
-  const dates: string[] = [];
-  let cursor = new Date(`${startDate}T00:00:00.000Z`);
-  const end = new Date(`${endDate}T00:00:00.000Z`);
-  while (cursor.getTime() <= end.getTime()) {
-    dates.push(toDateOnly(cursor));
-    cursor = new Date(cursor.getTime() + 24 * 60 * 60 * 1000);
-  }
-  return dates;
 };
 
 export const parseTrackedLabels = (value: string | undefined): string[] => {
@@ -82,31 +74,32 @@ export const buildThroughputChartData = (options: {
     .filter(isDoneCompletion)
     .sort((a, b) => toComparableTime(a.timestamp) - toComparableTime(b.timestamp));
 
-  const firstCompletionByCardId = new Map<string, { date: string; label: string }>();
+  const firstCompletionByCardId = new Map<string, { at: string; labels: string[] }>();
   for (const metric of doneMetrics) {
     if (firstCompletionByCardId.has(metric.cardId)) {
       continue;
     }
-    const date = metric.completedDate;
-    if (!date) {
+    const atMs = Date.parse(metric.timestamp);
+    if (!Number.isFinite(atMs)) {
       continue;
     }
+    const completionLabels = normalizeMetricLabels(metric.labels);
     firstCompletionByCardId.set(metric.cardId, {
-      date,
-      label: normalizeLabel(metric.label),
+      at: new Date(atMs).toISOString(),
+      labels: completionLabels.length > 0 ? completionLabels : [noLabelBucket],
     });
   }
 
-  const completions = Array.from(firstCompletionByCardId.values()).filter((entry) => {
-    if (selectedLabelSet.size === 0) {
-      return entry.label !== noLabelBucket;
-    }
-    return selectedLabelSet.has(entry.label);
-  });
+  const completions = Array.from(firstCompletionByCardId.values()).map((entry) => {
+    const labels = selectedLabelSet.size === 0
+      ? entry.labels.filter((label) => label !== noLabelBucket)
+      : entry.labels.filter((label) => selectedLabelSet.has(label));
+    return { at: entry.at, labels };
+  }).filter((entry) => entry.labels.length > 0);
 
   const labels = selectedLabels.length > 0
     ? selectedLabels
-    : Array.from(new Set(completions.map((entry) => entry.label))).sort((a, b) => a.localeCompare(b));
+    : Array.from(new Set(completions.flatMap((entry) => entry.labels))).sort((a, b) => a.localeCompare(b));
 
   if (labels.length === 0) {
     return {
@@ -114,35 +107,44 @@ export const buildThroughputChartData = (options: {
       labels: [],
       startDate: null,
       endDate: null,
+      startAt: null,
+      endAt: null,
       totalCompletedCards: 0,
       points: [],
     };
   }
 
-  const earliestCompletionDate = completions
-    .map((entry) => entry.date)
-    .sort((a, b) => a.localeCompare(b))[0] ?? toDateOnly(now);
-  const endDate = toDateOnly(now);
-  const startDate = earliestCompletionDate;
-
-  const completionCountByDayLabel = new Map<string, number>();
+  const completionCountByTimestampLabel = new Map<string, number>();
+  const timestamps = new Set<string>();
   for (const completion of completions) {
-    const key = `${completion.date}|${completion.label}`;
-    completionCountByDayLabel.set(key, (completionCountByDayLabel.get(key) ?? 0) + 1);
+    timestamps.add(completion.at);
+    for (const label of completion.labels) {
+      const key = `${completion.at}|${label}`;
+      completionCountByTimestampLabel.set(key, (completionCountByTimestampLabel.get(key) ?? 0) + 1);
+    }
   }
+  if (timestamps.size === 0) {
+    timestamps.add(now.toISOString());
+  }
+
+  const sortedTimestamps = Array.from(timestamps).sort((a, b) => toComparableTime(a) - toComparableTime(b));
+  const startAt = sortedTimestamps[0] ?? null;
+  const endAt = sortedTimestamps[sortedTimestamps.length - 1] ?? null;
+  const startDate = startAt ? toDateOnly(new Date(startAt)) : null;
+  const endDate = endAt ? toDateOnly(new Date(endAt)) : null;
 
   const points: ThroughputPoint[] = [];
   const cumulativeByLabel = new Map<string, number>();
   for (const label of labels) {
     cumulativeByLabel.set(label, 0);
   }
-  for (const date of buildDateRange(startDate, endDate)) {
+  for (const at of sortedTimestamps) {
     for (const label of labels) {
-      const key = `${date}|${label}`;
-      const completed = completionCountByDayLabel.get(key) ?? 0;
+      const key = `${at}|${label}`;
+      const completed = completionCountByTimestampLabel.get(key) ?? 0;
       const cumulative = (cumulativeByLabel.get(label) ?? 0) + completed;
       cumulativeByLabel.set(label, cumulative);
-      points.push({ date, label, completed, cumulativeCompleted: cumulative });
+      points.push({ at, label, completed, cumulativeCompleted: cumulative });
     }
   }
 
@@ -151,6 +153,8 @@ export const buildThroughputChartData = (options: {
     labels,
     startDate,
     endDate,
+    startAt,
+    endAt,
     totalCompletedCards: completions.length,
     points,
   };

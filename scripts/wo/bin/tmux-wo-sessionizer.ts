@@ -36,9 +36,9 @@ type CardListState = {
 
 type LifecycleData = {
   leadStartByCardId: Map<string, number>;
-  completedCycles: Array<{ cardId: string; completedAt: number; cycleSeconds: number; label: string | null }>;
+  completedCycles: Array<{ cardId: string; completedAt: number; cycleSeconds: number; labels: string[] }>;
   completedCycleByCardId: Map<string, number>;
-  doneEntries: Array<{ cardId: string; completedAt: number; label: string | null }>;
+  doneEntries: Array<{ cardId: string; completedAt: number; labels: string[] }>;
 };
 
 type FileSignature = {
@@ -643,12 +643,16 @@ const loadLifecycleData = (): LifecycleData => {
   const sourceSignature = getFileSignature(metricsPath);
   const cached = readSignatureCache<{
     leadStartByCardIdEntries: Array<[string, number]>;
-    completedCycles: Array<{ cardId: string; completedAt: number; cycleSeconds: number; label: string | null }>;
+    completedCycles: Array<{ cardId: string; completedAt: number; cycleSeconds: number; labels: string[] }>;
     completedCycleByCardIdEntries?: Array<[string, number]>;
-    doneEntries?: Array<{ cardId: string; completedAt: number; label: string | null }>;
+    doneEntries?: Array<{ cardId: string; completedAt: number; labels: string[] }>;
   }>(lifecycleCachePath, metricsPath, sourceSignature);
-  const hasCompatibleCycleEntries = cached?.completedCycles.every((entry) => typeof entry.cardId === "string") ?? false;
-  const hasCompatibleDoneEntries = cached?.doneEntries?.every((entry) => typeof entry.cardId === "string") ?? false;
+  const hasCompatibleCycleEntries = cached?.completedCycles.every((entry) =>
+    typeof entry.cardId === "string" && Array.isArray(entry.labels)
+  ) ?? false;
+  const hasCompatibleDoneEntries = cached?.doneEntries?.every((entry) =>
+    typeof entry.cardId === "string" && Array.isArray(entry.labels)
+  ) ?? false;
   if (cached?.completedCycleByCardIdEntries && hasCompatibleCycleEntries && hasCompatibleDoneEntries) {
     return {
       leadStartByCardId: new Map(cached.leadStartByCardIdEntries),
@@ -659,9 +663,9 @@ const loadLifecycleData = (): LifecycleData => {
   }
 
   const leadStartByCardId = new Map<string, number>();
-  const completedCycles: Array<{ cardId: string; completedAt: number; cycleSeconds: number; label: string | null }> = [];
+  const completedCycles: Array<{ cardId: string; completedAt: number; cycleSeconds: number; labels: string[] }> = [];
   const completedCycleByCardId = new Map<string, number>();
-  const doneEntries: Array<{ cardId: string; completedAt: number; label: string | null }> = [];
+  const doneEntries: Array<{ cardId: string; completedAt: number; labels: string[] }> = [];
 
   if (!sourceSignature) {
     return { leadStartByCardId, completedCycles, completedCycleByCardId, doneEntries };
@@ -698,14 +702,14 @@ const loadLifecycleData = (): LifecycleData => {
       doneEntries.push({
         cardId: record.cardId,
         completedAt: ts,
-        label: record.label ?? null,
+        labels: record.labels,
       });
       const doingStart = doingStartByCardId.get(record.cardId);
       if (!doingStart || ts <= doingStart) {
         continue;
       }
       const cycleSeconds = Math.floor((ts - doingStart) / 1000);
-      completedCycles.push({ cardId: record.cardId, completedAt: ts, cycleSeconds, label: record.label ?? null });
+      completedCycles.push({ cardId: record.cardId, completedAt: ts, cycleSeconds, labels: record.labels });
       if (!completedCycleByCardId.has(record.cardId)) {
         completedCycleByCardId.set(record.cardId, cycleSeconds);
       }
@@ -726,8 +730,8 @@ export const buildPitWallHeader = (options: {
   now: Date;
   labels: string[];
   cardStates: CardListState[];
-  doneEntries: Array<{ cardId: string; completedAt: number; label: string | null }>;
-  completedCycles: Array<{ cardId: string; completedAt: number; cycleSeconds: number; label: string | null }>;
+  doneEntries: Array<{ cardId: string; completedAt: number; labels: string[] }>;
+  completedCycles: Array<{ cardId: string; completedAt: number; cycleSeconds: number; labels: string[] }>;
   awSecondsByLabel?: Map<string, number> | null;
 }) => {
   const selectedLabels = options.labels.length > 0 ? options.labels : pitWallDefaultLabels;
@@ -754,11 +758,11 @@ export const buildPitWallHeader = (options: {
     globalCycleSamples.push(cycleSeconds);
 
     const labelsFromState = cardLabelsById.get(completed.cardId);
-    const fallbackLabel = completed.label?.toLowerCase() ?? null;
+    const fallbackLabels = new Set(completed.labels.map((label) => label.toLowerCase()));
     const labels = labelsFromState && labelsFromState.size > 0
       ? labelsFromState
-      : fallbackLabel
-        ? new Set([fallbackLabel])
+      : fallbackLabels.size > 0
+        ? fallbackLabels
         : null;
     if (!labels) {
       continue;
@@ -777,11 +781,11 @@ export const buildPitWallHeader = (options: {
       continue;
     }
     const labelsFromState = cardLabelsById.get(done.cardId);
-    const fallbackLabel = done.label?.toLowerCase() ?? null;
+    const fallbackLabels = new Set(done.labels.map((label) => label.toLowerCase()));
     const labels = labelsFromState && labelsFromState.size > 0
       ? labelsFromState
-      : fallbackLabel
-        ? new Set([fallbackLabel])
+      : fallbackLabels.size > 0
+        ? fallbackLabels
         : null;
     if (!labels) {
       continue;

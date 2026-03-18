@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile, access } from "node:fs/promises";
 import { dirname } from "node:path";
 import type { MetricsRecord, CardListState } from "./types";
-import { formatMetricsRecord, parseMetricsRecord, getPrimaryLabel, listNames } from "./types";
+import { formatMetricsRecord, parseMetricsRecord, listNames, normalizeMetricLabels } from "./types";
 
 const defaultStateDir = "scripts/wo/state";
 const getStateDir = (): string => process.env.WO_METRICS_STATE_DIR ?? defaultStateDir;
@@ -45,7 +45,7 @@ const ensureCsvHeader = async () => {
   const exists = await fileExists(metricsPath);
   if (!exists) {
     await ensureDir(metricsPath);
-    const header = "timestamp,card_id,url,event_type,list,label,seconds_in_list,completed_date\n";
+    const header = "timestamp,card_id,url,event_type,list,labels,seconds_in_list,completed_date\n";
     await writeFile(metricsPath, header);
   }
 };
@@ -117,7 +117,7 @@ export const recordCardMove = async (options: {
 }): Promise<void> => {
   const now = options.now ?? new Date().toISOString();
   const trackedUrl = normalizeTrackedUrl(options.url);
-  const label = getPrimaryLabel(options.labels);
+  const labels = normalizeMetricLabels(options.labels);
   const states = await readCardStates();
 
   const currentState = states.get(options.cardId);
@@ -136,7 +136,7 @@ export const recordCardMove = async (options: {
         url: trackedUrl ?? previousState.url,
         eventType: "exited",
         list: options.fromList,
-        label: getPrimaryLabel(previousState.labels) ?? label,
+        labels: normalizeMetricLabels(previousState.labels),
         secondsInList,
         completedDate: null,
       };
@@ -154,7 +154,7 @@ export const recordCardMove = async (options: {
     url: trackedUrl,
     eventType: "entered",
     list: options.toList,
-    label,
+    labels,
     secondsInList: null,
     completedDate: getCompletedDate({ list: options.toList, eventType: "entered", now }),
   };
@@ -168,7 +168,7 @@ export const recordCardMove = async (options: {
     cardId: options.cardId,
     list: options.toList,
     enteredAt: now,
-    labels: options.labels,
+    labels,
     url: trackedUrl,
   });
 };
@@ -197,7 +197,7 @@ export const recordCardExit = async (options: {
     url: trackedUrl ?? state.url,
     eventType: "exited",
     list: options.list,
-    label: getPrimaryLabel(state.labels),
+    labels: normalizeMetricLabels(state.labels),
     secondsInList,
     completedDate: null,
   };
@@ -279,6 +279,7 @@ export const getThroughput = async (options: {
   endDate: string;
   label?: string | null;
 }): Promise<number> => {
+  const normalizedLabel = options.label?.trim().toLowerCase() ?? null;
   const metrics = await readMetrics();
   return metrics.filter((m) => {
     const isDoneCompletion =
@@ -287,7 +288,7 @@ export const getThroughput = async (options: {
     if (!isDoneCompletion) {
       return false;
     }
-    if (options.label && m.label !== options.label) {
+    if (normalizedLabel && !m.labels.includes(normalizedLabel)) {
       return false;
     }
     return m.completedDate >= options.startDate && m.completedDate <= options.endDate;
