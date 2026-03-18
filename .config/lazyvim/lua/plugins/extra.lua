@@ -24,5 +24,18 @@ return {
         ignored = true,
       },
     },
+    keys = {
+      {
+        "<leader>fr",
+        function()
+          Snacks.picker.recent({
+            cwd = LazyVim.root(),
+            filter = { cwd = true },
+          })
+        end,
+        desc = "Recent (Root Dir)",
+      },
+      { "<leader>fR", function() Snacks.picker.recent() end, desc = "Recent (Global)" },
+    },
   },
 }
