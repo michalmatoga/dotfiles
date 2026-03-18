@@ -65,9 +65,29 @@ return {
 
       local map = vim.keymap.set
 
+      local function run_git(args)
+        local result = vim.system(args, { text = true }):wait()
+        if result.code ~= 0 then
+          return nil
+        end
+
+        return vim.trim(result.stdout or "")
+      end
+
       local function get_default_branch_name()
-        local result = vim.system({ "git", "rev-parse", "--verify", "main" }, { text = true }):wait()
-        return result.code == 0 and "main" or "master"
+        local remote_head = run_git({ "git", "symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD" })
+        if remote_head and remote_head ~= "" then
+          local branch = remote_head:match("^origin/(.+)$")
+          if branch and branch ~= "" then
+            return branch
+          end
+        end
+
+        if run_git({ "git", "rev-parse", "--verify", "main" }) then
+          return "main"
+        end
+
+        return "master"
       end
 
       map("n", "<leader>gah", "<Cmd>DiffviewFileHistory<CR>", { desc = "Repo history" })
@@ -78,10 +98,10 @@ return {
       map("n", "<leader>gad", "<Cmd>DiffviewOpen<CR>", { desc = "Repo diff" })
       map("n", "<leader>gam", function()
         vim.cmd("DiffviewOpen " .. get_default_branch_name())
-      end, { desc = "Diff against master" })
+      end, { desc = "Diff against default branch" })
       map("n", "<leader>gaM", function()
-        vim.cmd("DiffviewOpen HEAD..origin/" .. get_default_branch_name())
-      end, { desc = "Diff against origin/master" })
+        vim.cmd("DiffviewOpen origin/" .. get_default_branch_name() .. "...HEAD")
+      end, { desc = "PR-style diff vs origin" })
 
       local function with_gitsigns(action)
         local ok, gs = pcall(require, "gitsigns")
