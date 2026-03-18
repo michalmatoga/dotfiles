@@ -8,6 +8,7 @@ import { readJsonlEntries } from "../lib/state/jsonl";
 import { readLatestSnapshot, writeSnapshot } from "../lib/state/snapshots";
 import { writeEvent } from "../lib/state/events";
 import { ghJson } from "../lib/gh/gh";
+import { normalizeLinkedUrl } from "../lib/url";
 import {
   buildWorktreePath,
   buildWorktreePathForRepo,
@@ -136,7 +137,8 @@ export const syncWorktreesUseCase = async (options: { verbose: boolean }) => {
   let newestTs = lastEventTs;
   for (const event of moves) {
     newestTs = event.ts;
-    const { url, toList, cardId, name, labels } = event.payload;
+    const { toList, cardId, name, labels } = event.payload;
+    const url = normalizeLinkedUrl(event.payload.url);
     if (!url || !toList) {
       await writeEvent({
         ts: event.ts,

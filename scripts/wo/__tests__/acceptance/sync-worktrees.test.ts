@@ -3,6 +3,7 @@ import { seedTestEvents, seedTestSnapshot, readTestEvents } from "./helpers/stat
 import { createTestCard, moveTestCard, getListIdByName } from "./helpers/trello";
 import { buildTestIssueUrl, buildTestPRUrl } from "./helpers/github";
 import { getRunCommandCalls } from "./cache/cli";
+import { normalizeLinkedUrlValue } from "../../lib/url";
 
 /**
  * Acceptance tests for sync-worktrees use case.
@@ -132,6 +133,15 @@ describe("sync-worktrees", () => {
       const match = url.match(/^https:\/\/([^/]+)/);
       expect(match).toBeDefined();
       expect(match![1]).toBe("schibsted.ghe.com");
+    });
+
+    it("normalizes markdown smart-card URLs before matching", () => {
+      const smartCard =
+        '[https://trello.com/c/cNzVuXpR/157-lock-in-metrics](https://trello.com/c/cNzVuXpR/157-lock-in-metrics "smartCard-inline")';
+      const normalized = normalizeLinkedUrlValue(smartCard);
+
+      expect(normalized).toBe("https://trello.com/c/cNzVuXpR/157-lock-in-metrics");
+      expect(/^https:\/\/trello\.com\/c\//.test(normalized)).toBe(true);
     });
   });
 

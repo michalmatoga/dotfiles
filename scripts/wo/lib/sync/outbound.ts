@@ -11,6 +11,7 @@ import {
 import { writeEvent } from "../state/events";
 import { recordCardMove } from "../metrics/lifecycle";
 import { loadLabelRepoMap } from "../trello/label-mapping";
+import { normalizeLinkedUrl } from "../url";
 
 export const syncOutbound = async (options: {
   boardId: string;
@@ -84,7 +85,7 @@ export const syncOutbound = async (options: {
       : null;
     const prevListName = prevList ? listAliases[prevList.name] ?? prevList.name : null;
 
-    const cardUrl = meta?.url ?? card.shortUrl ?? card.url ?? null;
+    const cardUrl = normalizeLinkedUrl(meta?.url ?? card.shortUrl ?? card.url ?? null);
 
     // Emit trello.card.moved for cards that changed lists and are relevant for worktrees
     if (listChanged && cardUrl && (meta?.url || hasMappedLabel || hasHouseholdLabel)) {
