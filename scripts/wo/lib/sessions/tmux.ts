@@ -239,7 +239,7 @@ const buildTrelloPromptSeed = async (
   providedTitle?: string | null,
 ): Promise<PromptSeed> => {
   const card = await fetchCardDetailsByShortId(info.shortId);
-  const labels = card.labels
+  const labels = (Array.isArray(card.labels) ? card.labels : [])
     .map((label) => {
       const name = label.name?.trim();
       if (name) {
@@ -249,18 +249,20 @@ const buildTrelloPromptSeed = async (
     })
     .filter(Boolean);
 
-  const checklistLines = card.checklists.slice(0, trelloChecklistLimit).map((checklist) => {
-    const items = checklist.checkItems
+  const checklists = Array.isArray(card.checklists) ? card.checklists : [];
+  const checklistLines = checklists.slice(0, trelloChecklistLimit).map((checklist) => {
+    const checkItems = Array.isArray(checklist.checkItems) ? checklist.checkItems : [];
+    const items = checkItems
       .slice(0, trelloChecklistItemLimit)
       .map((item) => `${item.state === "complete" ? "[x]" : "[ ]"} ${item.name}`);
-    const extra = checklist.checkItems.length > trelloChecklistItemLimit
-      ? `\n  ... (${checklist.checkItems.length - trelloChecklistItemLimit} more items)`
+    const extra = checkItems.length > trelloChecklistItemLimit
+      ? `\n  ... (${checkItems.length - trelloChecklistItemLimit} more items)`
       : "";
     return `- ${checklist.name}\n  ${items.join("\n  ")}${extra}`;
   });
 
-  const extraChecklists = card.checklists.length > trelloChecklistLimit
-    ? `\n... (${card.checklists.length - trelloChecklistLimit} more checklists)`
+  const extraChecklists = checklists.length > trelloChecklistLimit
+    ? `\n... (${checklists.length - trelloChecklistLimit} more checklists)`
     : "";
 
   const context = [

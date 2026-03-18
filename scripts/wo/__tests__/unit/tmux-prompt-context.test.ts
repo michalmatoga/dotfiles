@@ -131,6 +131,30 @@ describe("tmux prompt context prefetch", () => {
     expect(seed.prefetchedContext).toContain("[ ] Add tests");
   });
 
+  it("handles missing Trello labels/checklists safely", async () => {
+    fetchCardDetailsByShortIdMock.mockResolvedValueOnce({
+      id: "card2",
+      name: "Partial Trello payload",
+      desc: "API returned partial card details",
+      url: "https://trello.com/c/abcd1234/2-partial",
+      shortUrl: "https://trello.com/c/abcd1234",
+    } as any);
+
+    const info: UrlInfo = {
+      kind: "trello",
+      shortId: "abcd1234",
+    };
+
+    const seed = await buildPromptSeed({
+      info,
+      url: "https://trello.com/c/abcd1234/2-partial",
+    });
+
+    expect(seed.title).toBe("Partial Trello payload");
+    expect(seed.prefetchedContext).toContain("Labels:\n- none");
+    expect(seed.prefetchedContext).toContain("Checklists:\nnone");
+  });
+
   it("falls back safely when context prefetch fails", async () => {
     ghJsonMock
       .mockRejectedValueOnce(new Error("network down"))

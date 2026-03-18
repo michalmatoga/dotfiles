@@ -109,7 +109,8 @@ Flags:
 - Worktree actions run for cards with GitHub issue/PR URLs, or Trello-only cards that match a label mapping in `scripts/wo/config/label-repos.json`.
 - LSS-created cards keep their area label and add a repo label only when a `repo-*` frontmatter tag is present; no default `journal` label is added.
 - Trello-only cards without a mapped label are skipped (soft), and cards with multiple mapped labels are skipped with an error event.
-- When a worktree is created for a trigger list (default: `Ready,Doing`), a detached tmux session is initialized and the right pane runs `opencode -s <sessionId>`.
+- When a worktree is created for a trigger list (default: `Ready,Doing`), `wo` first bootstraps an OpenCode session with `opencode run --agent plan --model <resolved-model>` and then initializes a detached tmux session where the right pane runs `opencode -s <sessionId>`.
+- `<resolved-model>` comes from `OPENCODE_MODEL` and falls back to `openai/gpt-5.3-codex` when unset.
 - Session prompts use `scripts/wo/prompts/review.md` for PRs and `scripts/wo/prompts/issue.md` for issues.
 - Trello-only sessions use `scripts/wo/prompts/trello.md`.
 - Set `WO_WORKTREE_TRIGGER_LISTS` to customize which lists create/reuse worktrees (default: `Ready,Doing`).

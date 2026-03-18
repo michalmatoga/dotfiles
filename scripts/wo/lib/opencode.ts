@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { runCommandCapture } from "./command";
 
 const opencodeLogDir = join(homedir(), ".local/share/opencode/log");
+const defaultOpencodeModel = "openai/gpt-5.3-codex";
 
 const loadOpenAiApiKeyFromSecrets = async (): Promise<string | null> => {
   const dotfilesDir = process.env.DOTFILES_DIR;
@@ -28,6 +29,27 @@ const loadOpenAiApiKeyFromSecrets = async (): Promise<string | null> => {
 };
 
 export const buildOpencodeResumeCommand = (sessionId: string) => `opencode -s ${sessionId}`;
+
+export const resolveOpencodeModel = () => {
+  const configured = process.env.OPENCODE_MODEL?.trim();
+  if (configured) {
+    return configured;
+  }
+  return defaultOpencodeModel;
+};
+
+export const buildInitialOpencodeArgs = (options: { title: string; prompt: string; model: string }) => [
+  "run",
+  "--format",
+  "json",
+  "--agent",
+  "plan",
+  "--model",
+  options.model,
+  "--title",
+  options.title,
+  options.prompt,
+];
 
 const slugify = (value: string) => {
   const lowered = value.toLowerCase();
@@ -83,7 +105,11 @@ export const runInitialOpencode = async (options: {
     }
   }
 
-  const args = ["run", "--format", "json", "--title", options.title, options.prompt];
+  const args = buildInitialOpencodeArgs({
+    title: options.title,
+    prompt: options.prompt,
+    model: resolveOpencodeModel(),
+  });
   await mkdir(opencodeLogDir, { recursive: true });
   const logPath = buildLogPath(options.title);
   const logFd = openSync(logPath, "a");
