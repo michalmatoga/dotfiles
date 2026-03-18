@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>WO Throughput Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Fraunces:opsz,wght@9..144,600&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+    <style>
+      :root {
+        --bg: #f6f4ea;
+        --bg-accent: #e6f2d8;
+        --card: #fffdf8;
+        --text: #1f2a35;
+        --muted: #6a7682;
+        --line: #d9d4c5;
+        --success: #1a8f4c;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Space Grotesk", "Segoe UI", sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(circle at 5% 10%, var(--bg-accent) 0%, transparent 45%),
+          radial-gradient(circle at 95% 15%, #f1e4cf 0%, transparent 40%),
+          var(--bg);
+      }
+
+      .layout {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 1.5rem 1rem 2rem;
+      }
+
+      .panel {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 1rem;
+        box-shadow: 0 10px 35px rgb(30 45 60 / 8%);
+      }
+
+      h1 {
+        font-family: "Fraunces", "Georgia", serif;
+        margin: 0 0 0.4rem;
+        letter-spacing: 0.01em;
+      }
+
+      p {
+        margin: 0;
+      }
+
+      .subtle {
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+
+      .meta {
+        margin-top: 0.85rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.6rem;
+      }
+
+      .chip {
+        background: #f3f1e9;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 0.3rem 0.75rem;
+        font-size: 0.85rem;
+      }
+
+      .status-ok {
+        color: var(--success);
+      }
+
+      #chart {
+        margin-top: 0.8rem;
+      }
+
+      .error {
+        margin-top: 1rem;
+        border-radius: 12px;
+        border: 1px solid #e7c4c4;
+        background: #fff4f2;
+        padding: 0.8rem;
+        color: #842029;
+      }
+
+      @media (max-width: 700px) {
+        .layout {
+          padding: 1rem 0.75rem 1.5rem;
+        }
+        h1 {
+          font-size: 1.6rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="layout">
+      <section class="panel">
+        <h1>WO Throughput</h1>
+        <p class="subtle">Cumulative completed tasks per label (all-time)</p>
+        <div class="meta" id="meta"></div>
+        <div id="chart"></div>
+        <div id="error" class="error" hidden></div>
+      </section>
+    </main>
+
+    <script>
+      const params = new URLSearchParams(window.location.search);
+      const dataUrl = params.get("data") || "../state/wo-throughput-chart.json";
+      const refreshSecondsRaw = parseInt(params.get("refresh") || "30", 10);
+      const refreshSeconds = Number.isFinite(refreshSecondsRaw) && refreshSecondsRaw >= 5 ? refreshSecondsRaw : 30;
+
+      const metaEl = document.getElementById("meta");
+      const errorEl = document.getElementById("error");
+
+      const renderMeta = (data) => {
+        const labels = data.labels.length > 0 ? data.labels.join(", ") : "none";
+        const generatedAt = data.generatedAt ? new Date(data.generatedAt).toLocaleString() : "--";
+        const range = data.startDate && data.endDate ? `${data.startDate} to ${data.endDate}` : "--";
+        metaEl.innerHTML = [
+          `<span class="chip">Labels: ${labels}</span>`,
+          `<span class="chip">Completed cards: ${data.totalCompletedCards}</span>`,
+          `<span class="chip">Range: ${range}</span>`,
+          `<span class="chip status-ok">Updated: ${generatedAt}</span>`,
+          `<span class="chip">Auto-refresh: ${refreshSeconds}s</span>`,
+        ].join("");
+      };
+
+      const renderChart = async (data) => {
+        const spec = {
+          $schema: "https://vega.github.io/schema/vega-lite/v5.json",
+          data: { values: data.points },
+          autosize: { type: "fit", contains: "padding" },
+          width: "container",
+          height: 420,
+          mark: { type: "line", interpolate: "monotone", point: { filled: true, size: 35 }, strokeWidth: 2.4 },
+          encoding: {
+            x: { field: "date", type: "temporal", title: "Date" },
+            y: { field: "cumulativeCompleted", type: "quantitative", title: "Cumulative completed tasks" },
+            color: { field: "label", type: "nominal", title: "Label" },
+            tooltip: [
+              { field: "date", type: "temporal", title: "Date" },
+              { field: "label", type: "nominal", title: "Label" },
+              { field: "completed", type: "quantitative", title: "Completed (day)" },
+              { field: "cumulativeCompleted", type: "quantitative", title: "Completed (cumulative)" },
+            ],
+          },
+          config: {
+            background: "#fffdf8",
+            axis: { labelColor: "#1f2a35", titleColor: "#1f2a35", gridColor: "#e6e0cf" },
+            legend: { labelColor: "#1f2a35", titleColor: "#1f2a35" },
+            view: { stroke: "#d9d4c5" },
+          },
+        };
+
+        await vegaEmbed("#chart", spec, { actions: false, renderer: "svg" });
+      };
+
+      const loadAndRender = async () => {
+        try {
+          const response = await fetch(`${dataUrl}?t=${Date.now()}`, { cache: "no-store" });
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          const data = await response.json();
+          renderMeta(data);
+          await renderChart(data);
+          errorEl.hidden = true;
+          errorEl.textContent = "";
+        } catch (error) {
+          errorEl.hidden = false;
+          errorEl.textContent = `Could not load chart data from ${dataUrl}. ${String(error)}`;
+        }
+      };
+
+      loadAndRender();
+      setInterval(loadAndRender, refreshSeconds * 1000);
+    </script>
+  </body>
+</html>

@@ -261,6 +261,8 @@ npx --yes tsx scripts/wo/bin/wo-report.ts summary 1
 npx --yes tsx scripts/wo/bin/wo-report.ts card <card-id>
 npx --yes tsx scripts/wo/bin/wo-report.ts card <card-id> 90
 npx --yes tsx scripts/wo/bin/wo-report.ts throughput 14
+npx --yes tsx scripts/wo/bin/wo-report.ts chart-data --labels career,review,business
+npx --yes tsx scripts/wo/bin/wo-report.ts chart-data --labels career,review,business --watch 30
 ```
 
 Notes:
@@ -269,6 +271,36 @@ Notes:
 - Cards without a Trello mapping are grouped under `no-card`.
 - `no-card by repo` breaks down unmapped time by repo root (host/owner/repo).
 - Labels are current labels at report time (no historical label tracking).
+
+### Throughput dashboard (Vega-Lite)
+
+- `scripts/wo/site/throughput-dashboard.html` renders cumulative throughput per label from generated JSON.
+- Default chart data path: `scripts/wo/state/wo-throughput-chart.json`.
+- Generate data once:
+
+  ```bash
+  npx --yes tsx scripts/wo/bin/wo-report.ts chart-data --labels career,review,business
+  ```
+
+- Keep chart data fresh while you work (recommended):
+
+  ```bash
+  npx --yes tsx scripts/wo/bin/wo-report.ts chart-data --labels career,review,business --watch 30
+  ```
+
+- Serve repo root and open dashboard:
+
+  ```bash
+  python -m http.server 4173
+  # then open http://localhost:4173/scripts/wo/site/throughput-dashboard.html
+  ```
+
+- Dashboard auto-refreshes every 30 seconds by default. Override with query params:
+  - `?refresh=10` for 10s refresh cadence.
+  - `?data=../state/another-file.json` for custom data path.
+- On this dotfiles setup, `etc/nixos/home.nix` can keep both services always on:
+  - `wo-throughput-chart-data.service` regenerates chart JSON continuously.
+  - `wo-throughput-dashboard.service` serves the dashboard at `http://127.0.0.1:4173/scripts/wo/site/throughput-dashboard.html`.
 
 ### Per-Worktree Summary
 
