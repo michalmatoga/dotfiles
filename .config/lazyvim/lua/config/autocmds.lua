@@ -15,8 +15,3 @@ vim.api.nvim_create_autocmd({ "InsertLeave", "TextChanged" }, {
 })
 
 vim.api.nvim_create_user_command("Cpwd", "call setreg('+', expand('%:p:h'))", {})
-
-vim.api.nvim_create_autocmd("BufEnter", {
-  pattern = "*",
-  command = "setlocal colorcolumn=120",
-})
