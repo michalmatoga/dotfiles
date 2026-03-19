@@ -1267,10 +1267,16 @@
         const visibleLabels = Array.from(visibleLabelSet);
         const styleLegendItems = [
           "<span class=\"chart-legend-item\"><span class=\"chart-legend-line chart-legend-line-actual\"></span>Actual cumulative</span>",
-          "<span class=\"chart-legend-item\"><span class=\"chart-legend-line chart-legend-line-dashed\"></span>Actual total (aggregate)</span>",
           "<span class=\"chart-legend-item\"><span class=\"chart-legend-line chart-legend-line-target\"></span>Target (goal checklist pace)</span>",
           "<span class=\"chart-legend-item\"><span class=\"chart-legend-line chart-legend-line-now\"></span>Now gap marker</span>",
         ];
+        if (visibleLabels.length > 1) {
+          styleLegendItems.splice(
+            1,
+            0,
+            "<span class=\"chart-legend-item\"><span class=\"chart-legend-line chart-legend-line-dashed\"></span>Actual total (aggregate)</span>",
+          );
+        }
         if (showReview) {
           styleLegendItems.push("<span class=\"chart-legend-item\"><span class=\"chart-legend-line\" style=\"border-color:#b45309;border-style:dashed\"></span>Reviews requested (cumulative)</span>");
           styleLegendItems.push("<span class=\"chart-legend-item\"><span class=\"chart-legend-line\" style=\"border-color:#0f766e\"></span>Reviews delivered (cumulative)</span>");
@@ -1408,7 +1414,34 @@
         const showReviewSeries = isCareerContext(data);
         const throughputDomain = getThroughputDomainMs(activeRange, chartPoints, referenceNow);
         const visibleLabels = Array.from(visibleLabelSet);
-        const aggregateActualPoints = buildAggregateActualPoints(chartPoints, visibleLabels);
+        const eventChartPoints = chartPoints.filter((point) => point.completed > 0);
+        const lineChartPoints = (() => {
+          const linePoints = [];
+          for (const label of visibleLabels) {
+            const perLabel = chartPoints
+              .filter((point) => point.label === label)
+              .sort((a, b) => a.atMs - b.atMs);
+            if (perLabel.length === 0) {
+              continue;
+            }
+            for (const point of perLabel) {
+              if (point.completed > 0) {
+                linePoints.push(point);
+              }
+            }
+          }
+          const deduped = new Map();
+          for (const point of linePoints) {
+            deduped.set(`${point.label}|${point.atMs}`, point);
+          }
+          return Array.from(deduped.values()).sort((a, b) => {
+            if (a.atMs !== b.atMs) {
+              return a.atMs - b.atMs;
+            }
+            return a.label.localeCompare(b.label);
+          });
+        })();
+        const aggregateActualPoints = buildAggregateActualPoints(lineChartPoints, visibleLabels);
         const goalSummary = getGoalPaceSummary(data, goalPacingRange, referenceNow);
         const reviewSeries = showReviewSeries
           ? buildReviewCumulativeSeries(data, activeRange, referenceNow)
@@ -1489,13 +1522,13 @@
           layer: [
             {
               data: { values: nowLinePoint },
-              mark: {
-                type: "rule",
-                strokeWidth: 1.2,
-                opacity: 0.85,
-                color: "#6b7280",
-                strokeDash: [3, 3],
-              },
+                mark: {
+                  type: "rule",
+                  strokeWidth: 1.2,
+                  opacity: 0.85,
+                  color: "#6b7280",
+                  strokeDash: [3, 3],
+                },
               encoding: {
                 x: {
                   field: "at",
@@ -1511,14 +1544,14 @@
             },
             {
               data: { values: targetPoints },
-              mark: {
-                type: "line",
-                interpolate: "linear",
-                strokeWidth: 1.7,
-                opacity: 0.75,
-                color: "#4b5563",
-                strokeDash: [2, 4],
-              },
+                mark: {
+                  type: "line",
+                  interpolate: "linear",
+                  strokeWidth: 1.7,
+                  opacity: 0.75,
+                  color: "#4b5563",
+                  strokeDash: [2, 4],
+                },
               encoding: {
                 x: {
                   field: "at",
@@ -1681,33 +1714,35 @@
                 },
               },
             ] : []),
-            {
-              data: { values: aggregateActualPoints },
-              mark: {
-                type: "line",
-                interpolate: "step-after",
-                strokeWidth: 1.7,
-                opacity: 0.8,
-                color: "#374151",
-                strokeDash: [7, 4],
-              },
-              encoding: {
-                x: {
-                  field: "at",
-                  type: "temporal",
-                  title: "Time",
-                  axis: throughputXAxis,
-                  scale: activeRangeDomain ? { domain: activeRangeDomain } : undefined,
+            ...(visibleLabels.length > 1 ? [
+              {
+                data: { values: aggregateActualPoints },
+                mark: {
+                  type: "line",
+                  interpolate: "step-after",
+                  strokeWidth: 1.7,
+                  opacity: 0.8,
+                  color: "#374151",
+                  strokeDash: [7, 4],
                 },
-                y: { field: "totalCumulative", type: "quantitative", title: "Cumulative completed tasks" },
-                tooltip: [
-                  { field: "at", type: "temporal", title: "Time", format: "%Y-%m-%d %H:%M:%S" },
-                  { field: "totalCumulative", type: "quantitative", title: "Actual total cumulative", format: ".2f" },
-                ],
+                encoding: {
+                  x: {
+                    field: "at",
+                    type: "temporal",
+                    title: "Time",
+                    axis: throughputXAxis,
+                    scale: activeRangeDomain ? { domain: activeRangeDomain } : undefined,
+                  },
+                  y: { field: "totalCumulative", type: "quantitative", title: "Cumulative completed tasks" },
+                  tooltip: [
+                    { field: "at", type: "temporal", title: "Time", format: "%Y-%m-%d %H:%M:%S" },
+                    { field: "totalCumulative", type: "quantitative", title: "Actual total cumulative", format: ".2f" },
+                  ],
+                },
               },
-            },
+            ] : []),
             {
-              data: { values: chartPoints },
+              data: { values: lineChartPoints },
               mark: { type: "line", interpolate: "step-after", strokeWidth: 2.4 },
               encoding: {
                 ...sharedEncoding,
@@ -1715,7 +1750,7 @@
               },
             },
             {
-              data: { values: chartPoints },
+              data: { values: eventChartPoints },
               mark: {
                 type: "point",
                 filled: true,
