@@ -18,6 +18,7 @@ import {
   type CycleTimeSnapshotPoint,
 } from "../lib/metrics/chart-data";
 import { buildGoalTrackingData, defaultGoalTrackingSources } from "../lib/metrics/goal-tracking";
+import { buildReviewKpiData } from "../lib/metrics/review-kpi";
 import { readJsonlEntries } from "../lib/state/jsonl";
 import { readLatestSnapshot } from "../lib/state/snapshots";
 import { fetchBoardLabels } from "../lib/trello/labels";
@@ -71,6 +72,9 @@ const snapshotWindowHours = 24;
 
 const resolveCycleTimeSnapshotPath = (outputPath: string): string =>
   resolve(dirname(outputPath), "wo-cycle-time-snapshots.jsonl");
+
+const resolveEventsPath = (outputPath: string): string =>
+  resolve(dirname(outputPath), "wo-events.jsonl");
 
 const readCycleTimeSnapshots = async (snapshotPath: string): Promise<CycleTimeSnapshotPoint[]> => {
   const entries = await readJsonlEntries<CycleTimeSnapshotPoint>(snapshotPath);
@@ -416,6 +420,10 @@ const writeChartData = async (options: {
     now,
     sources: defaultGoalTrackingSources,
   });
+  const events = await readJsonlEntries<{ ts?: string; type?: string; payload?: Record<string, unknown> }>(
+    resolveEventsPath(options.outputPath),
+  );
+  const reviewKpi = buildReviewKpiData({ now, events });
   const liveCycleTime = buildLiveCycleTimeData({
     metrics,
     cardStates: snapshotScopedCardStates,
@@ -457,6 +465,7 @@ const writeChartData = async (options: {
   const output = {
     ...chartData,
     goalTracking,
+    reviewKpi,
     cycleTime: {
       generatedAt: liveCycleTime.generatedAt,
       snapshotIntervalMinutes,

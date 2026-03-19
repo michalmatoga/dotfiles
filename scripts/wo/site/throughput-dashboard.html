@@ -220,6 +220,35 @@
         font-family: "Space Grotesk", "Segoe UI", sans-serif;
       }
 
+      #review-kpi {
+        min-height: 120px;
+      }
+
+      .review-kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.5rem;
+      }
+
+      .review-kpi-item {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 0.55rem 0.65rem;
+        background: #fcfaf4;
+      }
+
+      .review-kpi-label {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.77rem;
+      }
+
+      .review-kpi-value {
+        margin: 0.15rem 0 0;
+        font-size: 1.05rem;
+        font-weight: 700;
+      }
+
       #throughput-chart {
         margin-top: 0.8rem;
         min-height: 420px;
@@ -335,6 +364,10 @@
             <p class="chart-title">Goal tracking context</p>
             <div id="goal-tracking"></div>
           </div>
+          <div id="review-kpi-card" class="chart-card">
+            <p class="chart-title">Review target (requested vs delivered)</p>
+            <div id="review-kpi"></div>
+          </div>
           <div class="chart-card">
             <p class="chart-title">Live cumulative cycle time (unfinished)</p>
             <div id="cycle-gauge"></div>
@@ -363,6 +396,8 @@
       const throughputStyleLegendEl = document.getElementById("throughput-style-legend");
       const throughputSeriesLegendEl = document.getElementById("throughput-series-legend");
       const goalTrackingEl = document.getElementById("goal-tracking");
+      const reviewKpiCardEl = document.getElementById("review-kpi-card");
+      const reviewKpiEl = document.getElementById("review-kpi");
       const cycleGaugeEl = document.getElementById("cycle-gauge");
       const cycleAreaEl = document.getElementById("cycle-area");
       const cycleAreaByLabelEl = document.getElementById("cycle-area-by-label");
@@ -640,6 +675,102 @@
         };
       };
 
+      const getReviewKpiPoints = (data) => {
+        const reviewKpi = data && typeof data === "object" && data.reviewKpi && typeof data.reviewKpi === "object"
+          ? data.reviewKpi
+          : null;
+        const points = reviewKpi && Array.isArray(reviewKpi.points) ? reviewKpi.points : [];
+        return points
+          .map((point) => {
+            const atMs = Date.parse(point && point.at ? point.at : "");
+            if (!Number.isFinite(atMs)) {
+              return null;
+            }
+            return {
+              atMs,
+              requestedDelta: Math.max(0, Number(point.requestedDelta) || 0),
+              deliveredDelta: Math.max(0, Number(point.deliveredDelta) || 0),
+              missedDelta: Math.max(0, Number(point.missedDelta) || 0),
+            };
+          })
+          .filter((point) => point !== null)
+          .sort((a, b) => a.atMs - b.atMs);
+      };
+
+      const getReviewWindowSummary = (data, range, referenceNow) => {
+        const points = getReviewKpiPoints(data);
+        const nowMs = referenceNow instanceof Date ? referenceNow.getTime() : Date.now();
+        const startMs = range && range.startMs !== null ? range.startMs : Number.NEGATIVE_INFINITY;
+        const endMs = range && range.endMs !== null ? range.endMs : nowMs;
+        let requested = 0;
+        let delivered = 0;
+        let missed = 0;
+        let reRequested = 0;
+        for (const point of points) {
+          if (point.atMs < startMs || point.atMs > endMs) {
+            continue;
+          }
+          requested += point.requestedDelta;
+          delivered += point.deliveredDelta;
+          missed += point.missedDelta;
+          if (point.requestedDelta > 0 && point.deliveredDelta === 0 && point.missedDelta === 0) {
+            reRequested += 1;
+          }
+        }
+        const deliveryRatePct = requested > 0 ? (delivered / requested) * 100 : null;
+        return {
+          requested,
+          delivered,
+          missed,
+          reRequested,
+          unmet: Math.max(0, requested - delivered),
+          deliveryRatePct,
+        };
+      };
+
+      const buildReviewCumulativeSeries = (data, range, referenceNow) => {
+        const points = getReviewKpiPoints(data);
+        const domain = getThroughputDomainMs(range, points, referenceNow);
+        const startMs = domain.startMs;
+        const endMs = domain.endMs;
+        let requestedBefore = 0;
+        let deliveredBefore = 0;
+        for (const point of points) {
+          if (point.atMs >= startMs) {
+            continue;
+          }
+          requestedBefore += point.requestedDelta;
+          deliveredBefore += point.deliveredDelta;
+        }
+
+        let requestedRunning = requestedBefore;
+        let deliveredRunning = deliveredBefore;
+        const requestedSeries = [{ at: new Date(startMs).toISOString(), cumulative: 0 }];
+        const deliveredSeries = [{ at: new Date(startMs).toISOString(), cumulative: 0 }];
+
+        for (const point of points) {
+          if (point.atMs < startMs || point.atMs > endMs) {
+            continue;
+          }
+          requestedRunning += point.requestedDelta;
+          deliveredRunning += point.deliveredDelta;
+          requestedSeries.push({
+            at: new Date(point.atMs).toISOString(),
+            cumulative: requestedRunning - requestedBefore,
+          });
+          deliveredSeries.push({
+            at: new Date(point.atMs).toISOString(),
+            cumulative: deliveredRunning - deliveredBefore,
+          });
+        }
+
+        const requestedLast = requestedSeries[requestedSeries.length - 1]?.cumulative ?? 0;
+        const deliveredLast = deliveredSeries[deliveredSeries.length - 1]?.cumulative ?? 0;
+        requestedSeries.push({ at: new Date(endMs).toISOString(), cumulative: requestedLast });
+        deliveredSeries.push({ at: new Date(endMs).toISOString(), cumulative: deliveredLast });
+        return { requestedSeries, deliveredSeries };
+      };
+
       const getThroughputDomainMs = (range, points, referenceNow) => {
         const referenceMs = referenceNow instanceof Date ? referenceNow.getTime() : Date.now();
         const pointTimes = points
@@ -672,6 +803,8 @@
       const normalizeLabels = (labels) => Array.isArray(labels)
         ? labels.map((label) => String(label).trim().toLowerCase()).filter((label) => label.length > 0)
         : [];
+
+      const careerContextLabels = new Set(["career", "career-delivery", "review"]);
 
       const parseLabelQueryParam = (value) => {
         if (!value) {
@@ -745,6 +878,16 @@
         return pruned;
       };
 
+      const isCareerContext = (data) => {
+        const visibleLabelSet = getEffectiveVisibleLabels(data && data.labels);
+        for (const label of visibleLabelSet) {
+          if (careerContextLabels.has(label)) {
+            return true;
+          }
+        }
+        return false;
+      };
+
       const setVisibleLabels = (labelsSet, allLabels) => {
         const normalized = normalizeLabels(allLabels);
         if (normalized.length === 0) {
@@ -815,6 +958,33 @@
             "</article>",
           ].join("\n");
         }).join("\n");
+      };
+
+      const renderReviewKpi = (data) => {
+        if (!reviewKpiEl) {
+          return;
+        }
+        const showReview = isCareerContext(data);
+        if (reviewKpiCardEl) {
+          reviewKpiCardEl.hidden = !showReview;
+        }
+        if (!showReview) {
+          reviewKpiEl.innerHTML = "";
+          return;
+        }
+        const activeRange = getSelectedTimeRange(data);
+        const summary = getReviewWindowSummary(data, activeRange, getReferenceNow(data));
+        const rateText = summary.deliveryRatePct !== null ? `${summary.deliveryRatePct.toFixed(1)}%` : "--";
+        reviewKpiEl.innerHTML = [
+          "<div class=\"review-kpi-grid\">",
+          `  <div class=\"review-kpi-item\"><p class=\"review-kpi-label\">Requested</p><p class=\"review-kpi-value\">${summary.requested}</p></div>`,
+          `  <div class=\"review-kpi-item\"><p class=\"review-kpi-label\">Delivered</p><p class=\"review-kpi-value\">${summary.delivered}</p></div>`,
+          `  <div class=\"review-kpi-item\"><p class=\"review-kpi-label\">Unmet</p><p class=\"review-kpi-value\">${summary.unmet}</p></div>`,
+          `  <div class=\"review-kpi-item\"><p class=\"review-kpi-label\">Delivery rate</p><p class=\"review-kpi-value\">${rateText}</p></div>`,
+          `  <div class=\"review-kpi-item\"><p class=\"review-kpi-label\">Archived w/o review</p><p class=\"review-kpi-value\">${summary.missed}</p></div>`,
+          `  <div class=\"review-kpi-item\"><p class=\"review-kpi-label\">Re-requested</p><p class=\"review-kpi-value\">${summary.reRequested}</p></div>`,
+          "</div>",
+        ].join("\n");
       };
 
       const getVisibleCycleCards = (data, range) => {
@@ -893,14 +1063,22 @@
             ? `${data.startDate} to ${data.endDate}`
             : "--";
         const goalSummary = getGoalPaceSummary(data, activeRange, getReferenceNow(data));
+        const showReview = isCareerContext(data);
+        const reviewSummary = showReview ? getReviewWindowSummary(data, activeRange, getReferenceNow(data)) : null;
         const goalChip = goalSummary.totalTasks > 0
           ? `Goal tasks: ${goalSummary.doneTasks}/${goalSummary.totalTasks} done (${goalSummary.completionPct.toFixed(1)}%), pace ${goalSummary.pacePct !== null ? `${goalSummary.pacePct.toFixed(1)}%` : "--"}`
           : "Goal tasks: no checklist items in visible goal notes";
+        const reviewChip = reviewSummary
+          ? reviewSummary.requested > 0
+            ? `Reviews: delivered ${reviewSummary.delivered}/${reviewSummary.requested} (${reviewSummary.deliveryRatePct.toFixed(1)}%), unmet ${reviewSummary.unmet} (archived ${reviewSummary.missed}, re-requested ${reviewSummary.reRequested})`
+            : "Reviews: no request events in selected range"
+          : null;
         metaEl.innerHTML = [
           `<span class="chip">Labels: ${labels}</span>`,
           `<span class="chip">Series:</span>${toggleButtons}`,
           `<span class="chip">Time range:</span>${rangeButtons}`,
           `<span class="chip">${goalChip}</span>`,
+          reviewChip ? `<span class="chip">${reviewChip}</span>` : "",
           `<span class="chip">Visible window: ${activeRange.label} (${formatSelectedRangeText(activeRange)})</span>`,
           `<span class="chip">Completed cards: ${data.totalCompletedCards}</span>`,
           `<span class="chip">Unfinished in cycle: ${unfinishedCards}</span>`,
@@ -934,6 +1112,7 @@
             syncUrlState(latestData);
             renderMeta(latestData);
             renderGoalTracking(latestData);
+            renderReviewKpi(latestData);
             await renderThroughputChart(latestData);
             await renderCycleGauge(latestData);
             await renderCycleArea(latestData);
@@ -954,6 +1133,7 @@
             syncUrlState(latestData);
             renderMeta(latestData);
             renderGoalTracking(latestData);
+            renderReviewKpi(latestData);
             await renderThroughputChart(latestData);
             await renderCycleGauge(latestData);
             await renderCycleArea(latestData);
@@ -968,6 +1148,10 @@
           "<span class=\"chart-legend-item\"><span class=\"chart-legend-line chart-legend-line-dashed\"></span>Actual total (aggregate)</span>",
           "<span class=\"chart-legend-item\"><span class=\"chart-legend-line chart-legend-line-target\"></span>Target (goal checklist pace)</span>",
         ];
+        if (showReview) {
+          styleLegendItems.push("<span class=\"chart-legend-item\"><span class=\"chart-legend-line\" style=\"border-color:#b45309;border-style:dashed\"></span>Reviews requested (cumulative)</span>");
+          styleLegendItems.push("<span class=\"chart-legend-item\"><span class=\"chart-legend-line\" style=\"border-color:#0f766e\"></span>Reviews delivered (cumulative)</span>");
+        }
         throughputStyleLegendEl.innerHTML = styleLegendItems.join("");
         throughputSeriesLegendEl.innerHTML = visibleLabels.length > 0
           ? visibleLabels
@@ -1061,10 +1245,14 @@
             cumulativeCompleted: point.cumulativeCompleted - (baselineByLabel.get(point.label) || 0),
           }));
         const referenceNow = getReferenceNow(data);
+        const showReviewSeries = isCareerContext(data);
         const throughputDomain = getThroughputDomainMs(activeRange, chartPoints, referenceNow);
         const visibleLabels = Array.from(visibleLabelSet);
         const aggregateActualPoints = buildAggregateActualPoints(chartPoints, visibleLabels);
         const goalSummary = getGoalPaceSummary(data, activeRange, referenceNow);
+        const reviewSeries = showReviewSeries
+          ? buildReviewCumulativeSeries(data, activeRange, referenceNow)
+          : { requestedSeries: [], deliveredSeries: [] };
         const goalAnchorsMs = buildRangeAnchorsMs(throughputDomain.startMs, throughputDomain.endMs);
         const targetPoints = goalSummary.totalTasks > 0
           ? goalAnchorsMs.map((atMs) => {
@@ -1142,6 +1330,57 @@
                 ],
               },
             },
+            ...(showReviewSeries ? [
+              {
+                data: { values: reviewSeries.requestedSeries },
+                mark: {
+                  type: "line",
+                  interpolate: "step-after",
+                  strokeWidth: 1.6,
+                  opacity: 0.85,
+                  color: "#b45309",
+                  strokeDash: [6, 4],
+                },
+                encoding: {
+                  x: {
+                    field: "at",
+                    type: "temporal",
+                    title: "Time",
+                    axis: { format: "%Y-%m-%d %H:%M", labelAngle: -25 },
+                    scale: activeRangeDomain ? { domain: activeRangeDomain } : undefined,
+                  },
+                  y: { field: "cumulative", type: "quantitative", title: "Cumulative completed tasks" },
+                  tooltip: [
+                    { field: "at", type: "temporal", title: "Time", format: "%Y-%m-%d %H:%M:%S" },
+                    { field: "cumulative", type: "quantitative", title: "Reviews requested (cumulative)", format: ".2f" },
+                  ],
+                },
+              },
+              {
+                data: { values: reviewSeries.deliveredSeries },
+                mark: {
+                  type: "line",
+                  interpolate: "step-after",
+                  strokeWidth: 1.9,
+                  opacity: 0.9,
+                  color: "#0f766e",
+                },
+                encoding: {
+                  x: {
+                    field: "at",
+                    type: "temporal",
+                    title: "Time",
+                    axis: { format: "%Y-%m-%d %H:%M", labelAngle: -25 },
+                    scale: activeRangeDomain ? { domain: activeRangeDomain } : undefined,
+                  },
+                  y: { field: "cumulative", type: "quantitative", title: "Cumulative completed tasks" },
+                  tooltip: [
+                    { field: "at", type: "temporal", title: "Time", format: "%Y-%m-%d %H:%M:%S" },
+                    { field: "cumulative", type: "quantitative", title: "Reviews delivered (cumulative)", format: ".2f" },
+                  ],
+                },
+              },
+            ] : []),
             {
               data: { values: aggregateActualPoints },
               mark: {
@@ -1416,6 +1655,7 @@
           initializeVisibleLabelsFromQuery(data);
           renderMeta(data);
           renderGoalTracking(data);
+          renderReviewKpi(data);
           await renderThroughputChart(data);
           await renderCycleGauge(data);
           await renderCycleArea(data);
