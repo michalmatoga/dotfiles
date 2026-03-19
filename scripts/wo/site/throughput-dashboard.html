@@ -177,6 +177,11 @@
         border-top-style: dashed;
       }
 
+      .chart-legend-line-now {
+        border-top-style: dashed;
+        border-top-color: #6b7280;
+      }
+
       .chart-legend-swatch {
         width: 0.72rem;
         height: 0.72rem;
@@ -213,7 +218,7 @@
       }
 
       .goal-content {
-        margin-top: 0.45rem;
+        margin-top: 0;
         font-size: 0.9rem;
         line-height: 1.45;
       }
@@ -388,7 +393,6 @@
             <div id="throughput-chart"></div>
           </div>
           <div class="chart-card chart-card-full">
-            <p class="chart-title">Goal tracking context</p>
             <div id="goal-tracking"></div>
           </div>
           <div id="review-kpi-card" class="chart-card">
@@ -399,7 +403,7 @@
             <p class="chart-title">Live cumulative cycle time (unfinished)</p>
             <div id="cycle-gauge"></div>
           </div>
-          <div class="chart-card">
+          <div class="chart-card chart-card-full">
             <p class="chart-title">Cycle-time progression snapshots (5m)</p>
             <div id="cycle-area"></div>
           </div>
@@ -975,15 +979,8 @@
         goalTrackingEl.innerHTML = visibleSources.map((source) => {
           const snippet = getGoalSnippetForSource(source);
           const markdown = snippet && typeof snippet.markdown === "string" ? snippet.markdown : "";
-          const matchedHeading = snippet && typeof snippet.matchedHeading === "string" ? snippet.matchedHeading : null;
-          const headingHtml = matchedHeading
-            ? `<p class="goal-source-meta">Matched: ${escapeHtml(matchedHeading)}</p>`
-            : "";
-          const title = source && source.title ? source.title : source && source.id ? source.id : "Goal note";
           return [
             "<article class=\"goal-source\">",
-            `  <p class=\"goal-source-title\">${escapeHtml(title)}</p>`,
-            `  ${headingHtml}`,
             `  <div class=\"goal-content\">${renderMarkdownToHtml(markdown)}</div>`,
             "</article>",
           ].join("\n");
@@ -1215,6 +1212,7 @@
           "<span class=\"chart-legend-item\"><span class=\"chart-legend-line chart-legend-line-actual\"></span>Actual cumulative</span>",
           "<span class=\"chart-legend-item\"><span class=\"chart-legend-line chart-legend-line-dashed\"></span>Actual total (aggregate)</span>",
           "<span class=\"chart-legend-item\"><span class=\"chart-legend-line chart-legend-line-target\"></span>Target (goal checklist pace)</span>",
+          "<span class=\"chart-legend-item\"><span class=\"chart-legend-line chart-legend-line-now\"></span>Now gap marker</span>",
         ];
         if (showReview) {
           styleLegendItems.push("<span class=\"chart-legend-item\"><span class=\"chart-legend-line\" style=\"border-color:#b45309;border-style:dashed\"></span>Reviews requested (cumulative)</span>");
@@ -1255,6 +1253,19 @@
           totals.push({ at, atMs, totalCumulative });
         }
         return totals;
+      };
+
+      const getStepSeriesValueAt = (points, atMs, valueField) => {
+        const series = Array.isArray(points) ? points : [];
+        let value = 0;
+        for (const point of series) {
+          const pointAtMs = Number(point && point.atMs);
+          if (!Number.isFinite(pointAtMs) || pointAtMs > atMs) {
+            break;
+          }
+          value = Number(point && point[valueField]) || 0;
+        }
+        return value;
       };
 
       const renderThroughputChart = async (data) => {
@@ -1338,6 +1349,32 @@
             };
           })
           : [];
+        const nowAtMs = Math.max(
+          throughputDomain.startMs,
+          Math.min(referenceNow.getTime(), throughputDomain.endMs),
+        );
+        const nowAtIso = new Date(nowAtMs).toISOString();
+        const nowLinePoint = [{ at: nowAtIso }];
+        const actualNow = getStepSeriesValueAt(aggregateActualPoints, nowAtMs, "totalCumulative");
+        const plannedNow = goalSummary.totalTasks > 0
+          ? goalSummary.totalTasks * getElapsedFraction(activeRange, nowAtMs)
+          : null;
+        const nowGapPoints = plannedNow !== null
+          ? (() => {
+            const gapNow = actualNow - plannedNow;
+            const absGap = Math.abs(gapNow);
+            const gapLabel = absGap < 0.05
+              ? "On goal"
+              : `${gapNow >= 0 ? "Ahead" : "Behind"} ${absGap.toFixed(1)}`;
+            return [{
+              at: nowAtIso,
+              actualNow,
+              plannedNow,
+              gapNow,
+              gapLabel,
+            }];
+          })()
+          : [];
 
         const sharedEncoding = {
           x: {
@@ -1370,6 +1407,28 @@
           height: 420,
           layer: [
             {
+              data: { values: nowLinePoint },
+              mark: {
+                type: "rule",
+                strokeWidth: 1.2,
+                opacity: 0.85,
+                color: "#6b7280",
+                strokeDash: [3, 3],
+              },
+              encoding: {
+                x: {
+                  field: "at",
+                  type: "temporal",
+                  title: "Time",
+                  axis: { format: "%Y-%m-%d %H:%M", labelAngle: -25 },
+                  scale: activeRangeDomain ? { domain: activeRangeDomain } : undefined,
+                },
+                tooltip: [
+                  { field: "at", type: "temporal", title: "Now", format: "%Y-%m-%d %H:%M:%S" },
+                ],
+              },
+            },
+            {
               data: { values: targetPoints },
               mark: {
                 type: "line",
@@ -1398,6 +1457,98 @@
                 ],
               },
             },
+            ...(nowGapPoints.length > 0 ? [
+              {
+                data: { values: nowGapPoints },
+                mark: {
+                  type: "rule",
+                  strokeWidth: 2,
+                  opacity: 0.9,
+                  color: "#7c2d12",
+                },
+                encoding: {
+                  x: {
+                    field: "at",
+                    type: "temporal",
+                    title: "Time",
+                    axis: { format: "%Y-%m-%d %H:%M", labelAngle: -25 },
+                    scale: activeRangeDomain ? { domain: activeRangeDomain } : undefined,
+                  },
+                  y: { field: "actualNow", type: "quantitative", title: "Cumulative completed tasks" },
+                  y2: { field: "plannedNow" },
+                  tooltip: [
+                    { field: "at", type: "temporal", title: "Now", format: "%Y-%m-%d %H:%M:%S" },
+                    { field: "actualNow", type: "quantitative", title: "Actual now", format: ".2f" },
+                    { field: "plannedNow", type: "quantitative", title: "Target now", format: ".2f" },
+                    { field: "gapNow", type: "quantitative", title: "Gap (actual-target)", format: ".2f" },
+                  ],
+                },
+              },
+              {
+                data: { values: nowGapPoints },
+                mark: {
+                  type: "point",
+                  filled: true,
+                  size: 120,
+                  color: "#111827",
+                  opacity: 0.95,
+                },
+                encoding: {
+                  x: {
+                    field: "at",
+                    type: "temporal",
+                    title: "Time",
+                    axis: { format: "%Y-%m-%d %H:%M", labelAngle: -25 },
+                    scale: activeRangeDomain ? { domain: activeRangeDomain } : undefined,
+                  },
+                  y: { field: "actualNow", type: "quantitative", title: "Cumulative completed tasks" },
+                },
+              },
+              {
+                data: { values: nowGapPoints },
+                mark: {
+                  type: "point",
+                  filled: true,
+                  size: 120,
+                  color: "#4b5563",
+                  opacity: 0.95,
+                },
+                encoding: {
+                  x: {
+                    field: "at",
+                    type: "temporal",
+                    title: "Time",
+                    axis: { format: "%Y-%m-%d %H:%M", labelAngle: -25 },
+                    scale: activeRangeDomain ? { domain: activeRangeDomain } : undefined,
+                  },
+                  y: { field: "plannedNow", type: "quantitative", title: "Cumulative completed tasks" },
+                },
+              },
+              {
+                data: { values: nowGapPoints },
+                mark: {
+                  type: "text",
+                  align: "left",
+                  baseline: "bottom",
+                  dx: 7,
+                  dy: -6,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: "#1f2937",
+                },
+                encoding: {
+                  x: {
+                    field: "at",
+                    type: "temporal",
+                    title: "Time",
+                    axis: { format: "%Y-%m-%d %H:%M", labelAngle: -25 },
+                    scale: activeRangeDomain ? { domain: activeRangeDomain } : undefined,
+                  },
+                  y: { field: "plannedNow", type: "quantitative", title: "Cumulative completed tasks" },
+                  text: { field: "gapLabel", type: "nominal" },
+                },
+              },
+            ] : []),
             ...(showReviewSeries ? [
               {
                 data: { values: reviewSeries.requestedSeries },
@@ -1548,7 +1699,7 @@
 
       const renderCycleArea = async (data) => {
         const containerWidth = cycleAreaEl ? cycleAreaEl.clientWidth : 0;
-        const chartWidth = Math.max(260, Math.min(containerWidth > 0 ? containerWidth - 24 : window.innerWidth - 90, 520));
+        const chartWidth = Math.max(300, Math.min(containerWidth > 0 ? containerWidth - 24 : window.innerWidth - 90, 980));
         const cycle = data && typeof data === "object" ? data.cycleTime : null;
         const snapshotsRaw = cycle && Array.isArray(cycle.snapshots) ? cycle.snapshots : [];
         const activeRange = getSelectedTimeRange(data);
