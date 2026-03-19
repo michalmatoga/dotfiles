@@ -293,6 +293,7 @@
     <script>
       const params = new URLSearchParams(window.location.search);
       const dataUrl = params.get("data") || "../state/wo-throughput-chart.json";
+      const labelsParamRaw = (params.get("labels") || "").trim().toLowerCase();
       const refreshSecondsRaw = parseInt(params.get("refresh") || "30", 10);
       const refreshSeconds = Number.isFinite(refreshSecondsRaw) && refreshSecondsRaw >= 5 ? refreshSecondsRaw : 30;
       const metaEl = document.getElementById("meta");
@@ -305,6 +306,7 @@
       const errorEl = document.getElementById("error");
       let latestData = null;
       let visibleLabels = null;
+      let labelsInitializedFromQuery = false;
       const timeRangePresets = [
         { id: "this-week", label: "This week" },
         { id: "today", label: "Today" },
@@ -756,6 +758,47 @@
         ? labels.map((label) => String(label).trim().toLowerCase()).filter((label) => label.length > 0)
         : [];
 
+      const parseLabelQueryParam = (value) => {
+        if (!value) {
+          return [];
+        }
+        return value
+          .split(",")
+          .map((label) => label.trim().toLowerCase())
+          .filter((label) => label.length > 0);
+      };
+
+      const syncUrlState = (data) => {
+        const nextUrl = new URL(window.location.href);
+        nextUrl.searchParams.set("range", selectedTimeRangeId);
+        const allLabels = normalizeLabels(data && data.labels);
+        const visibleLabelSet = getEffectiveVisibleLabels(allLabels);
+        if (allLabels.length === 0 || visibleLabelSet.size >= allLabels.length) {
+          nextUrl.searchParams.delete("labels");
+        } else {
+          nextUrl.searchParams.set("labels", Array.from(visibleLabelSet).join(","));
+        }
+        window.history.replaceState({}, "", nextUrl);
+      };
+
+      const initializeVisibleLabelsFromQuery = (data) => {
+        if (labelsInitializedFromQuery) {
+          return;
+        }
+        labelsInitializedFromQuery = true;
+        const requested = parseLabelQueryParam(labelsParamRaw);
+        if (requested.length === 0) {
+          return;
+        }
+        const allLabels = normalizeLabels(data && data.labels);
+        const requestedSet = new Set(requested);
+        const matched = new Set(allLabels.filter((label) => requestedSet.has(label)));
+        if (matched.size === 0 || matched.size >= allLabels.length) {
+          return;
+        }
+        setVisibleLabels(matched, allLabels);
+      };
+
       const getLabelColorMap = (labels) => {
         const normalized = normalizeLabels(labels);
         const entries = normalized.map((label, index) => [label, throughputPalette[index % throughputPalette.length]]);
@@ -912,6 +955,7 @@
               next.add(normalized);
             }
             setVisibleLabels(next, allLabels);
+            syncUrlState(latestData);
             renderMeta(latestData);
             await renderThroughputChart(latestData);
             await renderCycleGauge(latestData);
@@ -930,9 +974,7 @@
               return;
             }
             selectedTimeRangeId = nextRange;
-            const nextUrl = new URL(window.location.href);
-            nextUrl.searchParams.set("range", selectedTimeRangeId);
-            window.history.replaceState({}, "", nextUrl);
+            syncUrlState(latestData);
             renderMeta(latestData);
             await renderThroughputChart(latestData);
             await renderCycleGauge(latestData);
@@ -1426,6 +1468,7 @@
           }
           const data = await response.json();
           latestData = data;
+          initializeVisibleLabelsFromQuery(data);
           renderMeta(data);
           await renderThroughputChart(data);
           await renderCycleGauge(data);

@@ -312,6 +312,8 @@ Notes:
 - Dashboard auto-refreshes every 30 seconds by default. Override with query params:
   - `?refresh=10` for 10s refresh cadence.
   - `?data=../state/another-file.json` for custom data path.
+  - `?labels=career,review` to preselect visible label series.
+  - `?range=this-week&labels=business,household` to combine time range and label selection.
 - On this dotfiles setup, `etc/nixos/home.nix` can keep both services always on:
   - `wo-throughput-chart-data.service` regenerates chart JSON continuously.
   - `wo-throughput-dashboard.service` serves the dashboard at `http://127.0.0.1:4173/scripts/wo/site/throughput-dashboard.html`.
