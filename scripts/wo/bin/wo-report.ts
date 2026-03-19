@@ -406,10 +406,14 @@ const writeChartData = async (options: {
       return normalized ? activeWorktreeUrlSet.has(normalized) : false;
     })
     : cardStates;
+  const snapshotTrelloCards = latestSnapshot?.trello ?? null;
+  const snapshotScopedCardStates = snapshotTrelloCards
+    ? scopedCardStates.filter((state) => Boolean(snapshotTrelloCards[state.cardId]))
+    : scopedCardStates;
   const chartData = buildThroughputChartData({ metrics, labels: options.labels, now });
   const liveCycleTime = buildLiveCycleTimeData({
     metrics,
-    cardStates: scopedCardStates,
+    cardStates: snapshotScopedCardStates,
     labels: options.labels,
     now,
   });
@@ -466,7 +470,7 @@ const writeChartData = async (options: {
   console.log(`Data points: ${chartData.points.length}`);
   console.log(`Completed cards: ${chartData.totalCompletedCards}`);
   if (activeWorktreeUrlSet.size > 0) {
-    console.log(`Cycle scope: ${scopedCardStates.length} active worktree cards`);
+    console.log(`Cycle scope: ${snapshotScopedCardStates.length} active worktree cards`);
   }
   console.log(`Live unfinished cards: ${liveCycleTime.unfinishedCards}`);
   console.log(`Live cumulative cycle time: ${formatDuration(liveCycleTime.cumulativeCycleTimeSeconds)}`);
