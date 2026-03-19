@@ -120,6 +120,40 @@
         color: var(--muted);
       }
 
+      .chart-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.7rem;
+        margin: 0 0 0.55rem;
+        color: var(--muted);
+        font-size: 0.82rem;
+      }
+
+      .chart-legend-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.38rem;
+      }
+
+      .chart-legend-line {
+        display: inline-block;
+        width: 22px;
+        height: 0;
+        border-top: 2px solid #425466;
+      }
+
+      .chart-legend-line-dashed {
+        border-top-style: dashed;
+      }
+
+      .chart-legend-swatch {
+        width: 0.72rem;
+        height: 0.72rem;
+        border-radius: 50%;
+        display: inline-block;
+        box-shadow: inset 0 0 0 1px rgb(31 42 53 / 22%);
+      }
+
       #throughput-chart {
         margin-top: 0.8rem;
         min-height: 420px;
@@ -227,6 +261,11 @@
         <div class="chart-grid">
           <div class="chart-card chart-card-full">
             <p class="chart-title">Cumulative throughput by label</p>
+            <div class="chart-legend" aria-label="Throughput chart series legend">
+              <span class="chart-legend-item"><span class="chart-legend-line"></span>Actual cumulative</span>
+              <span class="chart-legend-item"><span class="chart-legend-line chart-legend-line-dashed"></span>Synthetic goal (EMA)</span>
+            </div>
+            <div id="throughput-series-legend" class="chart-legend" aria-label="Throughput label colors"></div>
             <div id="throughput-chart"></div>
           </div>
           <div class="chart-card">
@@ -253,6 +292,7 @@
       const refreshSeconds = Number.isFinite(refreshSecondsRaw) && refreshSecondsRaw >= 5 ? refreshSecondsRaw : 30;
       const metaEl = document.getElementById("meta");
       const throughputChartEl = document.getElementById("throughput-chart");
+      const throughputSeriesLegendEl = document.getElementById("throughput-series-legend");
       const cycleGaugeEl = document.getElementById("cycle-gauge");
       const cycleAreaEl = document.getElementById("cycle-area");
       const cycleAreaByLabelEl = document.getElementById("cycle-area-by-label");
@@ -269,6 +309,19 @@
       const timeRangePresetIds = new Set(timeRangePresets.map((preset) => preset.id));
       const timeRangeParam = (params.get("range") || "").trim().toLowerCase();
       let selectedTimeRangeId = timeRangePresetIds.has(timeRangeParam) ? timeRangeParam : "this-week";
+      const goalEmaWindowDays = 14;
+      const goalFallbackShareWindowDays = 90;
+      const millisecondsPerDay = 24 * 60 * 60 * 1000;
+      const throughputPalette = [
+        "#2f7d46",
+        "#b5432a",
+        "#2a6f97",
+        "#8a5a2b",
+        "#7b3fb2",
+        "#3e8b8b",
+        "#5f6b2f",
+        "#a1476d",
+      ];
 
       const formatDateTime = (value) => {
         if (!value) {
@@ -406,9 +459,196 @@
         return `${formatDateOnly(new Date(range.startMs))} to ${formatDateOnly(new Date(range.endMs))}`;
       };
 
+      const pad2 = (value) => String(value).padStart(2, "0");
+
+      const toLocalDateKey = (value) => {
+        const date = new Date(value);
+        return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+      };
+
+      const getLocalDateFromKey = (value) => {
+        const [yearRaw, monthRaw, dayRaw] = String(value).split("-");
+        const year = Number(yearRaw);
+        const month = Number(monthRaw);
+        const day = Number(dayRaw);
+        if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+          return null;
+        }
+        return new Date(year, month - 1, day, 0, 0, 0, 0);
+      };
+
+      const listLocalDayKeys = (startDate, endDate) => {
+        const keys = [];
+        const start = getStartOfLocalDay(startDate);
+        const end = getStartOfLocalDay(endDate);
+        if (start.getTime() > end.getTime()) {
+          return keys;
+        }
+        const cursor = new Date(start);
+        while (cursor.getTime() <= end.getTime()) {
+          keys.push(toLocalDateKey(cursor));
+          cursor.setDate(cursor.getDate() + 1);
+        }
+        return keys;
+      };
+
+      const buildGoalRateContext = (options) => {
+        const labels = Array.isArray(options.labels) ? options.labels : [];
+        const points = Array.isArray(options.points) ? options.points : [];
+        const referenceNow = options.referenceNow instanceof Date ? options.referenceNow : new Date();
+        const alpha = 2 / (goalEmaWindowDays + 1);
+        const byDayByLabel = new Map();
+        const totalByLabel = new Map();
+        const globalByDay = new Map();
+
+        for (const label of labels) {
+          byDayByLabel.set(label, new Map());
+          totalByLabel.set(label, 0);
+        }
+
+        let minPointMs = Number.POSITIVE_INFINITY;
+        for (const point of points) {
+          if (!point || !Number.isFinite(point.atMs)) {
+            continue;
+          }
+          const label = String(point.label);
+          if (!byDayByLabel.has(label)) {
+            byDayByLabel.set(label, new Map());
+            totalByLabel.set(label, 0);
+          }
+          minPointMs = Math.min(minPointMs, point.atMs);
+          const dayKey = toLocalDateKey(new Date(point.atMs));
+          const completed = Math.max(0, Number(point.completed) || 0);
+          const labelDayMap = byDayByLabel.get(label);
+          labelDayMap.set(dayKey, (labelDayMap.get(dayKey) || 0) + completed);
+          totalByLabel.set(label, (totalByLabel.get(label) || 0) + completed);
+          globalByDay.set(dayKey, (globalByDay.get(dayKey) || 0) + completed);
+        }
+
+        const firstDate = Number.isFinite(minPointMs) ? new Date(minPointMs) : referenceNow;
+        const dayKeys = listLocalDayKeys(firstDate, referenceNow);
+        if (dayKeys.length === 0) {
+          dayKeys.push(toLocalDateKey(referenceNow));
+        }
+
+        let globalEma = 0;
+        for (const dayKey of dayKeys) {
+          const value = Math.max(0, Number(globalByDay.get(dayKey) || 0));
+          globalEma = alpha * value + (1 - alpha) * globalEma;
+        }
+
+        const localNowDayKey = dayKeys[dayKeys.length - 1];
+        const localNowDay = getLocalDateFromKey(localNowDayKey) || getStartOfLocalDay(referenceNow);
+        const trailingStartDay = new Date(localNowDay);
+        trailingStartDay.setDate(trailingStartDay.getDate() - (goalFallbackShareWindowDays - 1));
+        const trailingDayKeys = listLocalDayKeys(trailingStartDay, localNowDay);
+
+        const trailingByLabel = new Map();
+        let trailingGlobalTotal = 0;
+        for (const label of labels) {
+          const labelDayMap = byDayByLabel.get(label) || new Map();
+          let total = 0;
+          for (const dayKey of trailingDayKeys) {
+            total += Math.max(0, Number(labelDayMap.get(dayKey) || 0));
+          }
+          trailingByLabel.set(label, total);
+          trailingGlobalTotal += total;
+        }
+
+        const bootstrapShare = labels.length > 0 ? (1 / (2 * labels.length)) : 0;
+        const sharePriorRaw = new Map();
+        let sharePriorRawTotal = 0;
+        for (const label of labels) {
+          const observedShare = trailingGlobalTotal > 0
+            ? (trailingByLabel.get(label) || 0) / trailingGlobalTotal
+            : 0;
+          const prior = Math.max(observedShare, bootstrapShare);
+          sharePriorRaw.set(label, prior);
+          sharePriorRawTotal += prior;
+        }
+
+        const sharePrior = new Map();
+        for (const label of labels) {
+          const normalizedShare = sharePriorRawTotal > 0
+            ? (sharePriorRaw.get(label) || 0) / sharePriorRawTotal
+            : 0;
+          sharePrior.set(label, normalizedShare);
+        }
+
+        const rateByLabel = new Map();
+        const sourceByLabel = new Map();
+        for (const label of labels) {
+          const labelDayMap = byDayByLabel.get(label) || new Map();
+          let labelEma = 0;
+          for (const dayKey of dayKeys) {
+            const value = Math.max(0, Number(labelDayMap.get(dayKey) || 0));
+            labelEma = alpha * value + (1 - alpha) * labelEma;
+          }
+
+          const hasOwnHistory = (totalByLabel.get(label) || 0) > 0;
+          if (hasOwnHistory) {
+            rateByLabel.set(label, labelEma);
+            sourceByLabel.set(label, `ema-${goalEmaWindowDays}d`);
+            continue;
+          }
+
+          if (globalEma > 0 && sharePriorRawTotal > 0) {
+            rateByLabel.set(label, globalEma * (sharePrior.get(label) || 0));
+            sourceByLabel.set(label, `fallback global ema-${goalEmaWindowDays}d x 90d share`);
+            continue;
+          }
+
+          if (globalEma > 0) {
+            rateByLabel.set(label, globalEma);
+            sourceByLabel.set(label, `fallback global ema-${goalEmaWindowDays}d`);
+            continue;
+          }
+
+          rateByLabel.set(label, 0);
+          sourceByLabel.set(label, "fallback flat zero");
+        }
+
+        return { rateByLabel, sourceByLabel };
+      };
+
+      const getThroughputDomainMs = (range, points, referenceNow) => {
+        const referenceMs = referenceNow instanceof Date ? referenceNow.getTime() : Date.now();
+        const pointTimes = points
+          .map((point) => point && Number(point.atMs))
+          .filter((value) => Number.isFinite(value));
+
+        const defaultStart = pointTimes.length > 0 ? Math.min(...pointTimes) : referenceMs;
+        const defaultEnd = pointTimes.length > 0 ? Math.max(...pointTimes) : referenceMs;
+        const startMs = range.startMs !== null ? range.startMs : defaultStart;
+        const endMsRaw = range.endMs !== null ? range.endMs : defaultEnd;
+        const endMs = Math.max(startMs, endMsRaw);
+        return { startMs, endMs };
+      };
+
+      const buildRangeAnchorsMs = (startMs, endMs) => {
+        const anchors = [startMs];
+        const startDay = getStartOfLocalDay(new Date(startMs));
+        const cursor = new Date(startDay);
+        if (cursor.getTime() <= startMs) {
+          cursor.setDate(cursor.getDate() + 1);
+        }
+        while (cursor.getTime() < endMs) {
+          anchors.push(cursor.getTime());
+          cursor.setDate(cursor.getDate() + 1);
+        }
+        anchors.push(endMs);
+        return Array.from(new Set(anchors)).sort((a, b) => a - b);
+      };
+
       const normalizeLabels = (labels) => Array.isArray(labels)
         ? labels.map((label) => String(label).trim().toLowerCase()).filter((label) => label.length > 0)
         : [];
+
+      const getLabelColorMap = (labels) => {
+        const normalized = normalizeLabels(labels);
+        const entries = normalized.map((label, index) => [label, throughputPalette[index % throughputPalette.length]]);
+        return new Map(entries);
+      };
 
       const getEffectiveVisibleLabels = (allLabels) => {
         const normalized = normalizeLabels(allLabels);
@@ -529,6 +769,7 @@
           `<span class="chip">Labels: ${labels}</span>`,
           `<span class="chip">Series:</span>${toggleButtons}`,
           `<span class="chip">Time range:</span>${rangeButtons}`,
+          `<span class="chip">Goal pace: EMA-${goalEmaWindowDays}d (fallback: global x share)</span>`,
           `<span class="chip">Visible window: ${activeRange.label} (${formatSelectedRangeText(activeRange)})</span>`,
           `<span class="chip">Completed cards: ${data.totalCompletedCards}</span>`,
           `<span class="chip">Unfinished in cycle: ${unfinishedCards}</span>`,
@@ -587,12 +828,25 @@
             await renderCycleAreaByLabel(latestData);
           });
         });
+
+        const colorMap = getLabelColorMap(data.labels);
+        const visibleLabels = Array.from(visibleLabelSet);
+        throughputSeriesLegendEl.innerHTML = visibleLabels.length > 0
+          ? visibleLabels
+            .map((label) => {
+              const color = colorMap.get(label) || "#425466";
+              return `<span class="chart-legend-item"><span class="chart-legend-swatch" style="background:${color}"></span>${label}</span>`;
+            })
+            .join("")
+          : "<span class=\"chart-legend-item\">No visible series</span>";
       };
 
       const renderThroughputChart = async (data) => {
         const containerWidth = throughputChartEl ? throughputChartEl.clientWidth : 0;
         const chartWidth = Math.max(280, Math.min(containerWidth > 0 ? containerWidth - 28 : window.innerWidth - 80, 980));
         const allLabels = normalizeLabels(data.labels);
+        const labelColorMap = getLabelColorMap(allLabels);
+        const labelColorRange = allLabels.map((label) => labelColorMap.get(label) || "#425466");
         const activeRange = getSelectedTimeRange(data);
         const activeRangeDomain = getTimeRangeDomain(activeRange);
         const normalizedPoints = Array.isArray(data.points)
@@ -614,7 +868,7 @@
               return {
                 at,
                 atMs,
-                label: String(point.label),
+                label: String(point.label).trim().toLowerCase(),
                 completed: Number.isFinite(completed) ? completed : 0,
                 cumulativeCompleted,
               };
@@ -637,10 +891,54 @@
           .filter((point) => visibleLabelSet.has(point.label) && isWithinTimeRangeMs(point.atMs, activeRange))
           .map((point) => ({
             at: point.at,
+            atMs: point.atMs,
             label: point.label,
             completed: point.completed,
             cumulativeCompleted: point.cumulativeCompleted - (baselineByLabel.get(point.label) || 0),
           }));
+
+        const goalContext = buildGoalRateContext({
+          labels: allLabels,
+          points: normalizedPoints,
+          referenceNow: getReferenceNow(data),
+        });
+
+        const throughputDomain = getThroughputDomainMs(activeRange, chartPoints, getReferenceNow(data));
+        const goalAnchorsMs = buildRangeAnchorsMs(throughputDomain.startMs, throughputDomain.endMs);
+        const goalPoints = [];
+
+        for (const label of allLabels) {
+          if (!visibleLabelSet.has(label)) {
+            continue;
+          }
+          const ratePerDay = Math.max(0, Number(goalContext.rateByLabel.get(label) || 0));
+          const source = goalContext.sourceByLabel.get(label) || "ema";
+          let previousMs = throughputDomain.startMs;
+          let cumulative = 0;
+          for (const atMs of goalAnchorsMs) {
+            const deltaDays = Math.max(0, (atMs - previousMs) / millisecondsPerDay);
+            cumulative += ratePerDay * deltaDays;
+            goalPoints.push({
+              at: new Date(atMs).toISOString(),
+              atMs,
+              label,
+              goalCumulative: cumulative,
+              goalSource: source,
+            });
+            previousMs = atMs;
+          }
+        }
+
+        for (const point of chartPoints) {
+          const ratePerDay = Math.max(0, Number(goalContext.rateByLabel.get(point.label) || 0));
+          const source = goalContext.sourceByLabel.get(point.label) || "ema";
+          const elapsedDays = Math.max(0, (point.atMs - throughputDomain.startMs) / millisecondsPerDay);
+          const goalValue = ratePerDay * elapsedDays;
+          point.goalCumulative = goalValue;
+          point.goalDelta = point.cumulativeCompleted - goalValue;
+          point.goalPacePct = goalValue > 0 ? (point.cumulativeCompleted / goalValue) * 100 : null;
+          point.goalSource = source;
+        }
 
         const sharedEncoding = {
           x: {
@@ -654,7 +952,7 @@
             field: "label",
             type: "nominal",
             title: "Label",
-            scale: allLabels.length > 0 ? { domain: allLabels } : undefined,
+            scale: allLabels.length > 0 ? { domain: allLabels, range: labelColorRange } : undefined,
             legend: { orient: "bottom", direction: "horizontal" },
           },
           detail: { field: "label", type: "nominal" },
@@ -664,16 +962,59 @@
             { field: "label", type: "nominal", title: "Label" },
             { field: "completed", type: "quantitative", title: "Completed (event)" },
             { field: "cumulativeCompleted", type: "quantitative", title: "Completed (cumulative)" },
+            { field: "goalCumulative", type: "quantitative", title: "Goal (cumulative)", format: ".2f" },
+            { field: "goalDelta", type: "quantitative", title: "Delta vs goal", format: ".2f" },
+            { field: "goalPacePct", type: "quantitative", title: "Pace vs goal (%)", format: ".1f" },
+            { field: "goalSource", type: "nominal", title: "Goal source" },
+          ],
+        };
+
+        const goalEncoding = {
+          x: {
+            field: "at",
+            type: "temporal",
+            title: "Time",
+            axis: { format: "%Y-%m-%d %H:%M", labelAngle: -25 },
+            scale: activeRangeDomain ? { domain: activeRangeDomain } : undefined,
+          },
+          color: {
+            field: "label",
+            type: "nominal",
+            title: "Label",
+            scale: allLabels.length > 0 ? { domain: allLabels, range: labelColorRange } : undefined,
+            legend: null,
+          },
+          detail: { field: "label", type: "nominal" },
+          order: { field: "at", type: "temporal" },
+          tooltip: [
+            { field: "at", type: "temporal", title: "Time", format: "%Y-%m-%d %H:%M:%S" },
+            { field: "label", type: "nominal", title: "Label" },
+            { field: "goalCumulative", type: "quantitative", title: "Goal (cumulative)", format: ".2f" },
+            { field: "goalSource", type: "nominal", title: "Goal source" },
           ],
         };
 
         const spec = {
           $schema: "https://vega.github.io/schema/vega-lite/v5.json",
-          data: { values: chartPoints },
           width: chartWidth,
           height: 420,
           layer: [
             {
+              data: { values: goalPoints },
+              mark: {
+                type: "line",
+                interpolate: "linear",
+                strokeWidth: 1.7,
+                opacity: 0.7,
+                strokeDash: [8, 5],
+              },
+              encoding: {
+                ...goalEncoding,
+                y: { field: "goalCumulative", type: "quantitative", title: "Cumulative completed tasks" },
+              },
+            },
+            {
+              data: { values: chartPoints },
               mark: { type: "line", interpolate: "step-after", strokeWidth: 2.4 },
               encoding: {
                 ...sharedEncoding,
@@ -681,6 +1022,7 @@
               },
             },
             {
+              data: { values: chartPoints },
               mark: {
                 type: "point",
                 filled: false,
