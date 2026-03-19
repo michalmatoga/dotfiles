@@ -30,6 +30,7 @@ export const listNames = {
 export const labelNames = {
   schibsted: "schibsted",
   review: "review",
+  careerDelivery: "career-delivery",
   business: "business",
   career: "career",
   health: "health",
@@ -60,6 +61,7 @@ export const getPrimaryLabel = (labels: string[]): string | null => {
   const priority = [
     labelNames.schibsted,
     labelNames.review,
+    labelNames.careerDelivery,
     labelNames.business,
     labelNames.career,
     labelNames.health,
