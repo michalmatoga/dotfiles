@@ -100,13 +100,92 @@
         color: var(--success);
       }
 
-      #chart {
+      .chart-grid {
+        margin-top: 0.8rem;
+        display: grid;
+        gap: 0.9rem;
+        grid-template-columns: 1fr;
+      }
+
+      .chart-card {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 0.8rem;
+        background: #fffaf0;
+      }
+
+      .chart-title {
+        margin: 0 0 0.35rem;
+        font-size: 0.95rem;
+        color: var(--muted);
+      }
+
+      #throughput-chart {
         margin-top: 0.8rem;
         min-height: 420px;
       }
 
-      #chart .vega-embed,
-      #chart svg {
+      #cycle-gauge {
+        min-height: 280px;
+        display: grid;
+        place-items: center;
+      }
+
+      .cycle-gauge-wrap {
+        display: grid;
+        place-items: center;
+        width: 100%;
+        min-height: 250px;
+      }
+
+      .cycle-gauge-ring {
+        --gauge-size: min(240px, 72vw);
+        width: var(--gauge-size);
+        height: var(--gauge-size);
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: conic-gradient(var(--gauge-color, #1a8f4c) var(--progress-deg), #e6e0cf var(--progress-deg) 360deg);
+        box-shadow: inset 0 0 0 1px #d9d4c5;
+      }
+
+      .cycle-gauge-core {
+        width: 68%;
+        height: 68%;
+        border-radius: 50%;
+        background: #fffaf0;
+        display: grid;
+        place-items: center;
+        text-align: center;
+        padding: 0.6rem;
+      }
+
+      .cycle-gauge-value {
+        font-weight: 700;
+        font-size: 1.45rem;
+        line-height: 1.1;
+      }
+
+      .cycle-gauge-subtle {
+        margin-top: 0.25rem;
+        color: var(--muted);
+        font-size: 0.82rem;
+      }
+
+      #cycle-area {
+        min-height: 260px;
+      }
+
+      #cycle-area-by-label {
+        min-height: 300px;
+      }
+
+      #throughput-chart .vega-embed,
+      #throughput-chart svg,
+      #cycle-area .vega-embed,
+      #cycle-area svg,
+      #cycle-area-by-label .vega-embed,
+      #cycle-area-by-label svg {
         max-width: 100%;
       }
 
@@ -127,15 +206,42 @@
           font-size: 1.6rem;
         }
       }
+
+      @media (min-width: 960px) {
+        .chart-grid {
+          grid-template-columns: 1fr 1fr;
+        }
+
+        .chart-card-full {
+          grid-column: 1 / -1;
+        }
+      }
     </style>
   </head>
   <body>
     <main class="layout">
       <section class="panel">
         <h1>WO Throughput</h1>
-        <p class="subtle">Cumulative completed tasks per label (all-time)</p>
+        <p class="subtle">Cumulative completed tasks per label (selected time range)</p>
         <div class="meta" id="meta"></div>
-        <div id="chart"></div>
+        <div class="chart-grid">
+          <div class="chart-card chart-card-full">
+            <p class="chart-title">Cumulative throughput by label</p>
+            <div id="throughput-chart"></div>
+          </div>
+          <div class="chart-card">
+            <p class="chart-title">Live cumulative cycle time (unfinished)</p>
+            <div id="cycle-gauge"></div>
+          </div>
+          <div class="chart-card">
+            <p class="chart-title">Cycle-time progression snapshots (5m)</p>
+            <div id="cycle-area"></div>
+          </div>
+          <div class="chart-card chart-card-full">
+            <p class="chart-title">Cycle-time progression snapshots by label (5m)</p>
+            <div id="cycle-area-by-label"></div>
+          </div>
+        </div>
         <div id="error" class="error" hidden></div>
       </section>
     </main>
@@ -145,12 +251,24 @@
       const dataUrl = params.get("data") || "../state/wo-throughput-chart.json";
       const refreshSecondsRaw = parseInt(params.get("refresh") || "30", 10);
       const refreshSeconds = Number.isFinite(refreshSecondsRaw) && refreshSecondsRaw >= 5 ? refreshSecondsRaw : 30;
-
       const metaEl = document.getElementById("meta");
-      const chartEl = document.getElementById("chart");
+      const throughputChartEl = document.getElementById("throughput-chart");
+      const cycleGaugeEl = document.getElementById("cycle-gauge");
+      const cycleAreaEl = document.getElementById("cycle-area");
+      const cycleAreaByLabelEl = document.getElementById("cycle-area-by-label");
       const errorEl = document.getElementById("error");
       let latestData = null;
       let visibleLabels = null;
+      const timeRangePresets = [
+        { id: "this-week", label: "This week" },
+        { id: "today", label: "Today" },
+        { id: "last-7d", label: "Last 7d" },
+        { id: "this-month", label: "This month" },
+        { id: "all", label: "All" },
+      ];
+      const timeRangePresetIds = new Set(timeRangePresets.map((preset) => preset.id));
+      const timeRangeParam = (params.get("range") || "").trim().toLowerCase();
+      let selectedTimeRangeId = timeRangePresetIds.has(timeRangeParam) ? timeRangeParam : "this-week";
 
       const formatDateTime = (value) => {
         if (!value) {
@@ -165,6 +283,127 @@
           second: "2-digit",
           hour12: false,
         }).format(new Date(value));
+      };
+
+      const formatDateOnly = (value) => {
+        if (!value) {
+          return "--";
+        }
+        return new Intl.DateTimeFormat(undefined, {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).format(new Date(value));
+      };
+
+      const getStartOfLocalDay = (value) => {
+        const date = new Date(value);
+        date.setHours(0, 0, 0, 0);
+        return date;
+      };
+
+      const getStartOfLocalWeekMonday = (value) => {
+        const date = getStartOfLocalDay(value);
+        const day = (date.getDay() + 6) % 7;
+        date.setDate(date.getDate() - day);
+        return date;
+      };
+
+      const getStartOfLocalMonth = (value) => {
+        const date = new Date(value);
+        date.setDate(1);
+        date.setHours(0, 0, 0, 0);
+        return date;
+      };
+
+      const toTimeMs = (value) => {
+        if (!value) {
+          return null;
+        }
+        const parsed = Date.parse(value);
+        return Number.isFinite(parsed) ? parsed : null;
+      };
+
+      const getReferenceNow = (data) => {
+        const cycle = data && typeof data === "object" ? data.cycleTime : null;
+        const nowIso = (cycle && cycle.generatedAt) || (data && data.generatedAt) || new Date().toISOString();
+        const nowMs = toTimeMs(nowIso);
+        return new Date(nowMs ?? Date.now());
+      };
+
+      const getSelectedTimeRange = (data) => {
+        const now = getReferenceNow(data);
+        const nowMs = now.getTime();
+
+        if (selectedTimeRangeId === "all") {
+          return {
+            id: "all",
+            label: "All",
+            startMs: null,
+            endMs: null,
+          };
+        }
+
+        if (selectedTimeRangeId === "today") {
+          return {
+            id: "today",
+            label: "Today",
+            startMs: getStartOfLocalDay(now).getTime(),
+            endMs: nowMs,
+          };
+        }
+
+        if (selectedTimeRangeId === "last-7d") {
+          return {
+            id: "last-7d",
+            label: "Last 7d",
+            startMs: nowMs - (7 * 24 * 60 * 60 * 1000),
+            endMs: nowMs,
+          };
+        }
+
+        if (selectedTimeRangeId === "this-month") {
+          return {
+            id: "this-month",
+            label: "This month",
+            startMs: getStartOfLocalMonth(now).getTime(),
+            endMs: nowMs,
+          };
+        }
+
+        return {
+          id: "this-week",
+          label: "This week",
+          startMs: getStartOfLocalWeekMonday(now).getTime(),
+          endMs: nowMs,
+        };
+      };
+
+      const isWithinTimeRangeMs = (timeMs, range) => {
+        if (!Number.isFinite(timeMs)) {
+          return false;
+        }
+        if (range.startMs !== null && timeMs < range.startMs) {
+          return false;
+        }
+        if (range.endMs !== null && timeMs > range.endMs) {
+          return false;
+        }
+        return true;
+      };
+
+      const getTimeRangeDomain = (range) => {
+        if (range.startMs === null || range.endMs === null) {
+          return null;
+        }
+        return [new Date(range.startMs).toISOString(), new Date(range.endMs).toISOString()];
+      };
+
+      const formatSelectedRangeText = (range) => {
+        if (range.startMs === null || range.endMs === null) {
+          return "All available data";
+        }
+        return `${formatDateOnly(new Date(range.startMs))} to ${formatDateOnly(new Date(range.endMs))}`;
       };
 
       const normalizeLabels = (labels) => Array.isArray(labels)
@@ -199,8 +438,69 @@
         visibleLabels = new Set(Array.from(labelsSet));
       };
 
+      const formatDuration = (seconds) => {
+        const safeSeconds = Math.max(0, Math.floor(Number(seconds) || 0));
+        const hours = Math.floor(safeSeconds / 3600);
+        const minutes = Math.floor((safeSeconds % 3600) / 60);
+        if (hours <= 0) {
+          return `${minutes}m`;
+        }
+        return `${hours}h ${minutes}m`;
+      };
+
+      const formatHours = (seconds) => ((Math.max(0, Number(seconds) || 0)) / 3600).toFixed(1);
+
+      const getVisibleCycleCards = (data, range) => {
+        const cycle = data && typeof data === "object" ? data.cycleTime : null;
+        const cards = cycle && Array.isArray(cycle.cards) ? cycle.cards : [];
+        const visibleLabelSet = getEffectiveVisibleLabels(data.labels);
+        return cards.filter((card) => {
+          const enteredMs = toTimeMs(card.enteredDoingAt);
+          if (!isWithinTimeRangeMs(enteredMs, range)) {
+            return false;
+          }
+          if (visibleLabelSet.size === 0) {
+            return true;
+          }
+          const labels = Array.isArray(card.labels) ? card.labels : [];
+          return labels.some((label) => visibleLabelSet.has(String(label).trim().toLowerCase()));
+        });
+      };
+
+      const getVisibleSnapshotCycleSeconds = (data, range) => {
+        const cycle = data && typeof data === "object" ? data.cycleTime : null;
+        const snapshots = cycle && Array.isArray(cycle.snapshots) ? cycle.snapshots : [];
+        const visibleLabelSet = getEffectiveVisibleLabels(data.labels);
+
+        return snapshots.filter((point) => {
+          if (!point || !point.at) {
+            return false;
+          }
+          return isWithinTimeRangeMs(toTimeMs(point.at), range);
+        }).map((point) => {
+          if (!point) {
+            return 0;
+          }
+          const byLabel = point.cumulativeCycleTimeSecondsByLabel && typeof point.cumulativeCycleTimeSecondsByLabel === "object"
+            ? point.cumulativeCycleTimeSecondsByLabel
+            : null;
+          if (!byLabel) {
+            return Number(point.cumulativeCycleTimeSeconds) || 0;
+          }
+          if (visibleLabelSet.size === 0) {
+            return Object.values(byLabel).reduce((sum, value) => sum + (Number(value) || 0), 0);
+          }
+          let total = 0;
+          for (const label of visibleLabelSet) {
+            total += Number(byLabel[label]) || 0;
+          }
+          return total;
+        });
+      };
+
       const renderMeta = (data) => {
         const labels = data.labels.length > 0 ? data.labels.join(", ") : "none";
+        const activeRange = getSelectedTimeRange(data);
         const visibleLabelSet = getEffectiveVisibleLabels(data.labels);
         const toggleButtons = data.labels.length > 0
           ? data.labels.map((label) => {
@@ -209,8 +509,18 @@
             return `<button type="button" class="chip chip-toggle${active ? " is-active" : ""}" data-label="${label}">${label}</button>`;
           }).join("")
           : "<span class=\"chip\">No series</span>";
+        const rangeButtons = timeRangePresets.map((preset) => {
+          const active = selectedTimeRangeId === preset.id;
+          return `<button type="button" class="chip chip-toggle range-toggle${active ? " is-active" : ""}" data-range="${preset.id}">${preset.label}</button>`;
+        }).join("");
         const generatedAt = formatDateTime(data.generatedAt);
-        const range = data.startAt && data.endAt
+        const filteredCycleCards = getVisibleCycleCards(data, activeRange);
+        const unfinishedCards = filteredCycleCards.length;
+        const cumulativeCycleTimeSeconds = filteredCycleCards.reduce(
+          (sum, card) => sum + (Number(card.cycleTimeSeconds) || 0),
+          0,
+        );
+        const dataRange = data.startAt && data.endAt
           ? `${formatDateTime(data.startAt)} to ${formatDateTime(data.endAt)}`
           : data.startDate && data.endDate
             ? `${data.startDate} to ${data.endDate}`
@@ -218,8 +528,12 @@
         metaEl.innerHTML = [
           `<span class="chip">Labels: ${labels}</span>`,
           `<span class="chip">Series:</span>${toggleButtons}`,
+          `<span class="chip">Time range:</span>${rangeButtons}`,
+          `<span class="chip">Visible window: ${activeRange.label} (${formatSelectedRangeText(activeRange)})</span>`,
           `<span class="chip">Completed cards: ${data.totalCompletedCards}</span>`,
-          `<span class="chip">Range: ${range}</span>`,
+          `<span class="chip">Unfinished in cycle: ${unfinishedCards}</span>`,
+          `<span class="chip">Live cycle sum: ${formatDuration(cumulativeCycleTimeSeconds)}</span>`,
+          `<span class="chip">Data span: ${dataRange}</span>`,
           `<span class="chip status-ok">Updated: ${generatedAt}</span>`,
           `<span class="chip">Auto-refresh: ${refreshSeconds}s</span>`,
         ].join("");
@@ -246,15 +560,41 @@
             }
             setVisibleLabels(next, allLabels);
             renderMeta(latestData);
-            await renderChart(latestData);
+            await renderThroughputChart(latestData);
+            await renderCycleGauge(latestData);
+            await renderCycleArea(latestData);
+            await renderCycleAreaByLabel(latestData);
+          });
+        });
+
+        metaEl.querySelectorAll(".range-toggle").forEach((buttonEl) => {
+          buttonEl.addEventListener("click", async () => {
+            if (!latestData) {
+              return;
+            }
+            const nextRange = buttonEl.getAttribute("data-range");
+            if (!nextRange || !timeRangePresetIds.has(nextRange) || nextRange === selectedTimeRangeId) {
+              return;
+            }
+            selectedTimeRangeId = nextRange;
+            const nextUrl = new URL(window.location.href);
+            nextUrl.searchParams.set("range", selectedTimeRangeId);
+            window.history.replaceState({}, "", nextUrl);
+            renderMeta(latestData);
+            await renderThroughputChart(latestData);
+            await renderCycleGauge(latestData);
+            await renderCycleArea(latestData);
+            await renderCycleAreaByLabel(latestData);
           });
         });
       };
 
-      const renderChart = async (data) => {
-        const containerWidth = chartEl ? chartEl.clientWidth : 0;
+      const renderThroughputChart = async (data) => {
+        const containerWidth = throughputChartEl ? throughputChartEl.clientWidth : 0;
         const chartWidth = Math.max(280, Math.min(containerWidth > 0 ? containerWidth - 28 : window.innerWidth - 80, 980));
         const allLabels = normalizeLabels(data.labels);
+        const activeRange = getSelectedTimeRange(data);
+        const activeRangeDomain = getTimeRangeDomain(activeRange);
         const normalizedPoints = Array.isArray(data.points)
           ? data.points
             .map((point) => {
@@ -267,8 +607,13 @@
                 return null;
               }
               const at = String(point.at);
+              const atMs = toTimeMs(at);
+              if (atMs === null) {
+                return null;
+              }
               return {
                 at,
+                atMs,
                 label: String(point.label),
                 completed: Number.isFinite(completed) ? completed : 0,
                 cumulativeCompleted,
@@ -277,7 +622,25 @@
             .filter((point) => point !== null)
           : [];
         const visibleLabelSet = getEffectiveVisibleLabels(data.labels);
-        const chartPoints = normalizedPoints.filter((point) => visibleLabelSet.has(point.label));
+        const baselineByLabel = new Map();
+        for (const label of allLabels) {
+          baselineByLabel.set(label, 0);
+        }
+        if (activeRange.startMs !== null) {
+          for (const point of normalizedPoints) {
+            if (point.atMs < activeRange.startMs) {
+              baselineByLabel.set(point.label, point.cumulativeCompleted);
+            }
+          }
+        }
+        const chartPoints = normalizedPoints
+          .filter((point) => visibleLabelSet.has(point.label) && isWithinTimeRangeMs(point.atMs, activeRange))
+          .map((point) => ({
+            at: point.at,
+            label: point.label,
+            completed: point.completed,
+            cumulativeCompleted: point.cumulativeCompleted - (baselineByLabel.get(point.label) || 0),
+          }));
 
         const sharedEncoding = {
           x: {
@@ -285,6 +648,7 @@
             type: "temporal",
             title: "Time",
             axis: { format: "%Y-%m-%d %H:%M", labelAngle: -25 },
+            scale: activeRangeDomain ? { domain: activeRangeDomain } : undefined,
           },
           color: {
             field: "label",
@@ -345,7 +709,202 @@
           },
         };
 
-        await vegaEmbed("#chart", spec, { actions: false, renderer: "svg" });
+        await vegaEmbed("#throughput-chart", spec, { actions: false, renderer: "svg" });
+      };
+
+      const renderCycleGauge = async (data) => {
+        const activeRange = getSelectedTimeRange(data);
+        const filteredCycleCards = getVisibleCycleCards(data, activeRange);
+        const currentCycleSeconds = filteredCycleCards.reduce(
+          (sum, card) => sum + (Number(card.cycleTimeSeconds) || 0),
+          0,
+        );
+        const unfinishedCards = filteredCycleCards.length;
+        const snapshotValues = getVisibleSnapshotCycleSeconds(data, activeRange);
+        const athCycleSeconds = Math.max(currentCycleSeconds, ...snapshotValues, 0);
+        const progress = athCycleSeconds > 0 ? Math.min(1, Math.max(0, currentCycleSeconds / athCycleSeconds)) : 0;
+        const progressDeg = `${(progress * 360).toFixed(2)}deg`;
+        const percentText = `${Math.round(progress * 100)}%`;
+        const gaugeColor = progress >= 0.85
+          ? "#b5432a"
+          : progress >= 0.6
+            ? "#d38b1f"
+            : "#1a8f4c";
+        cycleGaugeEl.innerHTML = [
+          '<div class="cycle-gauge-wrap">',
+          `  <div class="cycle-gauge-ring" style="--progress-deg: ${progressDeg}; --gauge-color: ${gaugeColor}">`,
+          '    <div class="cycle-gauge-core">',
+          `      <div class="cycle-gauge-value">${percentText}</div>`,
+          `      <div class="cycle-gauge-subtle">${formatHours(currentCycleSeconds)}h / ${formatHours(athCycleSeconds)}h ATH</div>`,
+          `      <div class="cycle-gauge-subtle">${unfinishedCards} unfinished cards</div>`,
+          "    </div>",
+          "  </div>",
+          "</div>",
+        ].join("\n");
+      };
+
+      const renderCycleArea = async (data) => {
+        const containerWidth = cycleAreaEl ? cycleAreaEl.clientWidth : 0;
+        const chartWidth = Math.max(260, Math.min(containerWidth > 0 ? containerWidth - 24 : window.innerWidth - 90, 520));
+        const cycle = data && typeof data === "object" ? data.cycleTime : null;
+        const snapshotsRaw = cycle && Array.isArray(cycle.snapshots) ? cycle.snapshots : [];
+        const activeRange = getSelectedTimeRange(data);
+        const cycleWindowDomain = getTimeRangeDomain(activeRange);
+        const snapshots = snapshotsRaw
+          .map((point) => {
+            if (!point || !point.at) {
+              return null;
+            }
+            const atMs = toTimeMs(point.at);
+            if (!isWithinTimeRangeMs(atMs, activeRange)) {
+              return null;
+            }
+            const cumulativeCycleTimeSeconds = Number(point.cumulativeCycleTimeSeconds);
+            const unfinishedCards = Number(point.unfinishedCards);
+            if (!Number.isFinite(cumulativeCycleTimeSeconds) || !Number.isFinite(unfinishedCards)) {
+              return null;
+            }
+            return {
+              at: String(point.at),
+              cumulativeCycleTimeHours: cumulativeCycleTimeSeconds / 3600,
+              unfinishedCards,
+            };
+          })
+          .filter((point) => point !== null);
+
+        const spec = {
+          $schema: "https://vega.github.io/schema/vega-lite/v5.json",
+          width: chartWidth,
+          height: 240,
+          data: { values: snapshots },
+          layer: [
+            {
+              mark: { type: "area", line: { color: "#2f7d46", strokeWidth: 2 }, color: "#91c597", opacity: 0.5 },
+              encoding: {
+                x: {
+                  field: "at",
+                  type: "temporal",
+                  title: "Snapshot time",
+                  axis: { format: "%m-%d %H:%M", labelAngle: -25 },
+                  scale: cycleWindowDomain ? { domain: cycleWindowDomain } : undefined,
+                },
+                y: {
+                  field: "cumulativeCycleTimeHours",
+                  type: "quantitative",
+                  title: "Cumulative cycle time (hours)",
+                },
+                tooltip: [
+                  { field: "at", type: "temporal", title: "Snapshot", format: "%Y-%m-%d %H:%M:%S" },
+                  { field: "cumulativeCycleTimeHours", type: "quantitative", title: "Cycle time (h)", format: ".2f" },
+                  { field: "unfinishedCards", type: "quantitative", title: "Unfinished cards" },
+                ],
+              },
+            },
+            {
+              mark: { type: "point", filled: true, color: "#2f7d46", size: 64 },
+              encoding: {
+                x: {
+                  field: "at",
+                  type: "temporal",
+                  scale: cycleWindowDomain ? { domain: cycleWindowDomain } : undefined,
+                },
+                y: {
+                  field: "cumulativeCycleTimeHours",
+                  type: "quantitative",
+                },
+                tooltip: [
+                  { field: "at", type: "temporal", title: "Snapshot", format: "%Y-%m-%d %H:%M:%S" },
+                  { field: "cumulativeCycleTimeHours", type: "quantitative", title: "Cycle time (h)", format: ".2f" },
+                  { field: "unfinishedCards", type: "quantitative", title: "Unfinished cards" },
+                ],
+              },
+            },
+          ],
+          config: {
+            background: "#fffaf0",
+            axis: { labelColor: "#1f2a35", titleColor: "#1f2a35", gridColor: "#e6e0cf" },
+            view: { stroke: "#d9d4c5" },
+          },
+        };
+
+        await vegaEmbed("#cycle-area", spec, { actions: false, renderer: "svg" });
+      };
+
+      const renderCycleAreaByLabel = async (data) => {
+        const containerWidth = cycleAreaByLabelEl ? cycleAreaByLabelEl.clientWidth : 0;
+        const chartWidth = Math.max(280, Math.min(containerWidth > 0 ? containerWidth - 24 : window.innerWidth - 90, 980));
+        const cycle = data && typeof data === "object" ? data.cycleTime : null;
+        const snapshotsRaw = cycle && Array.isArray(cycle.snapshots) ? cycle.snapshots : [];
+        const activeRange = getSelectedTimeRange(data);
+        const cycleWindowDomain = getTimeRangeDomain(activeRange);
+        const allLabels = normalizeLabels(data.labels);
+        const visibleLabelSet = getEffectiveVisibleLabels(data.labels);
+        const points = [];
+
+        for (const point of snapshotsRaw) {
+          if (!point || !point.at) {
+            continue;
+          }
+          const atMs = toTimeMs(point.at);
+          if (!isWithinTimeRangeMs(atMs, activeRange)) {
+            continue;
+          }
+          const byLabel = point.cumulativeCycleTimeSecondsByLabel && typeof point.cumulativeCycleTimeSecondsByLabel === "object"
+            ? point.cumulativeCycleTimeSecondsByLabel
+            : {};
+          for (const label of allLabels) {
+            if (!visibleLabelSet.has(label)) {
+              continue;
+            }
+            const valueSeconds = Number(byLabel[label]);
+            points.push({
+              at: String(point.at),
+              label,
+              cumulativeCycleTimeHours: Number.isFinite(valueSeconds) ? valueSeconds / 3600 : 0,
+            });
+          }
+        }
+
+        const spec = {
+          $schema: "https://vega.github.io/schema/vega-lite/v5.json",
+          width: chartWidth,
+          height: 280,
+          data: { values: points },
+          mark: { type: "line", point: true, strokeWidth: 2.2 },
+          encoding: {
+            x: {
+              field: "at",
+              type: "temporal",
+              title: "Snapshot time",
+              axis: { format: "%m-%d %H:%M", labelAngle: -25 },
+              scale: cycleWindowDomain ? { domain: cycleWindowDomain } : undefined,
+            },
+            y: {
+              field: "cumulativeCycleTimeHours",
+              type: "quantitative",
+              title: "Cumulative cycle time (hours)",
+            },
+            color: {
+              field: "label",
+              type: "nominal",
+              title: "Label",
+              scale: allLabels.length > 0 ? { domain: allLabels } : undefined,
+            },
+            tooltip: [
+              { field: "at", type: "temporal", title: "Snapshot", format: "%Y-%m-%d %H:%M:%S" },
+              { field: "label", type: "nominal", title: "Label" },
+              { field: "cumulativeCycleTimeHours", type: "quantitative", title: "Cycle time (h)", format: ".2f" },
+            ],
+          },
+          config: {
+            background: "#fffaf0",
+            axis: { labelColor: "#1f2a35", titleColor: "#1f2a35", gridColor: "#e6e0cf" },
+            legend: { labelColor: "#1f2a35", titleColor: "#1f2a35" },
+            view: { stroke: "#d9d4c5" },
+          },
+        };
+
+        await vegaEmbed("#cycle-area-by-label", spec, { actions: false, renderer: "svg" });
       };
 
       const loadAndRender = async () => {
@@ -357,7 +916,10 @@
           const data = await response.json();
           latestData = data;
           renderMeta(data);
-          await renderChart(data);
+          await renderThroughputChart(data);
+          await renderCycleGauge(data);
+          await renderCycleArea(data);
+          await renderCycleAreaByLabel(data);
           errorEl.hidden = true;
           errorEl.textContent = "";
         } catch (error) {
