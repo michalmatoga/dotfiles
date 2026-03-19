@@ -497,6 +497,17 @@
         }).format(new Date(value));
       };
 
+      const getLocalDateKey = (value) => {
+        const date = value instanceof Date ? new Date(value.getTime()) : new Date(value);
+        if (Number.isNaN(date.getTime())) {
+          return "";
+        }
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+        return `${year}-${month}-${day}`;
+      };
+
       const getStartOfLocalDay = (value) => {
         const date = new Date(value);
         date.setHours(0, 0, 0, 0);
@@ -1276,6 +1287,20 @@
         const labelColorRange = allLabels.map((label) => labelColorMap.get(label) || "#425466");
         const activeRange = getSelectedTimeRange(data);
         const activeRangeDomain = getTimeRangeDomain(activeRange);
+        const isTodayRange = activeRange.id === "today";
+        const isMonthRange = activeRange.id === "this-month";
+        const referenceNow = getReferenceNow(data);
+        const todayDateKey = getLocalDateKey(referenceNow);
+        const throughputXAxis = {
+          format: isTodayRange ? "%a %H:%M" : "%a %m-%d",
+          labelAngle: isMonthRange ? -62 : -25,
+          labelFontSize: isMonthRange ? 10 : 11,
+          labelOverlap: isMonthRange ? false : true,
+          tickCount: isMonthRange ? { interval: "day", step: 1 } : undefined,
+          labelFontWeight: {
+            expr: `timeFormat(datum.value, '%Y-%m-%d') === '${todayDateKey}' ? 'bold' : 'normal'`,
+          },
+        };
         const normalizedPoints = Array.isArray(data.points)
           ? data.points
             .map((point) => {
@@ -1323,7 +1348,6 @@
             completed: point.completed,
             cumulativeCompleted: point.cumulativeCompleted - (baselineByLabel.get(point.label) || 0),
           }));
-        const referenceNow = getReferenceNow(data);
         const showReviewSeries = isCareerContext(data);
         const throughputDomain = getThroughputDomainMs(activeRange, chartPoints, referenceNow);
         const visibleLabels = Array.from(visibleLabelSet);
@@ -1381,7 +1405,7 @@
             field: "at",
             type: "temporal",
             title: "Time",
-            axis: { format: "%Y-%m-%d %H:%M", labelAngle: -25 },
+            axis: throughputXAxis,
             scale: activeRangeDomain ? { domain: activeRangeDomain } : undefined,
           },
           color: {
@@ -1420,7 +1444,7 @@
                   field: "at",
                   type: "temporal",
                   title: "Time",
-                  axis: { format: "%Y-%m-%d %H:%M", labelAngle: -25 },
+                  axis: throughputXAxis,
                   scale: activeRangeDomain ? { domain: activeRangeDomain } : undefined,
                 },
                 tooltip: [
@@ -1443,7 +1467,7 @@
                   field: "at",
                   type: "temporal",
                   title: "Time",
-                  axis: { format: "%Y-%m-%d %H:%M", labelAngle: -25 },
+                  axis: throughputXAxis,
                   scale: activeRangeDomain ? { domain: activeRangeDomain } : undefined,
                 },
                 y: { field: "plannedCumulative", type: "quantitative", title: "Cumulative completed tasks" },
@@ -1471,7 +1495,7 @@
                     field: "at",
                     type: "temporal",
                     title: "Time",
-                    axis: { format: "%Y-%m-%d %H:%M", labelAngle: -25 },
+                    axis: throughputXAxis,
                     scale: activeRangeDomain ? { domain: activeRangeDomain } : undefined,
                   },
                   y: { field: "actualNow", type: "quantitative", title: "Cumulative completed tasks" },
@@ -1498,7 +1522,7 @@
                     field: "at",
                     type: "temporal",
                     title: "Time",
-                    axis: { format: "%Y-%m-%d %H:%M", labelAngle: -25 },
+                    axis: throughputXAxis,
                     scale: activeRangeDomain ? { domain: activeRangeDomain } : undefined,
                   },
                   y: { field: "actualNow", type: "quantitative", title: "Cumulative completed tasks" },
@@ -1518,7 +1542,7 @@
                     field: "at",
                     type: "temporal",
                     title: "Time",
-                    axis: { format: "%Y-%m-%d %H:%M", labelAngle: -25 },
+                    axis: throughputXAxis,
                     scale: activeRangeDomain ? { domain: activeRangeDomain } : undefined,
                   },
                   y: { field: "plannedNow", type: "quantitative", title: "Cumulative completed tasks" },
@@ -1541,7 +1565,7 @@
                     field: "at",
                     type: "temporal",
                     title: "Time",
-                    axis: { format: "%Y-%m-%d %H:%M", labelAngle: -25 },
+                    axis: throughputXAxis,
                     scale: activeRangeDomain ? { domain: activeRangeDomain } : undefined,
                   },
                   y: { field: "plannedNow", type: "quantitative", title: "Cumulative completed tasks" },
@@ -1565,7 +1589,7 @@
                     field: "at",
                     type: "temporal",
                     title: "Time",
-                    axis: { format: "%Y-%m-%d %H:%M", labelAngle: -25 },
+                    axis: throughputXAxis,
                     scale: activeRangeDomain ? { domain: activeRangeDomain } : undefined,
                   },
                   y: { field: "cumulative", type: "quantitative", title: "Cumulative completed tasks" },
@@ -1589,7 +1613,7 @@
                     field: "at",
                     type: "temporal",
                     title: "Time",
-                    axis: { format: "%Y-%m-%d %H:%M", labelAngle: -25 },
+                    axis: throughputXAxis,
                     scale: activeRangeDomain ? { domain: activeRangeDomain } : undefined,
                   },
                   y: { field: "cumulative", type: "quantitative", title: "Cumulative completed tasks" },
@@ -1615,7 +1639,7 @@
                   field: "at",
                   type: "temporal",
                   title: "Time",
-                  axis: { format: "%Y-%m-%d %H:%M", labelAngle: -25 },
+                  axis: throughputXAxis,
                   scale: activeRangeDomain ? { domain: activeRangeDomain } : undefined,
                 },
                 y: { field: "totalCumulative", type: "quantitative", title: "Cumulative completed tasks" },
@@ -1637,7 +1661,7 @@
               data: { values: chartPoints },
               mark: {
                 type: "point",
-                filled: false,
+                filled: true,
                 strokeWidth: 2.2,
                 opacity: 1,
               },
