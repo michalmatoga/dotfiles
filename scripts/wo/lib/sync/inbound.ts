@@ -111,6 +111,12 @@ export const syncInbound = async (options: {
       context.labelByName.get(labelNames.schibsted)?.id,
       context.labelByName.get(labelNames.career)?.id,
     ].filter(Boolean) as string[];
+    if (item.source === "ghe-project" && item.type !== "review") {
+      const careerDeliveryLabel = context.labelByName.get(labelNames.careerDelivery);
+      if (careerDeliveryLabel) {
+        labelIds.push(careerDeliveryLabel.id);
+      }
+    }
     if (item.type === "review") {
       const reviewLabel = context.labelByName.get(labelNames.review);
       if (reviewLabel) {
