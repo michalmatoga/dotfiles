@@ -380,10 +380,6 @@
       const timeRangePresetIds = new Set(timeRangePresets.map((preset) => preset.id));
       const timeRangeParam = (params.get("range") || "").trim().toLowerCase();
       let selectedTimeRangeId = timeRangePresetIds.has(timeRangeParam) ? timeRangeParam : "this-week";
-      const goalEmaWindowDays = 14;
-      const goalFallbackShareWindowDays = 90;
-      const millisecondsPerDay = 24 * 60 * 60 * 1000;
-      const frozenTargetStoragePrefix = "wo-throughput-frozen-target-v1";
       const throughputPalette = [
         "#2f7d46",
         "#c03a2b",
@@ -562,156 +558,86 @@
         return `${formatDateOnly(new Date(range.startMs))} to ${formatDateOnly(new Date(range.endMs))}`;
       };
 
-      const pad2 = (value) => String(value).padStart(2, "0");
+      const clamp01 = (value) => Math.max(0, Math.min(1, Number(value) || 0));
 
-      const toLocalDateKey = (value) => {
-        const date = new Date(value);
-        return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+      const countChecklistProgress = (markdown) => {
+        if (typeof markdown !== "string" || markdown.trim().length === 0) {
+          return { total: 0, done: 0 };
+        }
+        const totalMatches = markdown.match(/^\s*[-*]\s+\[(?: |x|X)\]\s+/gm) || [];
+        const doneMatches = markdown.match(/^\s*[-*]\s+\[(?:x|X)\]\s+/gm) || [];
+        return {
+          total: totalMatches.length,
+          done: doneMatches.length,
+        };
       };
 
-      const getLocalDateFromKey = (value) => {
-        const [yearRaw, monthRaw, dayRaw] = String(value).split("-");
-        const year = Number(yearRaw);
-        const month = Number(monthRaw);
-        const day = Number(dayRaw);
-        if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
-          return null;
-        }
-        return new Date(year, month - 1, day, 0, 0, 0, 0);
+      const getVisibleGoalSources = (data) => {
+        const goalTracking = data && typeof data === "object" && data.goalTracking && typeof data.goalTracking === "object"
+          ? data.goalTracking
+          : null;
+        const sources = goalTracking && Array.isArray(goalTracking.sources) ? goalTracking.sources : [];
+        const visibleLabelSet = getEffectiveVisibleLabels(data.labels);
+        return sources.filter((source) => {
+          const sourceLabels = normalizeLabels(source && source.labels);
+          if (sourceLabels.length === 0) {
+            return false;
+          }
+          if (visibleLabelSet.size === 0) {
+            return true;
+          }
+          return sourceLabels.some((label) => visibleLabelSet.has(label));
+        });
       };
 
-      const listLocalDayKeys = (startDate, endDate) => {
-        const keys = [];
-        const start = getStartOfLocalDay(startDate);
-        const end = getStartOfLocalDay(endDate);
-        if (start.getTime() > end.getTime()) {
-          return keys;
-        }
-        const cursor = new Date(start);
-        while (cursor.getTime() <= end.getTime()) {
-          keys.push(toLocalDateKey(cursor));
-          cursor.setDate(cursor.getDate() + 1);
-        }
-        return keys;
+      const getGoalSnippetForSource = (source) => {
+        const byRange = source && source.byRange && typeof source.byRange === "object" ? source.byRange : {};
+        return byRange[selectedTimeRangeId] || byRange["this-week"] || byRange.all || null;
       };
 
-      const buildGoalRateContext = (options) => {
-        const labels = Array.isArray(options.labels) ? options.labels : [];
-        const points = Array.isArray(options.points) ? options.points : [];
-        const referenceNow = options.referenceNow instanceof Date ? options.referenceNow : new Date();
-        const alpha = 2 / (goalEmaWindowDays + 1);
-        const byDayByLabel = new Map();
-        const totalByLabel = new Map();
-        const globalByDay = new Map();
-
-        for (const label of labels) {
-          byDayByLabel.set(label, new Map());
-          totalByLabel.set(label, 0);
+      const getGoalChecklistMetrics = (data) => {
+        const sources = getVisibleGoalSources(data);
+        let totalTasks = 0;
+        let doneTasks = 0;
+        for (const source of sources) {
+          const snippet = getGoalSnippetForSource(source);
+          const markdown = snippet && typeof snippet.markdown === "string" ? snippet.markdown : "";
+          const counts = countChecklistProgress(markdown);
+          totalTasks += counts.total;
+          doneTasks += counts.done;
         }
+        return {
+          totalTasks,
+          doneTasks,
+          completionPct: totalTasks > 0 ? (doneTasks / totalTasks) * 100 : null,
+          sourceCount: sources.length,
+        };
+      };
 
-        let minPointMs = Number.POSITIVE_INFINITY;
-        for (const point of points) {
-          if (!point || !Number.isFinite(point.atMs)) {
-            continue;
-          }
-          const label = String(point.label);
-          if (!byDayByLabel.has(label)) {
-            byDayByLabel.set(label, new Map());
-            totalByLabel.set(label, 0);
-          }
-          minPointMs = Math.min(minPointMs, point.atMs);
-          const dayKey = toLocalDateKey(new Date(point.atMs));
-          const completed = Math.max(0, Number(point.completed) || 0);
-          const labelDayMap = byDayByLabel.get(label);
-          labelDayMap.set(dayKey, (labelDayMap.get(dayKey) || 0) + completed);
-          totalByLabel.set(label, (totalByLabel.get(label) || 0) + completed);
-          globalByDay.set(dayKey, (globalByDay.get(dayKey) || 0) + completed);
+      const getElapsedFraction = (range, atMs) => {
+        if (!range || range.startMs === null || range.endMs === null) {
+          return 1;
         }
-
-        const firstDate = Number.isFinite(minPointMs) ? new Date(minPointMs) : referenceNow;
-        const dayKeys = listLocalDayKeys(firstDate, referenceNow);
-        if (dayKeys.length === 0) {
-          dayKeys.push(toLocalDateKey(referenceNow));
+        const span = range.endMs - range.startMs;
+        if (span <= 0) {
+          return 1;
         }
+        return clamp01((atMs - range.startMs) / span);
+      };
 
-        let globalEma = 0;
-        for (const dayKey of dayKeys) {
-          const value = Math.max(0, Number(globalByDay.get(dayKey) || 0));
-          globalEma = alpha * value + (1 - alpha) * globalEma;
-        }
-
-        const localNowDayKey = dayKeys[dayKeys.length - 1];
-        const localNowDay = getLocalDateFromKey(localNowDayKey) || getStartOfLocalDay(referenceNow);
-        const trailingStartDay = new Date(localNowDay);
-        trailingStartDay.setDate(trailingStartDay.getDate() - (goalFallbackShareWindowDays - 1));
-        const trailingDayKeys = listLocalDayKeys(trailingStartDay, localNowDay);
-
-        const trailingByLabel = new Map();
-        let trailingGlobalTotal = 0;
-        for (const label of labels) {
-          const labelDayMap = byDayByLabel.get(label) || new Map();
-          let total = 0;
-          for (const dayKey of trailingDayKeys) {
-            total += Math.max(0, Number(labelDayMap.get(dayKey) || 0));
-          }
-          trailingByLabel.set(label, total);
-          trailingGlobalTotal += total;
-        }
-
-        const bootstrapShare = labels.length > 0 ? (1 / (2 * labels.length)) : 0;
-        const sharePriorRaw = new Map();
-        let sharePriorRawTotal = 0;
-        for (const label of labels) {
-          const observedShare = trailingGlobalTotal > 0
-            ? (trailingByLabel.get(label) || 0) / trailingGlobalTotal
-            : 0;
-          const prior = Math.max(observedShare, bootstrapShare);
-          sharePriorRaw.set(label, prior);
-          sharePriorRawTotal += prior;
-        }
-
-        const sharePrior = new Map();
-        for (const label of labels) {
-          const normalizedShare = sharePriorRawTotal > 0
-            ? (sharePriorRaw.get(label) || 0) / sharePriorRawTotal
-            : 0;
-          sharePrior.set(label, normalizedShare);
-        }
-
-        const rateByLabel = new Map();
-        const sourceByLabel = new Map();
-        for (const label of labels) {
-          const labelDayMap = byDayByLabel.get(label) || new Map();
-          let labelEma = 0;
-          for (const dayKey of dayKeys) {
-            const value = Math.max(0, Number(labelDayMap.get(dayKey) || 0));
-            labelEma = alpha * value + (1 - alpha) * labelEma;
-          }
-
-          const hasOwnHistory = (totalByLabel.get(label) || 0) > 0;
-          if (hasOwnHistory) {
-            rateByLabel.set(label, labelEma);
-            sourceByLabel.set(label, `ema-${goalEmaWindowDays}d`);
-            continue;
-          }
-
-          if (globalEma > 0 && sharePriorRawTotal > 0) {
-            rateByLabel.set(label, globalEma * (sharePrior.get(label) || 0));
-            sourceByLabel.set(label, `fallback global ema-${goalEmaWindowDays}d x 90d share`);
-            continue;
-          }
-
-          if (globalEma > 0) {
-            rateByLabel.set(label, globalEma);
-            sourceByLabel.set(label, `fallback global ema-${goalEmaWindowDays}d`);
-            continue;
-          }
-
-          rateByLabel.set(label, 0);
-          sourceByLabel.set(label, "fallback flat zero");
-        }
-
-        return { rateByLabel, sourceByLabel };
+      const getGoalPaceSummary = (data, range, referenceNow) => {
+        const metrics = getGoalChecklistMetrics(data);
+        const nowMsRaw = referenceNow instanceof Date ? referenceNow.getTime() : Date.now();
+        const nowMs = range && range.endMs !== null ? Math.min(nowMsRaw, range.endMs) : nowMsRaw;
+        const elapsedFraction = getElapsedFraction(range, nowMs);
+        const plannedNow = metrics.totalTasks * elapsedFraction;
+        const pacePct = plannedNow > 0 ? (metrics.doneTasks / plannedNow) * 100 : null;
+        return {
+          ...metrics,
+          elapsedFraction,
+          plannedNow,
+          pacePct,
+        };
       };
 
       const getThroughputDomainMs = (range, points, referenceNow) => {
@@ -741,111 +667,6 @@
         }
         anchors.push(endMs);
         return Array.from(new Set(anchors)).sort((a, b) => a - b);
-      };
-
-      const getTargetFreezeStartMs = (range) => {
-        if (!range || range.startMs === null) {
-          return null;
-        }
-        if (range.id === "today" || range.id === "this-week" || range.id === "this-month") {
-          return range.startMs;
-        }
-        return null;
-      };
-
-      const buildSyntheticSeriesPoints = (options) => {
-        const labels = Array.isArray(options.labels) ? options.labels : [];
-        const visibleLabelSet = options.visibleLabelSet instanceof Set ? options.visibleLabelSet : new Set();
-        const anchorsMs = Array.isArray(options.anchorsMs) ? options.anchorsMs : [];
-        const context = options.context && typeof options.context === "object"
-          ? options.context
-          : { rateByLabel: new Map(), sourceByLabel: new Map() };
-        const domainStartMs = Number(options.domainStartMs);
-        if (!Number.isFinite(domainStartMs) || anchorsMs.length === 0) {
-          return [];
-        }
-
-        const points = [];
-        for (const label of labels) {
-          if (!visibleLabelSet.has(label)) {
-            continue;
-          }
-          const ratePerDay = Math.max(0, Number(context.rateByLabel.get(label) || 0));
-          const source = context.sourceByLabel.get(label) || "ema";
-          for (const atMs of anchorsMs) {
-            const elapsedDays = Math.max(0, (atMs - domainStartMs) / millisecondsPerDay);
-            points.push({
-              at: new Date(atMs).toISOString(),
-              atMs,
-              label,
-              syntheticCumulative: ratePerDay * elapsedDays,
-              syntheticSource: source,
-            });
-          }
-        }
-        return points;
-      };
-
-      const hasPositiveSyntheticRate = (context, labels) => {
-        const rateByLabel = context && context.rateByLabel instanceof Map ? context.rateByLabel : new Map();
-        for (const label of labels) {
-          if ((Number(rateByLabel.get(label)) || 0) > 0) {
-            return true;
-          }
-        }
-        return false;
-      };
-
-      const getFrozenTargetStorageKey = (range, labels) => {
-        if (!range || range.startMs === null) {
-          return null;
-        }
-        const startKey = toLocalDateKey(new Date(range.startMs));
-        const labelsKey = normalizeLabels(labels).join(",");
-        return `${frozenTargetStoragePrefix}:${range.id}:${startKey}:${labelsKey}`;
-      };
-
-      const loadFrozenTargetContext = (storageKey) => {
-        if (!storageKey || typeof window === "undefined" || !window.localStorage) {
-          return null;
-        }
-        try {
-          const raw = window.localStorage.getItem(storageKey);
-          if (!raw) {
-            return null;
-          }
-          const parsed = JSON.parse(raw);
-          const ratesRaw = parsed && typeof parsed === "object" && parsed.rates && typeof parsed.rates === "object"
-            ? parsed.rates
-            : null;
-          if (!ratesRaw) {
-            return null;
-          }
-          const sourcesRaw = parsed && typeof parsed === "object" && parsed.sources && typeof parsed.sources === "object"
-            ? parsed.sources
-            : {};
-          return {
-            rateByLabel: new Map(Object.entries(ratesRaw)),
-            sourceByLabel: new Map(Object.entries(sourcesRaw)),
-          };
-        } catch {
-          return null;
-        }
-      };
-
-      const persistFrozenTargetContext = (storageKey, context, labels) => {
-        if (!storageKey || typeof window === "undefined" || !window.localStorage) {
-          return;
-        }
-        try {
-          const payload = {
-            rates: Object.fromEntries(labels.map((label) => [label, Math.max(0, Number(context.rateByLabel.get(label) || 0))])),
-            sources: Object.fromEntries(labels.map((label) => [label, String(context.sourceByLabel.get(label) || "ema")])),
-          };
-          window.localStorage.setItem(storageKey, JSON.stringify(payload));
-        } catch {
-          // Ignore storage failures (private mode, quota, etc.)
-        }
       };
 
       const normalizeLabels = (labels) => Array.isArray(labels)
@@ -971,21 +792,7 @@
         if (!goalTrackingEl) {
           return;
         }
-        const goalTracking = data && typeof data === "object" && data.goalTracking && typeof data.goalTracking === "object"
-          ? data.goalTracking
-          : null;
-        const sources = goalTracking && Array.isArray(goalTracking.sources) ? goalTracking.sources : [];
-        const visibleLabelSet = getEffectiveVisibleLabels(data.labels);
-        const visibleSources = sources.filter((source) => {
-          const sourceLabels = normalizeLabels(source && source.labels);
-          if (sourceLabels.length === 0) {
-            return false;
-          }
-          if (visibleLabelSet.size === 0) {
-            return true;
-          }
-          return sourceLabels.some((label) => visibleLabelSet.has(label));
-        });
+        const visibleSources = getVisibleGoalSources(data);
 
         if (visibleSources.length === 0) {
           goalTrackingEl.innerHTML = "<p class=\"subtle\">No goal notes mapped to currently visible labels.</p>";
@@ -993,8 +800,7 @@
         }
 
         goalTrackingEl.innerHTML = visibleSources.map((source) => {
-          const byRange = source && source.byRange && typeof source.byRange === "object" ? source.byRange : {};
-          const snippet = byRange[selectedTimeRangeId] || byRange["this-week"] || byRange.all || null;
+          const snippet = getGoalSnippetForSource(source);
           const markdown = snippet && typeof snippet.markdown === "string" ? snippet.markdown : "";
           const matchedHeading = snippet && typeof snippet.matchedHeading === "string" ? snippet.matchedHeading : null;
           const headingHtml = matchedHeading
@@ -1086,11 +892,15 @@
           : data.startDate && data.endDate
             ? `${data.startDate} to ${data.endDate}`
             : "--";
+        const goalSummary = getGoalPaceSummary(data, activeRange, getReferenceNow(data));
+        const goalChip = goalSummary.totalTasks > 0
+          ? `Goal tasks: ${goalSummary.doneTasks}/${goalSummary.totalTasks} done (${goalSummary.completionPct.toFixed(1)}%), pace ${goalSummary.pacePct !== null ? `${goalSummary.pacePct.toFixed(1)}%` : "--"}`
+          : "Goal tasks: no checklist items in visible goal notes";
         metaEl.innerHTML = [
           `<span class="chip">Labels: ${labels}</span>`,
           `<span class="chip">Series:</span>${toggleButtons}`,
           `<span class="chip">Time range:</span>${rangeButtons}`,
-          `<span class="chip">Synthetic lines: target (frozen calendar) + forecast (live EMA-${goalEmaWindowDays}d)</span>`,
+          `<span class="chip">${goalChip}</span>`,
           `<span class="chip">Visible window: ${activeRange.label} (${formatSelectedRangeText(activeRange)})</span>`,
           `<span class="chip">Completed cards: ${data.totalCompletedCards}</span>`,
           `<span class="chip">Unfinished in cycle: ${unfinishedCards}</span>`,
@@ -1153,14 +963,11 @@
 
         const colorMap = getLabelColorMap(data.labels);
         const visibleLabels = Array.from(visibleLabelSet);
-        const hasFrozenTarget = getTargetFreezeStartMs(activeRange) !== null;
         const styleLegendItems = [
           "<span class=\"chart-legend-item\"><span class=\"chart-legend-line chart-legend-line-actual\"></span>Actual cumulative</span>",
-          "<span class=\"chart-legend-item\"><span class=\"chart-legend-line chart-legend-line-dashed\"></span>Forecast (live EMA)</span>",
+          "<span class=\"chart-legend-item\"><span class=\"chart-legend-line chart-legend-line-dashed\"></span>Actual total (aggregate)</span>",
+          "<span class=\"chart-legend-item\"><span class=\"chart-legend-line chart-legend-line-target\"></span>Target (goal checklist pace)</span>",
         ];
-        if (hasFrozenTarget) {
-          styleLegendItems.splice(1, 0, "<span class=\"chart-legend-item\"><span class=\"chart-legend-line chart-legend-line-target\"></span>Target (frozen at range start)</span>");
-        }
         throughputStyleLegendEl.innerHTML = styleLegendItems.join("");
         throughputSeriesLegendEl.innerHTML = visibleLabels.length > 0
           ? visibleLabels
@@ -1170,6 +977,32 @@
             })
             .join("")
           : "<span class=\"chart-legend-item\">No visible series</span>";
+      };
+
+      const buildAggregateActualPoints = (chartPoints, visibleLabels) => {
+        const labels = Array.isArray(visibleLabels) ? visibleLabels : [];
+        if (labels.length === 0) {
+          return [];
+        }
+        const sorted = [...chartPoints].sort((a, b) => a.atMs - b.atMs);
+        const byLabel = new Map(labels.map((label) => [label, 0]));
+        const totals = [];
+        let index = 0;
+        while (index < sorted.length) {
+          const atMs = sorted[index].atMs;
+          let at = sorted[index].at;
+          while (index < sorted.length && sorted[index].atMs === atMs) {
+            const point = sorted[index];
+            if (byLabel.has(point.label)) {
+              byLabel.set(point.label, Number(point.cumulativeCompleted) || 0);
+            }
+            at = point.at;
+            index += 1;
+          }
+          const totalCumulative = labels.reduce((sum, label) => sum + (Number(byLabel.get(label)) || 0), 0);
+          totals.push({ at, atMs, totalCumulative });
+        }
+        return totals;
       };
 
       const renderThroughputChart = async (data) => {
@@ -1227,81 +1060,28 @@
             completed: point.completed,
             cumulativeCompleted: point.cumulativeCompleted - (baselineByLabel.get(point.label) || 0),
           }));
-
-        const goalContext = buildGoalRateContext({
-          labels: allLabels,
-          points: normalizedPoints,
-          referenceNow: getReferenceNow(data),
-        });
-        const targetFreezeStartMs = getTargetFreezeStartMs(activeRange);
-        let frozenTargetContext = null;
-        if (targetFreezeStartMs !== null) {
-          const storageKey = getFrozenTargetStorageKey(activeRange, allLabels);
-          const storedContext = loadFrozenTargetContext(storageKey);
-          if (storedContext && hasPositiveSyntheticRate(storedContext, allLabels)) {
-            frozenTargetContext = storedContext;
-          } else {
-            const historicalContext = buildGoalRateContext({
-              labels: allLabels,
-              points: normalizedPoints.filter((point) => point.atMs < targetFreezeStartMs),
-              referenceNow: new Date(targetFreezeStartMs),
-            });
-            const fallbackContext = hasPositiveSyntheticRate(historicalContext, allLabels)
-              ? historicalContext
-              : buildGoalRateContext({
-                labels: allLabels,
-                points: normalizedPoints,
-                referenceNow: getReferenceNow(data),
-              });
-            frozenTargetContext = fallbackContext;
-            if (hasPositiveSyntheticRate(frozenTargetContext, allLabels)) {
-              persistFrozenTargetContext(storageKey, frozenTargetContext, allLabels);
-            }
-          }
-        }
-
-        const throughputDomain = getThroughputDomainMs(activeRange, chartPoints, getReferenceNow(data));
+        const referenceNow = getReferenceNow(data);
+        const throughputDomain = getThroughputDomainMs(activeRange, chartPoints, referenceNow);
+        const visibleLabels = Array.from(visibleLabelSet);
+        const aggregateActualPoints = buildAggregateActualPoints(chartPoints, visibleLabels);
+        const goalSummary = getGoalPaceSummary(data, activeRange, referenceNow);
         const goalAnchorsMs = buildRangeAnchorsMs(throughputDomain.startMs, throughputDomain.endMs);
-        const forecastPoints = buildSyntheticSeriesPoints({
-          labels: allLabels,
-          visibleLabelSet,
-          anchorsMs: goalAnchorsMs,
-          domainStartMs: throughputDomain.startMs,
-          context: goalContext,
-        });
-        const targetPoints = frozenTargetContext
-          ? buildSyntheticSeriesPoints({
-            labels: allLabels,
-            visibleLabelSet,
-            anchorsMs: goalAnchorsMs,
-            domainStartMs: throughputDomain.startMs,
-            context: frozenTargetContext,
+        const targetPoints = goalSummary.totalTasks > 0
+          ? goalAnchorsMs.map((atMs) => {
+            const elapsedFraction = getElapsedFraction(activeRange, atMs);
+            const plannedCumulative = goalSummary.totalTasks * elapsedFraction;
+            const pacePct = plannedCumulative > 0 ? (goalSummary.doneTasks / plannedCumulative) * 100 : null;
+            return {
+              at: new Date(atMs).toISOString(),
+              atMs,
+              plannedCumulative,
+              goalDone: goalSummary.doneTasks,
+              goalTotal: goalSummary.totalTasks,
+              elapsedPct: elapsedFraction * 100,
+              pacePct,
+            };
           })
           : [];
-
-        for (const point of chartPoints) {
-          const elapsedDays = Math.max(0, (point.atMs - throughputDomain.startMs) / millisecondsPerDay);
-          const forecastRate = Math.max(0, Number(goalContext.rateByLabel.get(point.label) || 0));
-          const forecastValue = forecastRate * elapsedDays;
-          point.forecastCumulative = forecastValue;
-          point.forecastDelta = point.cumulativeCompleted - forecastValue;
-          point.forecastPacePct = forecastValue > 0 ? (point.cumulativeCompleted / forecastValue) * 100 : null;
-          point.forecastSource = goalContext.sourceByLabel.get(point.label) || "ema";
-
-          if (frozenTargetContext) {
-            const targetRate = Math.max(0, Number(frozenTargetContext.rateByLabel.get(point.label) || 0));
-            const targetValue = targetRate * elapsedDays;
-            point.targetCumulative = targetValue;
-            point.targetDelta = point.cumulativeCompleted - targetValue;
-            point.targetPacePct = targetValue > 0 ? (point.cumulativeCompleted / targetValue) * 100 : null;
-            point.targetSource = frozenTargetContext.sourceByLabel.get(point.label) || "ema";
-          } else {
-            point.targetCumulative = null;
-            point.targetDelta = null;
-            point.targetPacePct = null;
-            point.targetSource = "n/a rolling window";
-          }
-        }
 
         const sharedEncoding = {
           x: {
@@ -1325,37 +1105,6 @@
             { field: "label", type: "nominal", title: "Label" },
             { field: "completed", type: "quantitative", title: "Completed (event)" },
             { field: "cumulativeCompleted", type: "quantitative", title: "Completed (cumulative)" },
-            { field: "targetCumulative", type: "quantitative", title: "Target (frozen)", format: ".2f" },
-            { field: "targetDelta", type: "quantitative", title: "Delta vs target", format: ".2f" },
-            { field: "targetPacePct", type: "quantitative", title: "Pace vs target (%)", format: ".1f" },
-            { field: "forecastCumulative", type: "quantitative", title: "Forecast (live)", format: ".2f" },
-            { field: "forecastDelta", type: "quantitative", title: "Delta vs forecast", format: ".2f" },
-            { field: "forecastPacePct", type: "quantitative", title: "Pace vs forecast (%)", format: ".1f" },
-          ],
-        };
-
-        const syntheticEncoding = {
-          x: {
-            field: "at",
-            type: "temporal",
-            title: "Time",
-            axis: { format: "%Y-%m-%d %H:%M", labelAngle: -25 },
-            scale: activeRangeDomain ? { domain: activeRangeDomain } : undefined,
-          },
-          color: {
-            field: "label",
-            type: "nominal",
-            title: "Label",
-            scale: allLabels.length > 0 ? { domain: allLabels, range: labelColorRange } : undefined,
-            legend: null,
-          },
-          detail: { field: "label", type: "nominal" },
-          order: { field: "at", type: "temporal" },
-          tooltip: [
-            { field: "at", type: "temporal", title: "Time", format: "%Y-%m-%d %H:%M:%S" },
-            { field: "label", type: "nominal", title: "Label" },
-            { field: "syntheticCumulative", type: "quantitative", title: "Synthetic cumulative", format: ".2f" },
-            { field: "syntheticSource", type: "nominal", title: "Source" },
           ],
         };
 
@@ -1371,25 +1120,51 @@
                 interpolate: "linear",
                 strokeWidth: 1.7,
                 opacity: 0.75,
+                color: "#4b5563",
                 strokeDash: [2, 4],
               },
               encoding: {
-                ...syntheticEncoding,
-                y: { field: "syntheticCumulative", type: "quantitative", title: "Cumulative completed tasks" },
+                x: {
+                  field: "at",
+                  type: "temporal",
+                  title: "Time",
+                  axis: { format: "%Y-%m-%d %H:%M", labelAngle: -25 },
+                  scale: activeRangeDomain ? { domain: activeRangeDomain } : undefined,
+                },
+                y: { field: "plannedCumulative", type: "quantitative", title: "Cumulative completed tasks" },
+                tooltip: [
+                  { field: "at", type: "temporal", title: "Time", format: "%Y-%m-%d %H:%M:%S" },
+                  { field: "plannedCumulative", type: "quantitative", title: "Target cumulative", format: ".2f" },
+                  { field: "goalDone", type: "quantitative", title: "Done tasks" },
+                  { field: "goalTotal", type: "quantitative", title: "Total tasks" },
+                  { field: "elapsedPct", type: "quantitative", title: "Elapsed (%)", format: ".1f" },
+                  { field: "pacePct", type: "quantitative", title: "Pace vs plan (%)", format: ".1f" },
+                ],
               },
             },
             {
-              data: { values: forecastPoints },
+              data: { values: aggregateActualPoints },
               mark: {
                 type: "line",
-                interpolate: "linear",
+                interpolate: "step-after",
                 strokeWidth: 1.7,
-                opacity: 0.65,
-                strokeDash: [8, 5],
+                opacity: 0.8,
+                color: "#374151",
+                strokeDash: [7, 4],
               },
               encoding: {
-                ...syntheticEncoding,
-                y: { field: "syntheticCumulative", type: "quantitative", title: "Cumulative completed tasks" },
+                x: {
+                  field: "at",
+                  type: "temporal",
+                  title: "Time",
+                  axis: { format: "%Y-%m-%d %H:%M", labelAngle: -25 },
+                  scale: activeRangeDomain ? { domain: activeRangeDomain } : undefined,
+                },
+                y: { field: "totalCumulative", type: "quantitative", title: "Cumulative completed tasks" },
+                tooltip: [
+                  { field: "at", type: "temporal", title: "Time", format: "%Y-%m-%d %H:%M:%S" },
+                  { field: "totalCumulative", type: "quantitative", title: "Actual total cumulative", format: ".2f" },
+                ],
               },
             },
             {
