@@ -262,8 +262,8 @@ npx --yes tsx scripts/wo/bin/wo-report.ts summary 1
 npx --yes tsx scripts/wo/bin/wo-report.ts card <card-id>
 npx --yes tsx scripts/wo/bin/wo-report.ts card <card-id> 90
 npx --yes tsx scripts/wo/bin/wo-report.ts throughput 14
-npx --yes tsx scripts/wo/bin/wo-report.ts chart-data --labels career,review,business
-npx --yes tsx scripts/wo/bin/wo-report.ts chart-data --labels career,review,business --watch 30
+npx --yes tsx scripts/wo/bin/wo-report.ts chart-data
+npx --yes tsx scripts/wo/bin/wo-report.ts chart-data --watch 30
 ```
 
 Notes:
@@ -272,6 +272,8 @@ Notes:
 - Cards without a Trello mapping are grouped under `no-card`.
 - `no-card by repo` breaks down unmapped time by repo root (host/owner/repo).
 - Labels are current labels at report time (no historical label tracking).
+- `chart-data` defaults to all labels currently present on the Trello board (`TRELLO_BOARD_ID_WO`).
+- Use `--labels` (or `WO_CHART_LABELS`) only when you want to limit chart series manually.
 
 ### Throughput dashboard (Vega-Lite)
 
@@ -285,13 +287,19 @@ Notes:
 - Generate data once:
 
   ```bash
-  npx --yes tsx scripts/wo/bin/wo-report.ts chart-data --labels career,review,business
+  npx --yes tsx scripts/wo/bin/wo-report.ts chart-data
   ```
 
 - Keep chart data fresh while you work (recommended):
 
   ```bash
-  npx --yes tsx scripts/wo/bin/wo-report.ts chart-data --labels career,review,business --watch 30
+  npx --yes tsx scripts/wo/bin/wo-report.ts chart-data --watch 30
+  ```
+
+- Optional manual scope override:
+
+  ```bash
+  npx --yes tsx scripts/wo/bin/wo-report.ts chart-data --labels career,review,business
   ```
 
 - Serve repo root and open dashboard:

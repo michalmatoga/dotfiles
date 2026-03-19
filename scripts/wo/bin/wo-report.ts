@@ -19,6 +19,7 @@ import {
 } from "../lib/metrics/chart-data";
 import { readJsonlEntries } from "../lib/state/jsonl";
 import { readLatestSnapshot } from "../lib/state/snapshots";
+import { fetchBoardLabels } from "../lib/trello/labels";
 
 const formatDuration = (seconds: number): string => {
   if (seconds === 0) return "0m";
@@ -476,9 +477,24 @@ const showChartData = async (args: string[]) => {
   const outputPath = resolve(
     parseOptionValue(args, "--output") ?? "scripts/wo/state/wo-throughput-chart.json",
   );
-  const labels = parseTrackedLabels(
-    parseOptionValue(args, "--labels") ?? process.env.WO_CHART_LABELS,
-  );
+  const labelsOption = parseOptionValue(args, "--labels") ?? process.env.WO_CHART_LABELS;
+  let labels = parseTrackedLabels(labelsOption);
+  if (!labelsOption) {
+    try {
+      const boardId = requireEnv("TRELLO_BOARD_ID_WO");
+      const boardLabels = await fetchBoardLabels(boardId);
+      labels = parseTrackedLabels(
+        boardLabels
+          .map((label) => label.name)
+          .filter((name): name is string => Boolean(name))
+          .join(","),
+      ).sort((a, b) => a.localeCompare(b));
+    } catch (error) {
+      console.warn(
+        `Warning: Could not load board labels for chart-data (${String(error)}). Falling back to labels inferred from throughput metrics.`,
+      );
+    }
+  }
   const watchEnabled = hasOption(args, "--watch");
   const watchSecondsRaw = parseOptionValue(args, "--watch");
   const watchSeconds = watchSecondsRaw ? parseInt(watchSecondsRaw, 10) : 30;
@@ -514,6 +530,8 @@ Examples:
   wo-report card abc123       # Card details (last 30 days)
   wo-report card abc123 90    # Card details (last 90 days)
   wo-report throughput 14     # 2-week throughput
+  wo-report chart-data        # All current board labels
+  wo-report chart-data --watch 30
   wo-report chart-data --labels career,review,business
   wo-report chart-data --labels career,review,business --watch 30
   wo-report chart-data --output scripts/wo/state/wo-throughput-chart.json

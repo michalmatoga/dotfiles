@@ -94,6 +94,33 @@ describe("buildThroughputChartData", () => {
     expect(data.points).toHaveLength(2);
     expect(data.points.every((point) => point.completed === 0 && point.cumulativeCompleted === 0)).toBe(true);
   });
+
+  it("keeps selected labels with zero throughput in the series", () => {
+    const data = buildThroughputChartData({
+      metrics: [
+        toDoneRecord({
+          cardId: "card-1",
+          timestamp: "2026-03-01T10:00:00.000Z",
+          labels: ["career"],
+          completedDate: "2026-03-01",
+        }),
+      ],
+      labels: ["career", "review", "household"],
+      now: new Date("2026-03-01T12:00:00.000Z"),
+    });
+
+    expect(data.labels).toEqual(["career", "review", "household"]);
+    expect(data.points).toHaveLength(3);
+    const householdSeries = data.points.filter((point) => point.label === "household");
+    expect(householdSeries).toEqual([
+      {
+        at: "2026-03-01T10:00:00.000Z",
+        label: "household",
+        completed: 0,
+        cumulativeCompleted: 0,
+      },
+    ]);
+  });
 });
 
 describe("buildLiveCycleTimeData", () => {

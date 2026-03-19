@@ -509,7 +509,7 @@ in
         "DOTFILES_DIR=%h/ghq/github.com/michalmatoga/dotfiles"
       ];
       WorkingDirectory = "%h/ghq/github.com/michalmatoga/dotfiles";
-      ExecStart = "${pkgs.bash}/bin/bash -c '${pkgs.nodejs_24}/bin/npx --yes tsx \"$DOTFILES_DIR/scripts/wo/bin/wo-report.ts\" chart-data --labels career,review,business --watch 30 --output \"$DOTFILES_DIR/scripts/wo/state/wo-throughput-chart.json\"'";
+      ExecStart = "${pkgs.bash}/bin/bash -c '${pkgs.nodejs_24}/bin/npx --yes tsx \"$DOTFILES_DIR/scripts/wo/bin/wo-report.ts\" chart-data --watch 30 --output \"$DOTFILES_DIR/scripts/wo/state/wo-throughput-chart.json\"'";
       Restart = "always";
       RestartSec = "5s";
     };
