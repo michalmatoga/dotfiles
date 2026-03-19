@@ -76,6 +76,28 @@
         gap: 0.6rem;
       }
 
+      .meta[hidden] {
+        display: none !important;
+      }
+
+      .meta-wrap {
+        margin-top: 0.75rem;
+      }
+
+      .meta-summary {
+        display: inline-block;
+        list-style: none;
+        cursor: pointer;
+      }
+
+      .meta-summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .meta-summary::marker {
+        content: "";
+      }
+
       .chip {
         background: #f3f1e9;
         border: 1px solid var(--line);
@@ -350,8 +372,13 @@
   <body>
     <main class="layout">
       <section class="panel">
-        <h1>WO Throughput</h1>
+        <h1 id="page-title">WO Throughput</h1>
         <p class="subtle">Cumulative completed tasks per label (selected time range)</p>
+        <div class="meta-wrap">
+          <details id="meta-details">
+            <summary id="meta-toggle" class="chip meta-summary">Show controls</summary>
+          </details>
+        </div>
         <div class="meta" id="meta"></div>
         <div class="chart-grid">
           <div class="chart-card chart-card-full">
@@ -392,6 +419,9 @@
       const refreshSecondsRaw = parseInt(params.get("refresh") || "30", 10);
       const refreshSeconds = Number.isFinite(refreshSecondsRaw) && refreshSecondsRaw >= 5 ? refreshSecondsRaw : 30;
       const metaEl = document.getElementById("meta");
+      const pageTitleEl = document.getElementById("page-title");
+      const metaDetailsEl = document.getElementById("meta-details");
+      const metaToggleEl = document.getElementById("meta-toggle");
       const throughputChartEl = document.getElementById("throughput-chart");
       const throughputStyleLegendEl = document.getElementById("throughput-style-legend");
       const throughputSeriesLegendEl = document.getElementById("throughput-series-legend");
@@ -1035,6 +1065,28 @@
         });
       };
 
+      const setMetaExpanded = (expanded) => {
+        const isExpanded = Boolean(expanded);
+        if (metaEl) {
+          metaEl.hidden = !isExpanded;
+        }
+        if (metaDetailsEl) {
+          metaDetailsEl.open = isExpanded;
+        }
+        if (metaToggleEl) {
+          metaToggleEl.textContent = isExpanded ? "Hide controls" : "Show controls";
+          metaToggleEl.setAttribute("aria-expanded", isExpanded ? "true" : "false");
+        }
+      };
+
+      if (metaDetailsEl) {
+        metaDetailsEl.addEventListener("toggle", () => {
+          setMetaExpanded(metaDetailsEl.open);
+        });
+      }
+
+      setMetaExpanded(false);
+
       const renderMeta = (data) => {
         const labels = data.labels.length > 0 ? data.labels.join(", ") : "none";
         const activeRange = getSelectedTimeRange(data);
@@ -1073,6 +1125,22 @@
             ? `Reviews: delivered ${reviewSummary.delivered}/${reviewSummary.requested} (${reviewSummary.deliveryRatePct.toFixed(1)}%), unmet ${reviewSummary.unmet} (archived ${reviewSummary.missed}, re-requested ${reviewSummary.reRequested})`
             : "Reviews: no request events in selected range"
           : null;
+
+        const toTitleLabel = (label) => String(label)
+          .split("-")
+          .filter((part) => part.length > 0)
+          .map((part) => part[0].toUpperCase() + part.slice(1))
+          .join(" ");
+        const visibleLabelList = Array.from(visibleLabelSet);
+        const titleLabelPart = visibleLabelList.length === 0
+          ? "All labels"
+          : visibleLabelList.map(toTitleLabel).join(", ");
+        const titleText = `WO Throughput - ${activeRange.label} - ${titleLabelPart}`;
+        if (pageTitleEl) {
+          pageTitleEl.textContent = titleText;
+        }
+        document.title = titleText;
+
         metaEl.innerHTML = [
           `<span class="chip">Labels: ${labels}</span>`,
           `<span class="chip">Series:</span>${toggleButtons}`,
