@@ -69,6 +69,13 @@
         font-size: 0.95rem;
       }
 
+      .quick-range {
+        margin-top: 0.7rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+
       .meta {
         margin-top: 0.85rem;
         display: flex;
@@ -379,6 +386,7 @@
       <section class="panel">
         <h1 id="page-title">WO Throughput</h1>
         <p class="subtle">Cumulative completed tasks per label (selected time range)</p>
+        <div id="quick-range" class="quick-range" aria-label="Quick time range controls"></div>
         <div class="meta-wrap">
           <details id="meta-details">
             <summary id="meta-toggle" class="chip meta-summary">Show controls</summary>
@@ -429,6 +437,7 @@
       const throughputChartEl = document.getElementById("throughput-chart");
       const throughputStyleLegendEl = document.getElementById("throughput-style-legend");
       const throughputSeriesLegendEl = document.getElementById("throughput-series-legend");
+      const quickRangeEl = document.getElementById("quick-range");
       const goalTrackingEl = document.getElementById("goal-tracking");
       const reviewKpiCardEl = document.getElementById("review-kpi-card");
       const reviewKpiEl = document.getElementById("review-kpi");
@@ -447,6 +456,10 @@
         { id: "all", label: "All" },
       ];
       const timeRangePresetIds = new Set(timeRangePresets.map((preset) => preset.id));
+      const quickRangePresets = [
+        { id: "today", label: "Today" },
+        { id: "this-month", label: "This month" },
+      ];
       const timeRangeParam = (params.get("range") || "").trim().toLowerCase();
       let selectedTimeRangeId = timeRangePresetIds.has(timeRangeParam) ? timeRangeParam : "this-week";
       const throughputPalette = [
@@ -1095,6 +1108,38 @@
 
       setMetaExpanded(false);
 
+      const renderQuickRange = (data) => {
+        if (!quickRangeEl) {
+          return;
+        }
+        quickRangeEl.innerHTML = quickRangePresets.map((preset) => {
+          const active = selectedTimeRangeId === preset.id;
+          return `<button type="button" class="chip chip-toggle range-toggle${active ? " is-active" : ""}" data-quick-range="${preset.id}">${preset.label}</button>`;
+        }).join("");
+
+        quickRangeEl.querySelectorAll("[data-quick-range]").forEach((buttonEl) => {
+          buttonEl.addEventListener("click", async () => {
+            if (!latestData) {
+              return;
+            }
+            const nextRange = buttonEl.getAttribute("data-quick-range");
+            if (!nextRange || !timeRangePresetIds.has(nextRange) || nextRange === selectedTimeRangeId) {
+              return;
+            }
+            selectedTimeRangeId = nextRange;
+            syncUrlState(latestData);
+            renderQuickRange(latestData);
+            renderMeta(latestData);
+            renderGoalTracking(latestData);
+            renderReviewKpi(latestData);
+            await renderThroughputChart(latestData);
+            await renderCycleGauge(latestData);
+            await renderCycleArea(latestData);
+            await renderCycleAreaByLabel(latestData);
+          });
+        });
+      };
+
       const renderMeta = (data) => {
         const labels = data.labels.length > 0 ? data.labels.join(", ") : "none";
         const activeRange = getSelectedTimeRange(data);
@@ -1207,6 +1252,7 @@
             }
             selectedTimeRangeId = nextRange;
             syncUrlState(latestData);
+            renderQuickRange(latestData);
             renderMeta(latestData);
             renderGoalTracking(latestData);
             renderReviewKpi(latestData);
@@ -1290,6 +1336,15 @@
         const isTodayRange = activeRange.id === "today";
         const isMonthRange = activeRange.id === "this-month";
         const referenceNow = getReferenceNow(data);
+        const goalPacingRange = isTodayRange
+          ? {
+            id: "this-week",
+            label: "This week",
+            startMs: getStartOfLocalWeekMonday(referenceNow).getTime(),
+            endMs: getEndOfLocalWeekSunday(referenceNow).getTime(),
+          }
+          : activeRange;
+        const targetCumulativeTitle = isTodayRange ? "Target cumulative (weekly pace)" : "Target cumulative";
         const todayDateKey = getLocalDateKey(referenceNow);
         const throughputXAxis = {
           format: isTodayRange ? "%a %H:%M" : "%a %m-%d",
@@ -1346,20 +1401,22 @@
             atMs: point.atMs,
             label: point.label,
             completed: point.completed,
-            cumulativeCompleted: point.cumulativeCompleted - (baselineByLabel.get(point.label) || 0),
+            cumulativeCompleted: isTodayRange
+              ? point.cumulativeCompleted
+              : point.cumulativeCompleted - (baselineByLabel.get(point.label) || 0),
           }));
         const showReviewSeries = isCareerContext(data);
         const throughputDomain = getThroughputDomainMs(activeRange, chartPoints, referenceNow);
         const visibleLabels = Array.from(visibleLabelSet);
         const aggregateActualPoints = buildAggregateActualPoints(chartPoints, visibleLabels);
-        const goalSummary = getGoalPaceSummary(data, activeRange, referenceNow);
+        const goalSummary = getGoalPaceSummary(data, goalPacingRange, referenceNow);
         const reviewSeries = showReviewSeries
           ? buildReviewCumulativeSeries(data, activeRange, referenceNow)
           : { requestedSeries: [], deliveredSeries: [] };
         const goalAnchorsMs = buildRangeAnchorsMs(throughputDomain.startMs, throughputDomain.endMs);
         const targetPoints = goalSummary.totalTasks > 0
           ? goalAnchorsMs.map((atMs) => {
-            const elapsedFraction = getElapsedFraction(activeRange, atMs);
+            const elapsedFraction = getElapsedFraction(goalPacingRange, atMs);
             const plannedCumulative = goalSummary.totalTasks * elapsedFraction;
             const pacePct = plannedCumulative > 0 ? (goalSummary.doneTasks / plannedCumulative) * 100 : null;
             return {
@@ -1381,7 +1438,7 @@
         const nowLinePoint = [{ at: nowAtIso }];
         const actualNow = getStepSeriesValueAt(aggregateActualPoints, nowAtMs, "totalCumulative");
         const plannedNow = goalSummary.totalTasks > 0
-          ? goalSummary.totalTasks * getElapsedFraction(activeRange, nowAtMs)
+          ? goalSummary.totalTasks * getElapsedFraction(goalPacingRange, nowAtMs)
           : null;
         const nowGapPoints = plannedNow !== null
           ? (() => {
@@ -1473,7 +1530,7 @@
                 y: { field: "plannedCumulative", type: "quantitative", title: "Cumulative completed tasks" },
                 tooltip: [
                   { field: "at", type: "temporal", title: "Time", format: "%Y-%m-%d %H:%M:%S" },
-                  { field: "plannedCumulative", type: "quantitative", title: "Target cumulative", format: ".2f" },
+                  { field: "plannedCumulative", type: "quantitative", title: targetCumulativeTitle, format: ".2f" },
                   { field: "goalDone", type: "quantitative", title: "Done tasks" },
                   { field: "goalTotal", type: "quantitative", title: "Total tasks" },
                   { field: "elapsedPct", type: "quantitative", title: "Elapsed (%)", format: ".1f" },
@@ -1503,7 +1560,7 @@
                   tooltip: [
                     { field: "at", type: "temporal", title: "Now", format: "%Y-%m-%d %H:%M:%S" },
                     { field: "actualNow", type: "quantitative", title: "Actual now", format: ".2f" },
-                    { field: "plannedNow", type: "quantitative", title: "Target now", format: ".2f" },
+                    { field: "plannedNow", type: "quantitative", title: isTodayRange ? "Target now (weekly pace)" : "Target now", format: ".2f" },
                     { field: "gapNow", type: "quantitative", title: "Gap (actual-target)", format: ".2f" },
                   ],
                 },
@@ -1896,6 +1953,7 @@
           const data = await response.json();
           latestData = data;
           initializeVisibleLabelsFromQuery(data);
+          renderQuickRange(data);
           renderMeta(data);
           renderGoalTracking(data);
           renderReviewKpi(data);
