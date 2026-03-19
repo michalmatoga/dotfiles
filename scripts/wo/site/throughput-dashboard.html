@@ -142,6 +142,14 @@
         border-top: 2px solid #425466;
       }
 
+      .chart-legend-line-actual {
+        border-top-width: 2.6px;
+      }
+
+      .chart-legend-line-target {
+        border-top-style: dotted;
+      }
+
       .chart-legend-line-dashed {
         border-top-style: dashed;
       }
@@ -261,10 +269,7 @@
         <div class="chart-grid">
           <div class="chart-card chart-card-full">
             <p class="chart-title">Cumulative throughput by label</p>
-            <div class="chart-legend" aria-label="Throughput chart series legend">
-              <span class="chart-legend-item"><span class="chart-legend-line"></span>Actual cumulative</span>
-              <span class="chart-legend-item"><span class="chart-legend-line chart-legend-line-dashed"></span>Synthetic goal (EMA)</span>
-            </div>
+            <div id="throughput-style-legend" class="chart-legend" aria-label="Throughput chart series legend"></div>
             <div id="throughput-series-legend" class="chart-legend" aria-label="Throughput label colors"></div>
             <div id="throughput-chart"></div>
           </div>
@@ -292,6 +297,7 @@
       const refreshSeconds = Number.isFinite(refreshSecondsRaw) && refreshSecondsRaw >= 5 ? refreshSecondsRaw : 30;
       const metaEl = document.getElementById("meta");
       const throughputChartEl = document.getElementById("throughput-chart");
+      const throughputStyleLegendEl = document.getElementById("throughput-style-legend");
       const throughputSeriesLegendEl = document.getElementById("throughput-series-legend");
       const cycleGaugeEl = document.getElementById("cycle-gauge");
       const cycleAreaEl = document.getElementById("cycle-area");
@@ -312,6 +318,7 @@
       const goalEmaWindowDays = 14;
       const goalFallbackShareWindowDays = 90;
       const millisecondsPerDay = 24 * 60 * 60 * 1000;
+      const frozenTargetStoragePrefix = "wo-throughput-frozen-target-v1";
       const throughputPalette = [
         "#2f7d46",
         "#b5432a",
@@ -640,6 +647,111 @@
         return Array.from(new Set(anchors)).sort((a, b) => a - b);
       };
 
+      const getTargetFreezeStartMs = (range) => {
+        if (!range || range.startMs === null) {
+          return null;
+        }
+        if (range.id === "today" || range.id === "this-week" || range.id === "this-month") {
+          return range.startMs;
+        }
+        return null;
+      };
+
+      const buildSyntheticSeriesPoints = (options) => {
+        const labels = Array.isArray(options.labels) ? options.labels : [];
+        const visibleLabelSet = options.visibleLabelSet instanceof Set ? options.visibleLabelSet : new Set();
+        const anchorsMs = Array.isArray(options.anchorsMs) ? options.anchorsMs : [];
+        const context = options.context && typeof options.context === "object"
+          ? options.context
+          : { rateByLabel: new Map(), sourceByLabel: new Map() };
+        const domainStartMs = Number(options.domainStartMs);
+        if (!Number.isFinite(domainStartMs) || anchorsMs.length === 0) {
+          return [];
+        }
+
+        const points = [];
+        for (const label of labels) {
+          if (!visibleLabelSet.has(label)) {
+            continue;
+          }
+          const ratePerDay = Math.max(0, Number(context.rateByLabel.get(label) || 0));
+          const source = context.sourceByLabel.get(label) || "ema";
+          for (const atMs of anchorsMs) {
+            const elapsedDays = Math.max(0, (atMs - domainStartMs) / millisecondsPerDay);
+            points.push({
+              at: new Date(atMs).toISOString(),
+              atMs,
+              label,
+              syntheticCumulative: ratePerDay * elapsedDays,
+              syntheticSource: source,
+            });
+          }
+        }
+        return points;
+      };
+
+      const hasPositiveSyntheticRate = (context, labels) => {
+        const rateByLabel = context && context.rateByLabel instanceof Map ? context.rateByLabel : new Map();
+        for (const label of labels) {
+          if ((Number(rateByLabel.get(label)) || 0) > 0) {
+            return true;
+          }
+        }
+        return false;
+      };
+
+      const getFrozenTargetStorageKey = (range, labels) => {
+        if (!range || range.startMs === null) {
+          return null;
+        }
+        const startKey = toLocalDateKey(new Date(range.startMs));
+        const labelsKey = normalizeLabels(labels).join(",");
+        return `${frozenTargetStoragePrefix}:${range.id}:${startKey}:${labelsKey}`;
+      };
+
+      const loadFrozenTargetContext = (storageKey) => {
+        if (!storageKey || typeof window === "undefined" || !window.localStorage) {
+          return null;
+        }
+        try {
+          const raw = window.localStorage.getItem(storageKey);
+          if (!raw) {
+            return null;
+          }
+          const parsed = JSON.parse(raw);
+          const ratesRaw = parsed && typeof parsed === "object" && parsed.rates && typeof parsed.rates === "object"
+            ? parsed.rates
+            : null;
+          if (!ratesRaw) {
+            return null;
+          }
+          const sourcesRaw = parsed && typeof parsed === "object" && parsed.sources && typeof parsed.sources === "object"
+            ? parsed.sources
+            : {};
+          return {
+            rateByLabel: new Map(Object.entries(ratesRaw)),
+            sourceByLabel: new Map(Object.entries(sourcesRaw)),
+          };
+        } catch {
+          return null;
+        }
+      };
+
+      const persistFrozenTargetContext = (storageKey, context, labels) => {
+        if (!storageKey || typeof window === "undefined" || !window.localStorage) {
+          return;
+        }
+        try {
+          const payload = {
+            rates: Object.fromEntries(labels.map((label) => [label, Math.max(0, Number(context.rateByLabel.get(label) || 0))])),
+            sources: Object.fromEntries(labels.map((label) => [label, String(context.sourceByLabel.get(label) || "ema")])),
+          };
+          window.localStorage.setItem(storageKey, JSON.stringify(payload));
+        } catch {
+          // Ignore storage failures (private mode, quota, etc.)
+        }
+      };
+
       const normalizeLabels = (labels) => Array.isArray(labels)
         ? labels.map((label) => String(label).trim().toLowerCase()).filter((label) => label.length > 0)
         : [];
@@ -769,7 +881,7 @@
           `<span class="chip">Labels: ${labels}</span>`,
           `<span class="chip">Series:</span>${toggleButtons}`,
           `<span class="chip">Time range:</span>${rangeButtons}`,
-          `<span class="chip">Goal pace: EMA-${goalEmaWindowDays}d (fallback: global x share)</span>`,
+          `<span class="chip">Synthetic lines: target (frozen calendar) + forecast (live EMA-${goalEmaWindowDays}d)</span>`,
           `<span class="chip">Visible window: ${activeRange.label} (${formatSelectedRangeText(activeRange)})</span>`,
           `<span class="chip">Completed cards: ${data.totalCompletedCards}</span>`,
           `<span class="chip">Unfinished in cycle: ${unfinishedCards}</span>`,
@@ -831,6 +943,15 @@
 
         const colorMap = getLabelColorMap(data.labels);
         const visibleLabels = Array.from(visibleLabelSet);
+        const hasFrozenTarget = getTargetFreezeStartMs(activeRange) !== null;
+        const styleLegendItems = [
+          "<span class=\"chart-legend-item\"><span class=\"chart-legend-line chart-legend-line-actual\"></span>Actual cumulative</span>",
+          "<span class=\"chart-legend-item\"><span class=\"chart-legend-line chart-legend-line-dashed\"></span>Forecast (live EMA)</span>",
+        ];
+        if (hasFrozenTarget) {
+          styleLegendItems.splice(1, 0, "<span class=\"chart-legend-item\"><span class=\"chart-legend-line chart-legend-line-target\"></span>Target (frozen at range start)</span>");
+        }
+        throughputStyleLegendEl.innerHTML = styleLegendItems.join("");
         throughputSeriesLegendEl.innerHTML = visibleLabels.length > 0
           ? visibleLabels
             .map((label) => {
@@ -902,42 +1023,74 @@
           points: normalizedPoints,
           referenceNow: getReferenceNow(data),
         });
-
-        const throughputDomain = getThroughputDomainMs(activeRange, chartPoints, getReferenceNow(data));
-        const goalAnchorsMs = buildRangeAnchorsMs(throughputDomain.startMs, throughputDomain.endMs);
-        const goalPoints = [];
-
-        for (const label of allLabels) {
-          if (!visibleLabelSet.has(label)) {
-            continue;
-          }
-          const ratePerDay = Math.max(0, Number(goalContext.rateByLabel.get(label) || 0));
-          const source = goalContext.sourceByLabel.get(label) || "ema";
-          let previousMs = throughputDomain.startMs;
-          let cumulative = 0;
-          for (const atMs of goalAnchorsMs) {
-            const deltaDays = Math.max(0, (atMs - previousMs) / millisecondsPerDay);
-            cumulative += ratePerDay * deltaDays;
-            goalPoints.push({
-              at: new Date(atMs).toISOString(),
-              atMs,
-              label,
-              goalCumulative: cumulative,
-              goalSource: source,
+        const targetFreezeStartMs = getTargetFreezeStartMs(activeRange);
+        let frozenTargetContext = null;
+        if (targetFreezeStartMs !== null) {
+          const storageKey = getFrozenTargetStorageKey(activeRange, allLabels);
+          const storedContext = loadFrozenTargetContext(storageKey);
+          if (storedContext && hasPositiveSyntheticRate(storedContext, allLabels)) {
+            frozenTargetContext = storedContext;
+          } else {
+            const historicalContext = buildGoalRateContext({
+              labels: allLabels,
+              points: normalizedPoints.filter((point) => point.atMs < targetFreezeStartMs),
+              referenceNow: new Date(targetFreezeStartMs),
             });
-            previousMs = atMs;
+            const fallbackContext = hasPositiveSyntheticRate(historicalContext, allLabels)
+              ? historicalContext
+              : buildGoalRateContext({
+                labels: allLabels,
+                points: normalizedPoints,
+                referenceNow: getReferenceNow(data),
+              });
+            frozenTargetContext = fallbackContext;
+            if (hasPositiveSyntheticRate(frozenTargetContext, allLabels)) {
+              persistFrozenTargetContext(storageKey, frozenTargetContext, allLabels);
+            }
           }
         }
 
+        const throughputDomain = getThroughputDomainMs(activeRange, chartPoints, getReferenceNow(data));
+        const goalAnchorsMs = buildRangeAnchorsMs(throughputDomain.startMs, throughputDomain.endMs);
+        const forecastPoints = buildSyntheticSeriesPoints({
+          labels: allLabels,
+          visibleLabelSet,
+          anchorsMs: goalAnchorsMs,
+          domainStartMs: throughputDomain.startMs,
+          context: goalContext,
+        });
+        const targetPoints = frozenTargetContext
+          ? buildSyntheticSeriesPoints({
+            labels: allLabels,
+            visibleLabelSet,
+            anchorsMs: goalAnchorsMs,
+            domainStartMs: throughputDomain.startMs,
+            context: frozenTargetContext,
+          })
+          : [];
+
         for (const point of chartPoints) {
-          const ratePerDay = Math.max(0, Number(goalContext.rateByLabel.get(point.label) || 0));
-          const source = goalContext.sourceByLabel.get(point.label) || "ema";
           const elapsedDays = Math.max(0, (point.atMs - throughputDomain.startMs) / millisecondsPerDay);
-          const goalValue = ratePerDay * elapsedDays;
-          point.goalCumulative = goalValue;
-          point.goalDelta = point.cumulativeCompleted - goalValue;
-          point.goalPacePct = goalValue > 0 ? (point.cumulativeCompleted / goalValue) * 100 : null;
-          point.goalSource = source;
+          const forecastRate = Math.max(0, Number(goalContext.rateByLabel.get(point.label) || 0));
+          const forecastValue = forecastRate * elapsedDays;
+          point.forecastCumulative = forecastValue;
+          point.forecastDelta = point.cumulativeCompleted - forecastValue;
+          point.forecastPacePct = forecastValue > 0 ? (point.cumulativeCompleted / forecastValue) * 100 : null;
+          point.forecastSource = goalContext.sourceByLabel.get(point.label) || "ema";
+
+          if (frozenTargetContext) {
+            const targetRate = Math.max(0, Number(frozenTargetContext.rateByLabel.get(point.label) || 0));
+            const targetValue = targetRate * elapsedDays;
+            point.targetCumulative = targetValue;
+            point.targetDelta = point.cumulativeCompleted - targetValue;
+            point.targetPacePct = targetValue > 0 ? (point.cumulativeCompleted / targetValue) * 100 : null;
+            point.targetSource = frozenTargetContext.sourceByLabel.get(point.label) || "ema";
+          } else {
+            point.targetCumulative = null;
+            point.targetDelta = null;
+            point.targetPacePct = null;
+            point.targetSource = "n/a rolling window";
+          }
         }
 
         const sharedEncoding = {
@@ -962,14 +1115,16 @@
             { field: "label", type: "nominal", title: "Label" },
             { field: "completed", type: "quantitative", title: "Completed (event)" },
             { field: "cumulativeCompleted", type: "quantitative", title: "Completed (cumulative)" },
-            { field: "goalCumulative", type: "quantitative", title: "Goal (cumulative)", format: ".2f" },
-            { field: "goalDelta", type: "quantitative", title: "Delta vs goal", format: ".2f" },
-            { field: "goalPacePct", type: "quantitative", title: "Pace vs goal (%)", format: ".1f" },
-            { field: "goalSource", type: "nominal", title: "Goal source" },
+            { field: "targetCumulative", type: "quantitative", title: "Target (frozen)", format: ".2f" },
+            { field: "targetDelta", type: "quantitative", title: "Delta vs target", format: ".2f" },
+            { field: "targetPacePct", type: "quantitative", title: "Pace vs target (%)", format: ".1f" },
+            { field: "forecastCumulative", type: "quantitative", title: "Forecast (live)", format: ".2f" },
+            { field: "forecastDelta", type: "quantitative", title: "Delta vs forecast", format: ".2f" },
+            { field: "forecastPacePct", type: "quantitative", title: "Pace vs forecast (%)", format: ".1f" },
           ],
         };
 
-        const goalEncoding = {
+        const syntheticEncoding = {
           x: {
             field: "at",
             type: "temporal",
@@ -989,8 +1144,8 @@
           tooltip: [
             { field: "at", type: "temporal", title: "Time", format: "%Y-%m-%d %H:%M:%S" },
             { field: "label", type: "nominal", title: "Label" },
-            { field: "goalCumulative", type: "quantitative", title: "Goal (cumulative)", format: ".2f" },
-            { field: "goalSource", type: "nominal", title: "Goal source" },
+            { field: "syntheticCumulative", type: "quantitative", title: "Synthetic cumulative", format: ".2f" },
+            { field: "syntheticSource", type: "nominal", title: "Source" },
           ],
         };
 
@@ -1000,17 +1155,31 @@
           height: 420,
           layer: [
             {
-              data: { values: goalPoints },
+              data: { values: targetPoints },
               mark: {
                 type: "line",
                 interpolate: "linear",
                 strokeWidth: 1.7,
-                opacity: 0.7,
+                opacity: 0.75,
+                strokeDash: [2, 4],
+              },
+              encoding: {
+                ...syntheticEncoding,
+                y: { field: "syntheticCumulative", type: "quantitative", title: "Cumulative completed tasks" },
+              },
+            },
+            {
+              data: { values: forecastPoints },
+              mark: {
+                type: "line",
+                interpolate: "linear",
+                strokeWidth: 1.7,
+                opacity: 0.65,
                 strokeDash: [8, 5],
               },
               encoding: {
-                ...goalEncoding,
-                y: { field: "goalCumulative", type: "quantitative", title: "Cumulative completed tasks" },
+                ...syntheticEncoding,
+                y: { field: "syntheticCumulative", type: "quantitative", title: "Cumulative completed tasks" },
               },
             },
             {
