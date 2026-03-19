@@ -50,7 +50,7 @@ const ensureCsvHeader = async () => {
   }
 };
 
-const readCardStates = async (): Promise<Map<string, CardListState>> => {
+export const readCardStates = async (): Promise<Map<string, CardListState>> => {
   const statePath = getCardStatePath();
   try {
     const content = await readFile(statePath, "utf8");

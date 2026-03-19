@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readMetrics, getThroughput } from "../lib/metrics/lifecycle";
+import { readCardStates, readMetrics, getThroughput } from "../lib/metrics/lifecycle";
 import { loadEnvFile, requireEnv } from "../lib/env";
 import { dirname, resolve } from "node:path";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -9,7 +9,16 @@ import {
   summarizeActivityWatchTime,
 } from "../lib/metrics/aw-time";
 import type { MetricsRecord } from "../lib/metrics/types";
-import { buildThroughputChartData, parseTrackedLabels } from "../lib/metrics/chart-data";
+import {
+  buildLiveCycleTimeData,
+  buildThroughputChartData,
+  mergeCycleTimeSnapshots,
+  parseTrackedLabels,
+  toFiveMinuteBucketIso,
+  type CycleTimeSnapshotPoint,
+} from "../lib/metrics/chart-data";
+import { readJsonlEntries } from "../lib/state/jsonl";
+import { readLatestSnapshot } from "../lib/state/snapshots";
 
 const formatDuration = (seconds: number): string => {
   if (seconds === 0) return "0m";
@@ -35,6 +44,59 @@ const buildTimeRange = (days: number): { start: string; end: string } => {
 
 const wait = async (milliseconds: number): Promise<void> => {
   await new Promise((resolveWait) => setTimeout(resolveWait, milliseconds));
+};
+
+const normalizeCardUrl = (value: string | null): string | null => {
+  if (!value) {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  try {
+    const parsed = new URL(trimmed);
+    parsed.hash = "";
+    parsed.search = "";
+    return parsed.toString().replace(/\/+$/, "").toLowerCase();
+  } catch {
+    return trimmed.replace(/\/+$/, "").toLowerCase();
+  }
+};
+
+const snapshotIntervalMinutes = 5;
+const snapshotWindowHours = 24;
+
+const resolveCycleTimeSnapshotPath = (outputPath: string): string =>
+  resolve(dirname(outputPath), "wo-cycle-time-snapshots.jsonl");
+
+const readCycleTimeSnapshots = async (snapshotPath: string): Promise<CycleTimeSnapshotPoint[]> => {
+  const entries = await readJsonlEntries<CycleTimeSnapshotPoint>(snapshotPath);
+  return entries
+    .map((entry) => {
+      const atMs = Date.parse(entry.at ?? "");
+      const cycle = Number(entry.cumulativeCycleTimeSeconds);
+      const unfinishedCards = Number(entry.unfinishedCards);
+      if (!Number.isFinite(atMs) || !Number.isFinite(cycle) || !Number.isFinite(unfinishedCards)) {
+        return null;
+      }
+      const cycleByLabel = Object.fromEntries(
+        Object.entries(entry.cumulativeCycleTimeSecondsByLabel ?? {})
+          .map(([label, value]) => {
+            const normalized = label.trim().toLowerCase();
+            return [normalized, Math.max(0, Math.floor(Number(value) || 0))] as const;
+          })
+          .filter(([label]) => label.length > 0),
+      );
+      return {
+        at: new Date(atMs).toISOString(),
+        cumulativeCycleTimeSeconds: Math.max(0, Math.floor(cycle)),
+        unfinishedCards: Math.max(0, Math.floor(unfinishedCards)),
+        cumulativeCycleTimeSecondsByLabel: cycleByLabel,
+      };
+    })
+    .filter((entry): entry is CycleTimeSnapshotPoint => entry !== null)
+    .sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
 };
 
 const parseOptionValue = (args: string[], optionName: string): string | null => {
@@ -325,16 +387,89 @@ const writeChartData = async (options: {
   labels: string[];
   outputPath: string;
 }) => {
+  const now = new Date();
   const metrics = await readMetrics();
-  const chartData = buildThroughputChartData({ metrics, labels: options.labels });
+  const cardStates = Array.from((await readCardStates()).values());
+  const latestSnapshot = await readLatestSnapshot();
+  const worktreeByUrl = latestSnapshot?.worktrees?.byUrl ?? {};
+  const activeWorktreeUrlSet = new Set<string>();
+  for (const rawUrl of Object.keys(worktreeByUrl)) {
+    const normalized = normalizeCardUrl(rawUrl);
+    if (normalized) {
+      activeWorktreeUrlSet.add(normalized);
+    }
+  }
+  const scopedCardStates = activeWorktreeUrlSet.size > 0
+    ? cardStates.filter((state) => {
+      const normalized = normalizeCardUrl(state.url);
+      return normalized ? activeWorktreeUrlSet.has(normalized) : false;
+    })
+    : cardStates;
+  const chartData = buildThroughputChartData({ metrics, labels: options.labels, now });
+  const liveCycleTime = buildLiveCycleTimeData({
+    metrics,
+    cardStates: scopedCardStates,
+    labels: options.labels,
+    now,
+  });
+
+  const snapshotPath = resolveCycleTimeSnapshotPath(options.outputPath);
+  const cumulativeCycleTimeSecondsByLabel = Object.fromEntries(
+    options.labels.map((label) => {
+      const normalized = label.trim().toLowerCase();
+      const total = liveCycleTime.cards
+        .filter((card) => card.labels.includes(normalized))
+        .reduce((sum, card) => sum + card.cycleTimeSeconds, 0);
+      return [normalized, total] as const;
+    }),
+  );
+  const snapshotPoint: CycleTimeSnapshotPoint = {
+    at: toFiveMinuteBucketIso(now),
+    cumulativeCycleTimeSeconds: liveCycleTime.cumulativeCycleTimeSeconds,
+    unfinishedCards: liveCycleTime.unfinishedCards,
+    cumulativeCycleTimeSecondsByLabel,
+  };
+  const currentSnapshots = await readCycleTimeSnapshots(snapshotPath);
+  const mergedSnapshots = mergeCycleTimeSnapshots(currentSnapshots, snapshotPoint);
+  const cutoffMs = now.getTime() - snapshotWindowHours * 60 * 60 * 1000;
+  const snapshots = mergedSnapshots.filter((point) => {
+    const pointMs = Date.parse(point.at);
+    return Number.isFinite(pointMs) && pointMs >= cutoffMs;
+  });
+  const persistedSnapshots = snapshots.length > 0 ? snapshots : [snapshotPoint];
+  await mkdir(dirname(snapshotPath), { recursive: true });
+  await writeFile(
+    snapshotPath,
+    `${persistedSnapshots.map((point) => JSON.stringify(point)).join("\n")}\n`,
+    "utf8",
+  );
+
+  const output = {
+    ...chartData,
+    cycleTime: {
+      generatedAt: liveCycleTime.generatedAt,
+      snapshotIntervalMinutes,
+      gaugeCumulativeCycleTimeSeconds: liveCycleTime.cumulativeCycleTimeSeconds,
+      gaugeUnfinishedCards: liveCycleTime.unfinishedCards,
+      cards: liveCycleTime.cards,
+      snapshots: persistedSnapshots,
+    },
+  };
+
   await mkdir(dirname(options.outputPath), { recursive: true });
-  await writeFile(options.outputPath, `${JSON.stringify(chartData, null, 2)}\n`, "utf8");
+  await writeFile(options.outputPath, `${JSON.stringify(output, null, 2)}\n`, "utf8");
   const labelsText = chartData.labels.length > 0 ? chartData.labels.join(", ") : "(none)";
   console.log(`Wrote chart data: ${options.outputPath}`);
   console.log(`Labels: ${labelsText}`);
   console.log(`Date range: ${chartData.startDate ?? "--"} to ${chartData.endDate ?? "--"}`);
   console.log(`Data points: ${chartData.points.length}`);
   console.log(`Completed cards: ${chartData.totalCompletedCards}`);
+  if (activeWorktreeUrlSet.size > 0) {
+    console.log(`Cycle scope: ${scopedCardStates.length} active worktree cards`);
+  }
+  console.log(`Live unfinished cards: ${liveCycleTime.unfinishedCards}`);
+  console.log(`Live cumulative cycle time: ${formatDuration(liveCycleTime.cumulativeCycleTimeSeconds)}`);
+  console.log(`Cycle snapshots (last ${snapshotWindowHours}h): ${persistedSnapshots.length}`);
 };
 
 const showChartData = async (args: string[]) => {

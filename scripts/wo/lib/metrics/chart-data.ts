@@ -1,4 +1,4 @@
-import type { MetricsRecord } from "./types";
+import type { CardListState, MetricsRecord } from "./types";
 import { normalizeMetricLabels } from "./types";
 
 export type ThroughputPoint = {
@@ -17,6 +17,28 @@ export type ThroughputChartData = {
   endAt: string | null;
   totalCompletedCards: number;
   points: ThroughputPoint[];
+};
+
+export type LiveCycleTimeCard = {
+  cardId: string;
+  url: string | null;
+  labels: string[];
+  enteredDoingAt: string;
+  cycleTimeSeconds: number;
+};
+
+export type LiveCycleTimeData = {
+  generatedAt: string;
+  cumulativeCycleTimeSeconds: number;
+  unfinishedCards: number;
+  cards: LiveCycleTimeCard[];
+};
+
+export type CycleTimeSnapshotPoint = {
+  at: string;
+  cumulativeCycleTimeSeconds: number;
+  unfinishedCards: number;
+  cumulativeCycleTimeSecondsByLabel?: Record<string, number>;
 };
 
 const doneListName = "Done";
@@ -43,6 +65,9 @@ const isDoneCompletion = (metric: MetricsRecord): boolean => {
   }
   return metric.eventType === "entered" || metric.eventType === "exited";
 };
+
+const isDoingEntry = (metric: MetricsRecord): boolean =>
+  metric.eventType === "entered" && metric.list === "Doing";
 
 export const parseTrackedLabels = (value: string | undefined): string[] => {
   if (!value) {
@@ -157,5 +182,149 @@ export const buildThroughputChartData = (options: {
     endAt,
     totalCompletedCards: completions.length,
     points,
+  };
+};
+
+export const toFiveMinuteBucketIso = (value: Date): string => {
+  const rounded = new Date(value);
+  rounded.setUTCSeconds(0, 0);
+  const minutes = rounded.getUTCMinutes();
+  rounded.setUTCMinutes(minutes - (minutes % 5));
+  return rounded.toISOString();
+};
+
+export const mergeCycleTimeSnapshots = (
+  current: CycleTimeSnapshotPoint[],
+  nextPoint: CycleTimeSnapshotPoint,
+): CycleTimeSnapshotPoint[] => {
+  const normalized = [...current]
+    .filter((point) => point && point.at)
+    .map((point) => ({
+      at: new Date(point.at).toISOString(),
+      cumulativeCycleTimeSeconds: Number(point.cumulativeCycleTimeSeconds) || 0,
+      unfinishedCards: Number(point.unfinishedCards) || 0,
+      cumulativeCycleTimeSecondsByLabel: Object.fromEntries(
+        Object.entries(point.cumulativeCycleTimeSecondsByLabel ?? {})
+          .map(([label, value]) => [normalizeLabel(label), Number(value) || 0])
+          .filter(([label]) => label !== noLabelBucket),
+      ),
+    }));
+
+  const byTimestamp = new Map<string, CycleTimeSnapshotPoint>();
+  for (const point of normalized) {
+    byTimestamp.set(point.at, point);
+  }
+  byTimestamp.set(nextPoint.at, nextPoint);
+
+  return Array.from(byTimestamp.values()).sort(
+    (a, b) => toComparableTime(a.at) - toComparableTime(b.at),
+  );
+};
+
+export const buildLiveCycleTimeData = (options: {
+  metrics: MetricsRecord[];
+  cardStates?: CardListState[];
+  labels?: string[];
+  now?: Date;
+}): LiveCycleTimeData => {
+  const now = options.now ?? new Date();
+  const nowMs = now.getTime();
+  const selectedLabels = (options.labels ?? []).map((label) => normalizeLabel(label));
+  const selectedLabelSet = new Set(selectedLabels);
+
+  const sorted = [...options.metrics].sort(
+    (a, b) => toComparableTime(a.timestamp) - toComparableTime(b.timestamp),
+  );
+
+  const byCard = new Map<string, {
+    enteredDoingAt: string | null;
+    completedAt: string | null;
+    labels: string[];
+    url: string | null;
+  }>();
+
+  for (const metric of sorted) {
+    const current = byCard.get(metric.cardId) ?? {
+      enteredDoingAt: null,
+      completedAt: null,
+      labels: [] as string[],
+      url: null as string | null,
+    };
+
+    if (isDoingEntry(metric)) {
+      current.enteredDoingAt = metric.timestamp;
+      current.labels = normalizeMetricLabels(metric.labels);
+      current.url = metric.url;
+    }
+
+    if (isDoneCompletion(metric) && !current.completedAt) {
+      current.completedAt = metric.timestamp;
+    }
+
+    byCard.set(metric.cardId, current);
+  }
+
+  const cards: LiveCycleTimeCard[] = [];
+  let cumulativeCycleTimeSeconds = 0;
+
+  const addCard = (card: {
+    cardId: string;
+    enteredDoingAt: string;
+    labels: string[];
+    url: string | null;
+  }) => {
+    if (selectedLabelSet.size > 0 && !card.labels.some((label) => selectedLabelSet.has(label))) {
+      return;
+    }
+    const enteredMs = Date.parse(card.enteredDoingAt);
+    if (!Number.isFinite(enteredMs)) {
+      return;
+    }
+    const cycleTimeSeconds = Math.max(0, Math.floor((nowMs - enteredMs) / 1000));
+    cumulativeCycleTimeSeconds += cycleTimeSeconds;
+    cards.push({
+      cardId: card.cardId,
+      url: card.url,
+      labels: card.labels,
+      enteredDoingAt: new Date(enteredMs).toISOString(),
+      cycleTimeSeconds,
+    });
+  };
+
+  const currentCardStates = Array.isArray(options.cardStates) ? options.cardStates : [];
+  if (currentCardStates.length > 0) {
+    for (const cardState of currentCardStates) {
+      if (!cardState || cardState.list !== "Doing") {
+        continue;
+      }
+      const fromMetrics = byCard.get(cardState.cardId);
+      addCard({
+        cardId: cardState.cardId,
+        enteredDoingAt: cardState.enteredAt,
+        labels: normalizeMetricLabels(cardState.labels),
+        url: cardState.url ?? fromMetrics?.url ?? null,
+      });
+    }
+  } else {
+    for (const [cardId, state] of byCard.entries()) {
+      if (!state.enteredDoingAt || state.completedAt) {
+        continue;
+      }
+      addCard({
+        cardId,
+        enteredDoingAt: state.enteredDoingAt,
+        labels: state.labels,
+        url: state.url,
+      });
+    }
+  }
+
+  cards.sort((a, b) => b.cycleTimeSeconds - a.cycleTimeSeconds);
+
+  return {
+    generatedAt: now.toISOString(),
+    cumulativeCycleTimeSeconds,
+    unfinishedCards: cards.length,
+    cards,
   };
 };

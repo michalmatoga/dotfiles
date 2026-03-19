@@ -277,6 +277,11 @@ Notes:
 
 - `scripts/wo/site/throughput-dashboard.html` renders cumulative throughput per label from generated JSON.
 - Default chart data path: `scripts/wo/state/wo-throughput-chart.json`.
+- `chart-data` also maintains cycle-time snapshots in `scripts/wo/state/wo-cycle-time-snapshots.jsonl` (5-minute cadence).
+- Dashboard includes:
+  - cumulative throughput chart,
+  - live gauge of cumulative cycle time across unfinished cards (cards that entered `Doing` and are not `Done`),
+  - area chart of 5-minute cycle-time snapshots.
 - Generate data once:
 
   ```bash
