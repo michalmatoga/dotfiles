@@ -17,6 +17,7 @@ import {
   toFiveMinuteBucketIso,
   type CycleTimeSnapshotPoint,
 } from "../lib/metrics/chart-data";
+import { buildGoalTrackingData, defaultGoalTrackingSources } from "../lib/metrics/goal-tracking";
 import { readJsonlEntries } from "../lib/state/jsonl";
 import { readLatestSnapshot } from "../lib/state/snapshots";
 import { fetchBoardLabels } from "../lib/trello/labels";
@@ -411,6 +412,10 @@ const writeChartData = async (options: {
     ? scopedCardStates.filter((state) => Boolean(snapshotTrelloCards[state.cardId]))
     : scopedCardStates;
   const chartData = buildThroughputChartData({ metrics, labels: options.labels, now });
+  const goalTracking = await buildGoalTrackingData({
+    now,
+    sources: defaultGoalTrackingSources,
+  });
   const liveCycleTime = buildLiveCycleTimeData({
     metrics,
     cardStates: snapshotScopedCardStates,
@@ -451,6 +456,7 @@ const writeChartData = async (options: {
 
   const output = {
     ...chartData,
+    goalTracking,
     cycleTime: {
       generatedAt: liveCycleTime.generatedAt,
       snapshotIntervalMinutes,

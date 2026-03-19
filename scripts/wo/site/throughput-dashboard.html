@@ -13,6 +13,7 @@
     <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
     <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
     <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
       :root {
         --bg: #f6f4ea;
@@ -162,6 +163,63 @@
         box-shadow: inset 0 0 0 1px rgb(31 42 53 / 22%);
       }
 
+      #goal-tracking {
+        min-height: 120px;
+      }
+
+      .goal-source {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 0.65rem 0.75rem;
+        background: #fffdf8;
+      }
+
+      .goal-source + .goal-source {
+        margin-top: 0.65rem;
+      }
+
+      .goal-source-title {
+        margin: 0;
+        font-weight: 700;
+        font-size: 0.95rem;
+      }
+
+      .goal-source-meta {
+        margin-top: 0.2rem;
+        color: var(--muted);
+        font-size: 0.82rem;
+      }
+
+      .goal-content {
+        margin-top: 0.45rem;
+        font-size: 0.9rem;
+        line-height: 1.45;
+      }
+
+      .goal-content :first-child {
+        margin-top: 0;
+      }
+
+      .goal-content :last-child {
+        margin-bottom: 0;
+      }
+
+      .goal-content ul,
+      .goal-content ol {
+        margin: 0.35rem 0 0.35rem 1.1rem;
+        padding: 0;
+      }
+
+      .goal-content li {
+        margin: 0.2rem 0;
+      }
+
+      .goal-content pre {
+        margin: 0;
+        white-space: pre-wrap;
+        font-family: "Space Grotesk", "Segoe UI", sans-serif;
+      }
+
       #throughput-chart {
         margin-top: 0.8rem;
         min-height: 420px;
@@ -273,6 +331,10 @@
             <div id="throughput-series-legend" class="chart-legend" aria-label="Throughput label colors"></div>
             <div id="throughput-chart"></div>
           </div>
+          <div class="chart-card chart-card-full">
+            <p class="chart-title">Goal tracking context</p>
+            <div id="goal-tracking"></div>
+          </div>
           <div class="chart-card">
             <p class="chart-title">Live cumulative cycle time (unfinished)</p>
             <div id="cycle-gauge"></div>
@@ -300,6 +362,7 @@
       const throughputChartEl = document.getElementById("throughput-chart");
       const throughputStyleLegendEl = document.getElementById("throughput-style-legend");
       const throughputSeriesLegendEl = document.getElementById("throughput-series-legend");
+      const goalTrackingEl = document.getElementById("goal-tracking");
       const cycleGaugeEl = document.getElementById("cycle-gauge");
       const cycleAreaEl = document.getElementById("cycle-area");
       const cycleAreaByLabelEl = document.getElementById("cycle-area-by-label");
@@ -323,14 +386,25 @@
       const frozenTargetStoragePrefix = "wo-throughput-frozen-target-v1";
       const throughputPalette = [
         "#2f7d46",
-        "#b5432a",
+        "#c03a2b",
         "#2a6f97",
         "#8a5a2b",
         "#7b3fb2",
         "#3e8b8b",
         "#5f6b2f",
         "#a1476d",
+        "#1d4ed8",
+        "#d97706",
+        "#0f766e",
+        "#be185d",
+        "#4c1d95",
+        "#166534",
+        "#1f2937",
       ];
+      const throughputLabelColorOverrides = {
+        "career-delivery": "#d9480f",
+        review: "#2563eb",
+      };
 
       const formatDateTime = (value) => {
         if (!value) {
@@ -378,6 +452,26 @@
         return date;
       };
 
+      const getEndOfLocalDay = (value) => {
+        const date = new Date(value);
+        date.setHours(23, 59, 59, 999);
+        return date;
+      };
+
+      const getEndOfLocalWeekSunday = (value) => {
+        const date = getStartOfLocalWeekMonday(value);
+        date.setDate(date.getDate() + 6);
+        date.setHours(23, 59, 59, 999);
+        return date;
+      };
+
+      const getEndOfLocalMonth = (value) => {
+        const date = new Date(value);
+        date.setMonth(date.getMonth() + 1, 0);
+        date.setHours(23, 59, 59, 999);
+        return date;
+      };
+
       const toTimeMs = (value) => {
         if (!value) {
           return null;
@@ -411,7 +505,7 @@
             id: "today",
             label: "Today",
             startMs: getStartOfLocalDay(now).getTime(),
-            endMs: nowMs,
+            endMs: getEndOfLocalDay(now).getTime(),
           };
         }
 
@@ -429,7 +523,7 @@
             id: "this-month",
             label: "This month",
             startMs: getStartOfLocalMonth(now).getTime(),
-            endMs: nowMs,
+            endMs: getEndOfLocalMonth(now).getTime(),
           };
         }
 
@@ -437,7 +531,7 @@
           id: "this-week",
           label: "This week",
           startMs: getStartOfLocalWeekMonday(now).getTime(),
-          endMs: nowMs,
+          endMs: getEndOfLocalWeekSunday(now).getTime(),
         };
       };
 
@@ -801,7 +895,17 @@
 
       const getLabelColorMap = (labels) => {
         const normalized = normalizeLabels(labels);
-        const entries = normalized.map((label, index) => [label, throughputPalette[index % throughputPalette.length]]);
+        const entries = [];
+        let paletteIndex = 0;
+        for (const label of normalized) {
+          const override = throughputLabelColorOverrides[label];
+          if (override) {
+            entries.push([label, override]);
+            continue;
+          }
+          entries.push([label, throughputPalette[paletteIndex % throughputPalette.length]]);
+          paletteIndex += 1;
+        }
         return new Map(entries);
       };
 
@@ -844,6 +948,68 @@
       };
 
       const formatHours = (seconds) => ((Math.max(0, Number(seconds) || 0)) / 3600).toFixed(1);
+
+      const escapeHtml = (value) => String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+
+      const renderMarkdownToHtml = (markdown) => {
+        const text = typeof markdown === "string" ? markdown.trim() : "";
+        if (!text) {
+          return "<p class=\"subtle\">No context for this time range.</p>";
+        }
+        if (window.marked && typeof window.marked.parse === "function") {
+          return window.marked.parse(text);
+        }
+        return `<pre>${escapeHtml(text)}</pre>`;
+      };
+
+      const renderGoalTracking = (data) => {
+        if (!goalTrackingEl) {
+          return;
+        }
+        const goalTracking = data && typeof data === "object" && data.goalTracking && typeof data.goalTracking === "object"
+          ? data.goalTracking
+          : null;
+        const sources = goalTracking && Array.isArray(goalTracking.sources) ? goalTracking.sources : [];
+        const visibleLabelSet = getEffectiveVisibleLabels(data.labels);
+        const visibleSources = sources.filter((source) => {
+          const sourceLabels = normalizeLabels(source && source.labels);
+          if (sourceLabels.length === 0) {
+            return false;
+          }
+          if (visibleLabelSet.size === 0) {
+            return true;
+          }
+          return sourceLabels.some((label) => visibleLabelSet.has(label));
+        });
+
+        if (visibleSources.length === 0) {
+          goalTrackingEl.innerHTML = "<p class=\"subtle\">No goal notes mapped to currently visible labels.</p>";
+          return;
+        }
+
+        goalTrackingEl.innerHTML = visibleSources.map((source) => {
+          const byRange = source && source.byRange && typeof source.byRange === "object" ? source.byRange : {};
+          const snippet = byRange[selectedTimeRangeId] || byRange["this-week"] || byRange.all || null;
+          const markdown = snippet && typeof snippet.markdown === "string" ? snippet.markdown : "";
+          const matchedHeading = snippet && typeof snippet.matchedHeading === "string" ? snippet.matchedHeading : null;
+          const headingHtml = matchedHeading
+            ? `<p class="goal-source-meta">Matched: ${escapeHtml(matchedHeading)}</p>`
+            : "";
+          const title = source && source.title ? source.title : source && source.id ? source.id : "Goal note";
+          return [
+            "<article class=\"goal-source\">",
+            `  <p class=\"goal-source-title\">${escapeHtml(title)}</p>`,
+            `  ${headingHtml}`,
+            `  <div class=\"goal-content\">${renderMarkdownToHtml(markdown)}</div>`,
+            "</article>",
+          ].join("\n");
+        }).join("\n");
+      };
 
       const getVisibleCycleCards = (data, range) => {
         const cycle = data && typeof data === "object" ? data.cycleTime : null;
@@ -957,6 +1123,7 @@
             setVisibleLabels(next, allLabels);
             syncUrlState(latestData);
             renderMeta(latestData);
+            renderGoalTracking(latestData);
             await renderThroughputChart(latestData);
             await renderCycleGauge(latestData);
             await renderCycleArea(latestData);
@@ -976,6 +1143,7 @@
             selectedTimeRangeId = nextRange;
             syncUrlState(latestData);
             renderMeta(latestData);
+            renderGoalTracking(latestData);
             await renderThroughputChart(latestData);
             await renderCycleGauge(latestData);
             await renderCycleArea(latestData);
@@ -1391,6 +1559,8 @@
         const activeRange = getSelectedTimeRange(data);
         const cycleWindowDomain = getTimeRangeDomain(activeRange);
         const allLabels = normalizeLabels(data.labels);
+        const labelColorMap = getLabelColorMap(allLabels);
+        const labelColorRange = allLabels.map((label) => labelColorMap.get(label) || "#425466");
         const visibleLabelSet = getEffectiveVisibleLabels(data.labels);
         const points = [];
 
@@ -1441,7 +1611,7 @@
               field: "label",
               type: "nominal",
               title: "Label",
-              scale: allLabels.length > 0 ? { domain: allLabels } : undefined,
+              scale: allLabels.length > 0 ? { domain: allLabels, range: labelColorRange } : undefined,
             },
             tooltip: [
               { field: "at", type: "temporal", title: "Snapshot", format: "%Y-%m-%d %H:%M:%S" },
@@ -1470,6 +1640,7 @@
           latestData = data;
           initializeVisibleLabelsFromQuery(data);
           renderMeta(data);
+          renderGoalTracking(data);
           await renderThroughputChart(data);
           await renderCycleGauge(data);
           await renderCycleArea(data);
