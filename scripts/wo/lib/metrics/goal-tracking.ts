@@ -211,6 +211,9 @@ const selectWeekBlock = (blocks: HeadingBlock[], referenceNow: Date): HeadingBlo
   return best?.block ?? null;
 };
 
+const selectTodayBlock = (blocks: HeadingBlock[]): HeadingBlock | null =>
+  blocks.find((block) => normalizeHeading(block.title) === "today") ?? null;
+
 export const buildGoalRangeSnippetsFromMarkdown = (
   markdown: string,
   referenceNow: Date,
@@ -229,6 +232,7 @@ export const buildGoalRangeSnippetsFromMarkdown = (
 
   const sectionMarkdown = sectionLines.join("\n").trim();
   const blocks = extractHeadingBlocks(sectionLines);
+  const todayBlock = selectTodayBlock(blocks);
   const monthBlock = selectMonthBlock(blocks, referenceNow);
   const weekBlock = selectWeekBlock(blocks, referenceNow);
 
@@ -240,10 +244,13 @@ export const buildGoalRangeSnippetsFromMarkdown = (
     : monthBlock
       ? blockToSnippet(monthBlock.markdown, monthBlock.title)
       : blockToSnippet(sectionMarkdown, "Goal Setting to the Now");
+  const todaySnippet = todayBlock
+    ? blockToSnippet(todayBlock.markdown, todayBlock.title)
+    : weekSnippet;
   const allSnippet = blockToSnippet(sectionMarkdown, "Goal Setting to the Now");
 
   return {
-    today: weekSnippet,
+    today: todaySnippet,
     "this-week": weekSnippet,
     "last-7d": weekSnippet,
     "this-month": monthSnippet,

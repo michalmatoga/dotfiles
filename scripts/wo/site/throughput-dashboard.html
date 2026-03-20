@@ -1553,9 +1553,7 @@
             atMs: point.atMs,
             label: point.label,
             completed: point.completed,
-            cumulativeCompleted: isTodayRange
-              ? point.cumulativeCompleted
-              : point.cumulativeCompleted - (baselineByLabel.get(point.label) || 0),
+            cumulativeCompleted: point.cumulativeCompleted - (baselineByLabel.get(point.label) || 0),
           }));
         const showReviewSeries = isCareerContext(data);
         const throughputDomain = getThroughputDomainMs(activeRange, chartPoints, referenceNow);

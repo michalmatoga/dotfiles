@@ -58,6 +58,29 @@ describe("buildGoalRangeSnippetsFromMarkdown", () => {
     expect(snippets.today.markdown).toContain("Week 11 item");
   });
 
+  it("uses Today block for today range when present", () => {
+    const markdown = [
+      "# Household",
+      "",
+      "## Goal Setting to the Now",
+      "### 2026",
+      "#### March",
+      "##### Week 13",
+      "- [ ] Week 13 item",
+      "###### Today",
+      "- [ ] Today item",
+      "##### Week 12",
+      "- [ ] Week 12 item",
+    ].join("\n");
+
+    const snippets = buildGoalRangeSnippetsFromMarkdown(markdown, new Date("2026-03-24T10:00:00.000Z"));
+
+    expect(snippets.today.matchedHeading).toBe("Today");
+    expect(snippets.today.markdown).toContain("Today item");
+    expect(snippets.today.markdown).not.toContain("Week 13 item");
+    expect(snippets["this-week"].matchedHeading).toBe("Week 13");
+  });
+
   it("returns explicit missing-section fallback", () => {
     const markdown = [
       "# OT Career",

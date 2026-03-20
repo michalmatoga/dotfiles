@@ -6,6 +6,7 @@ export type TrelloCard = {
   desc: string;
   idLabels: string[];
   idList: string;
+  due?: string | null;
   closed?: boolean;
   url?: string;
   shortUrl?: string;
@@ -42,12 +43,12 @@ export type TrelloCardDetails = {
 
 export const fetchBoardCards = async (boardId: string): Promise<TrelloCard[]> =>
   trelloRequest<TrelloCard[]>(`boards/${boardId}/cards`, {
-    fields: "name,desc,idLabels,idList,shortUrl,url",
+    fields: "name,desc,idLabels,idList,shortUrl,url,due",
   });
 
 export const fetchBoardCardsAll = async (boardId: string): Promise<TrelloCard[]> =>
   trelloRequest<TrelloCard[]>(`boards/${boardId}/cards`, {
-    fields: "name,desc,idLabels,idList,shortUrl,url,closed",
+    fields: "name,desc,idLabels,idList,shortUrl,url,due,closed",
     filter: "all",
   });
 
@@ -82,6 +83,7 @@ export const updateCard = async (options: {
   cardId: string;
   name?: string;
   desc?: string;
+  due?: string | null;
   listId?: string;
   labelIds?: string[];
   pos?: string | number;
@@ -92,6 +94,7 @@ export const updateCard = async (options: {
     {
       name: options.name,
       desc: options.desc,
+      due: options.due,
       idList: options.listId,
       idLabels: options.labelIds ? options.labelIds.join(",") : undefined,
       pos: options.pos,

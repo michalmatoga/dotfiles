@@ -2,7 +2,7 @@ import { requireEnv } from "../env";
 
 export const trelloRequest = async <T,>(
   path: string,
-  params: Record<string, string | number | boolean | undefined>,
+  params: Record<string, string | number | boolean | null | undefined>,
   options: { method?: string } = {},
 ): Promise<T> => {
   // Safety: when running tests in recording mode, require explicit opt-in

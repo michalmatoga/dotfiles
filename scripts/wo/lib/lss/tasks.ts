@@ -88,6 +88,9 @@ export type LssBackfillPlanResult = {
 
 const normalizeHeading = (value: string): string => value.trim().toLowerCase();
 
+export const isTodayHeadingPath = (headingPath: string[]): boolean =>
+  normalizeHeading(headingPath[headingPath.length - 1] ?? "") === "today";
+
 const normalizeWhitespace = (value: string): string => value.replace(/\s+/g, " ").trim();
 
 export const canonicalizeTrelloUrl = (value: string): string | null => {

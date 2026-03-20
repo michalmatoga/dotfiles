@@ -1,5 +1,6 @@
 import {
   derivePlannerCards,
+  isTodayHeadingPath,
   parseLssInitiativesFromMarkdown,
   planLssJournalBackfillActions,
   planLssInitiativeActions,
@@ -83,6 +84,29 @@ describe("LSS task parsing", () => {
       text: "svp/infrastructure #568 Improve pulumi setup for LKE",
       trelloUrl: "https://trello.com/c/TkmXAAvB",
     });
+  });
+
+  it("marks initiatives nested under Today heading", () => {
+    const markdown = [
+      "## Goal Setting to the Now",
+      "### 2026",
+      "#### March",
+      "##### Week 13",
+      "###### Today",
+      "- [ ] Focus today task",
+      "##### Week 12",
+      "- [ ] Old week task",
+    ].join("\n");
+
+    const tasks = parseLssInitiativesFromMarkdown({
+      noteId: "household",
+      filePath: "/tmp/household.md",
+      markdown,
+    });
+
+    expect(tasks).toHaveLength(2);
+    expect(isTodayHeadingPath(tasks[0].headingPath)).toBe(true);
+    expect(isTodayHeadingPath(tasks[1].headingPath)).toBe(false);
   });
 });
 

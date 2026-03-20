@@ -2,6 +2,7 @@ import {
   DEFAULT_JOURNAL_PATH,
   canonicalizeTrelloUrl,
   derivePlannerCards,
+  isTodayHeadingPath,
   loadLssInitiativesFromJournal,
   normalizeTaskText,
   planLssJournalBackfillActions,
@@ -34,6 +35,30 @@ const resolveCardUrl = (card: { url?: string; shortUrl?: string } | null): strin
 
 const resolveCanonicalCardUrl = (card: { url?: string; shortUrl?: string } | null): string | null =>
   canonicalizeTrelloUrl(resolveCardUrl(card) ?? "");
+
+const toLocalDateKey = (value: Date): string => {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const getLocalEndOfDayIso = (value: Date): string => {
+  const end = new Date(value);
+  end.setHours(23, 59, 59, 999);
+  return end.toISOString();
+};
+
+const hasDueOnLocalDate = (due: string | null | undefined, localDateKey: string): boolean => {
+  if (!due) {
+    return false;
+  }
+  const dueDate = new Date(due);
+  if (Number.isNaN(dueDate.getTime())) {
+    return false;
+  }
+  return toLocalDateKey(dueDate) === localDateKey;
+};
 
 const buildSyncBlock = (options: {
   initiative: LssInitiative;
@@ -83,7 +108,8 @@ export const syncLssInitiativesUseCase = async (options: {
   boardId: string;
   verbose: boolean;
 }) => {
-  const now = new Date().toISOString();
+  const nowDate = new Date();
+  const now = nowDate.toISOString();
   const journalPath = process.env.WO_JOURNAL_PATH ?? DEFAULT_JOURNAL_PATH;
   const areas = await loadLssAreas();
   const areaByNoteId = new Map(areas.map((area) => [area.noteId, area]));
@@ -284,6 +310,7 @@ export const syncLssInitiativesUseCase = async (options: {
   });
 
   const initiativeByKey = new Map(parsedForPlanner.initiatives.map((item) => [buildInitiativeKey(item), item]));
+  const cardIdByInitiativeKey = new Map<string, string>();
 
   for (const warning of parsedForPlanner.warnings) {
     console.warn(`[wo:lss] ${warning.message}`);
@@ -383,6 +410,7 @@ export const syncLssInitiativesUseCase = async (options: {
         now,
       });
       trelloCardById.set(refreshed.id, refreshed);
+      cardIdByInitiativeKey.set(buildInitiativeKey(initiative), refreshed.id);
       await writeEvent({
         ts: now,
         type: "lss.initiative.created",
@@ -422,6 +450,7 @@ export const syncLssInitiativesUseCase = async (options: {
         now,
       });
       trelloCardById.set(refreshed.id, refreshed);
+      cardIdByInitiativeKey.set(buildInitiativeKey(initiative), refreshed.id);
       await writeEvent({
         ts: now,
         type: "lss.initiative.linked",
@@ -449,6 +478,7 @@ export const syncLssInitiativesUseCase = async (options: {
         now,
       });
       trelloCardById.set(refreshed.id, refreshed);
+      cardIdByInitiativeKey.set(buildInitiativeKey(initiative), refreshed.id);
       await writeEvent({
         ts: now,
         type: "lss.initiative.updated_title",
@@ -472,9 +502,92 @@ export const syncLssInitiativesUseCase = async (options: {
         now,
       });
       trelloCardById.set(refreshed.id, refreshed);
+      cardIdByInitiativeKey.set(buildInitiativeKey(initiative), refreshed.id);
       if (options.verbose) {
         console.log(`[wo:lss] ${action.type} metadata ${initiative.noteId}:${initiative.line} -> ${refreshed.id}`);
       }
+    }
+  }
+
+  const cardByCanonicalUrl = new Map<string, TrelloCard>();
+  for (const card of trelloCardById.values()) {
+    const canonicalUrl = resolveCanonicalCardUrl(card);
+    if (!canonicalUrl) {
+      continue;
+    }
+    cardByCanonicalUrl.set(canonicalUrl, card);
+  }
+
+  const localTodayKey = toLocalDateKey(nowDate);
+  const localTodayDueIso = getLocalEndOfDayIso(nowDate);
+  for (const initiative of parsedForPlanner.initiatives) {
+    if (initiative.conflict) {
+      continue;
+    }
+
+    const initiativeKey = buildInitiativeKey(initiative);
+    const mappedCardId = cardIdByInitiativeKey.get(initiativeKey);
+    const cardByAction = mappedCardId ? trelloCardById.get(mappedCardId) ?? null : null;
+    const cardByUrl = initiative.trelloUrl ? cardByCanonicalUrl.get(initiative.trelloUrl) ?? null : null;
+    const card = cardByAction ?? cardByUrl;
+    if (!card) {
+      continue;
+    }
+
+    if (isTodayHeadingPath(initiative.headingPath)) {
+      if (hasDueOnLocalDate(card.due, localTodayKey)) {
+        continue;
+      }
+      const updated = await updateCard({
+        cardId: card.id,
+        due: localTodayDueIso,
+      });
+      trelloCardById.set(updated.id, updated);
+      const canonicalUrl = resolveCanonicalCardUrl(updated);
+      if (canonicalUrl) {
+        cardByCanonicalUrl.set(canonicalUrl, updated);
+      }
+      await writeEvent({
+        ts: now,
+        type: "lss.initiative.due_set",
+        payload: {
+          noteId: initiative.noteId,
+          line: initiative.line,
+          cardId: updated.id,
+          cardUrl: resolveCardUrl(updated),
+          due: updated.due ?? localTodayDueIso,
+        },
+      });
+      if (options.verbose) {
+        console.log(`[wo:lss] due-set ${initiative.noteId}:${initiative.line} -> ${updated.id} (${localTodayDueIso})`);
+      }
+      continue;
+    }
+
+    if (!card.due) {
+      continue;
+    }
+    const updated = await updateCard({
+      cardId: card.id,
+      due: null,
+    });
+    trelloCardById.set(updated.id, updated);
+    const canonicalUrl = resolveCanonicalCardUrl(updated);
+    if (canonicalUrl) {
+      cardByCanonicalUrl.set(canonicalUrl, updated);
+    }
+    await writeEvent({
+      ts: now,
+      type: "lss.initiative.due_cleared",
+      payload: {
+        noteId: initiative.noteId,
+        line: initiative.line,
+        cardId: updated.id,
+        cardUrl: resolveCardUrl(updated),
+      },
+    });
+    if (options.verbose) {
+      console.log(`[wo:lss] due-cleared ${initiative.noteId}:${initiative.line} -> ${updated.id}`);
     }
   }
 };
