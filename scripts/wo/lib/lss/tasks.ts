@@ -3,7 +3,6 @@ import { join } from "node:path";
 
 import type { LssArea } from "../trello/lss-areas";
 import { listAliases, listNames } from "../policy/mapping";
-import { parseSyncMetadata } from "../sync/metadata";
 
 export const DEFAULT_JOURNAL_PATH = "/home/nixos/ghq/gitlab.com/michalmatoga/journal";
 export const GOAL_SECTION_HEADING = "goal setting to the now";
@@ -638,11 +637,6 @@ export const planLssJournalBackfillActions = (options: {
 
   const cards = [...options.cards].sort((a, b) => a.id.localeCompare(b.id));
   for (const card of cards) {
-    const source = parseSyncMetadata(card.desc)?.source ?? "";
-    if (!source.startsWith("ghe-")) {
-      continue;
-    }
-
     const cardLabelNames = card.idLabels
       .map((id) => options.labelNameById.get(id))
       .filter((name): name is string => Boolean(name));
@@ -664,7 +658,7 @@ export const planLssJournalBackfillActions = (options: {
     const uniqueAreaNoteIds = [...new Set(areaNoteIds)];
     if (uniqueAreaNoteIds.length !== 1) {
       if (uniqueAreaNoteIds.length > 1) {
-        warnings.push(`Skipping ${card.id}: multiple LSS area labels`);
+        warnings.push(`Skipping ${card.id}: multiple mapped area labels (${[...new Set(cardLabelNames)].join(",")})`);
       }
       continue;
     }
@@ -696,7 +690,7 @@ export const planLssJournalBackfillActions = (options: {
       filePath: resolveLssAreaNotePath({ noteId, journalPath }),
       text: normalizeWhitespace(card.name),
       trelloUrl,
-      reason: "ghe card missing in journal",
+      reason: "board card missing in journal",
     });
   }
 

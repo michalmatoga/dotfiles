@@ -164,7 +164,7 @@ describe("LSS dry-run planner", () => {
     ]);
   });
 
-  it("plans backfill only for ghe-sourced cards missing from journal", () => {
+  it("plans backfill for cards mapped by LSS area labels", () => {
     const initiatives = parseLssInitiativesFromMarkdown({
       noteId: "ot-business",
       filePath: "/tmp/ot-business.md",
@@ -194,10 +194,10 @@ describe("LSS dry-run planner", () => {
         },
         {
           id: "c3",
-          name: "Ignore non-ghe",
-          desc: "[wo-sync]\nsource=lss\nurl=https://trello.com/c/lss33333\n[/wo-sync]\n",
+          name: "Manual Trello card",
+          desc: "",
           idLabels: ["label-business"],
-          url: "https://trello.com/c/lss33333/3-ignore",
+          url: "https://trello.com/c/lss33333/3-manual-trello-card",
         },
       ],
       labelNameById: new Map([["label-business", "business"]]),
@@ -207,6 +207,14 @@ describe("LSS dry-run planner", () => {
 
     expect(plan.warnings).toEqual([]);
     expect(plan.actions).toEqual([
+      expect.objectContaining({
+        type: "backfill-journal",
+        cardId: "c3",
+        noteId: "ot-business",
+        filePath: "/tmp/ot-business.md",
+        text: "Manual Trello card",
+        trelloUrl: "https://trello.com/c/lss33333",
+      }),
       expect.objectContaining({
         type: "backfill-journal",
         cardId: "c2",
@@ -251,7 +259,7 @@ describe("LSS dry-run planner", () => {
     });
 
     expect(plan.actions).toEqual([]);
-    expect(plan.warnings).toEqual(["Skipping c1: multiple LSS area labels"]);
+    expect(plan.warnings).toEqual(["Skipping c1: multiple mapped area labels (business,career)"]);
   });
 
   it("does not backfill review-labeled cards", () => {
