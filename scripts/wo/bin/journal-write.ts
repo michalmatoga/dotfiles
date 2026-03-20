@@ -7,7 +7,7 @@
  * hourly commit breakdown and per-worktree stats, and appends to journal.
  *
  * Usage:
- *   npx tsx scripts/wo/bin/journal-write.ts [--date YYYY-MM-DD] [--dry-run]
+ *   npx tsx scripts/wo/bin/journal-write.ts [--date YYYY-MM-DD] [--dry-run] [--lss-shutdown-context <path>]
  *
  * Environment:
  *   WO_JOURNAL_PATH - Path to journal directory
@@ -25,6 +25,7 @@ import {
 import {
   buildJournalEntry,
   formatJournalEntry,
+  type LssShutdownContext,
 } from "../lib/sessions/journal";
 import { loadJournalEnv } from "../lib/journal/env";
 
@@ -34,12 +35,14 @@ type Options = {
   date: Date;
   journalPath: string;
   dryRun: boolean;
+  lssShutdownContextPath: string | null;
 };
 
 const parseArgs = (): Options => {
   const args = process.argv.slice(2);
   let date = new Date();
   let dryRun = false;
+  let lssShutdownContextPath: string | null = null;
   const journalPath = process.env.WO_JOURNAL_PATH ?? DEFAULT_JOURNAL_PATH;
 
   for (let i = 0; i < args.length; i++) {
@@ -48,10 +51,39 @@ const parseArgs = (): Options => {
       i++;
     } else if (args[i] === "--dry-run") {
       dryRun = true;
+    } else if (args[i] === "--lss-shutdown-context" && args[i + 1]) {
+      lssShutdownContextPath = args[i + 1];
+      i++;
     }
   }
 
-  return { date, journalPath, dryRun };
+  return { date, journalPath, dryRun, lssShutdownContextPath };
+};
+
+const loadLssShutdownContext = async (contextPath: string | null): Promise<LssShutdownContext | null> => {
+  if (!contextPath) {
+    return null;
+  }
+
+  try {
+    const raw = await readFile(contextPath, "utf8");
+    const parsed = JSON.parse(raw) as Partial<LssShutdownContext>;
+    return {
+      committed: Boolean(parsed.committed),
+      commitHash: typeof parsed.commitHash === "string" && parsed.commitHash.length > 0
+        ? parsed.commitHash
+        : null,
+      changedFiles: Array.isArray(parsed.changedFiles)
+        ? parsed.changedFiles.filter((entry): entry is string => typeof entry === "string")
+        : [],
+      diff: typeof parsed.diff === "string" ? parsed.diff : "",
+    };
+  } catch (error) {
+    console.warn(
+      `journal-write: Failed to load LSS shutdown context from ${contextPath}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    return null;
+  }
 };
 
 const getBucketId = (): string => {
@@ -94,6 +126,7 @@ const run = async (options: Options): Promise<void> => {
   }
 
   const dateStr = options.date.toISOString().split("T")[0];
+  const lssShutdownContext = await loadLssShutdownContext(options.lssShutdownContextPath);
   const boardId = process.env.TRELLO_BOARD_ID_WO;
   const hasTrelloContext = Boolean(
     boardId && process.env.TRELLO_API_KEY && process.env.TRELLO_TOKEN,
@@ -126,6 +159,7 @@ const run = async (options: Options): Promise<void> => {
   // Build journal entry
   const entry = await buildJournalEntry(events, options.date, {
     boardId: hasTrelloContext ? boardId : undefined,
+    lssShutdownContext,
   });
   const formatted = await formatJournalEntry(entry);
 

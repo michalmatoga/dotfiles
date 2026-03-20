@@ -198,6 +198,12 @@ systemctl --user status aw-watcher-tmux wo-session-monitor
 - `wo-stop` - Stop all session services
 - `wo-restart` - Restart all session services
 
+Dry-run the redesigned shutdown flow (LSS diff summary + journal generation, no commits/kills):
+
+```bash
+npx --yes tsx scripts/wo/bin/session-monitor.ts --dry-run-shutdown
+```
+
 ### Configuration
 
 Environment variables (set in systemd service or shell):
@@ -218,8 +224,9 @@ Config file at `~/.config/wo/session.json` (symlinked from repo).
 4. Status written to `~/.wo/session-status` (displayed in tmux status bar)
 5. Monitor state is persisted in `~/.wo/session-monitor-state.json` so extend/grace survives restarts
 6. When limit reached: popup offers extend (30m/1h) or shutdown
-7. After grace period: kills all non-protected sessions, generates journal entry, then stays paused until the next day
-8. At local day rollover the monitor resets itself and resumes tracking automatically
+7. On shutdown start, `wo-session-monitor` creates an LSS checkpoint commit in the journal repo for `lss.md` and all LSS component notes before journal generation
+8. After grace period (or immediate shutdown): generates journal entry with an `LSS developments` diff-based summary, kills all non-protected sessions, then stays paused until the next day
+9. At local day rollover the monitor resets itself and resumes tracking automatically
 
 ### Early shutdown on demand
 

@@ -74,6 +74,14 @@ export type JournalEntry = {
   hourlyBreakdown: HourlyBucket[];
   worktreeSummaries: WorktreeSummary[];
   areaSummaries: AreaSummary[];
+  lssShutdownContext?: LssShutdownContext | null;
+};
+
+export type LssShutdownContext = {
+  committed: boolean;
+  commitHash: string | null;
+  changedFiles: string[];
+  diff: string;
 };
 
 const formatDuration = (seconds: number): string => {
@@ -441,17 +449,103 @@ const generateAreaSummaryWithOpencode = async (summary: AreaSummary): Promise<st
   return output.replace(/^```[a-z]*\n?/i, "").replace(/\n```$/, "").trim();
 };
 
+const LSS_DIFF_MAX_CHARS = 12_000;
+
+const buildLssDevelopmentPrompt = (context: LssShutdownContext): string => {
+  const hash = context.commitHash ?? "none";
+  const files = context.changedFiles.length > 0 ? context.changedFiles.join(", ") : "none";
+  const diff = context.diff.trim();
+  const truncatedDiff = diff.length > LSS_DIFF_MAX_CHARS
+    ? `${diff.slice(0, LSS_DIFF_MAX_CHARS)}\n... [truncated]`
+    : diff;
+
+  return [
+    "You are generating a work-session shutdown summary for LSS developments.",
+    "Output exactly one Markdown paragraph, 2-4 sentences, accomplishment-focused.",
+    "Do not output lists or headings.",
+    "Mention concrete themes of change visible in the diff.",
+    "Do not mention commit hashes unless essential.",
+    `Commit hash: ${hash}`,
+    `Changed files: ${files}`,
+    "Diff:",
+    truncatedDiff || "(no diff)",
+  ].join("\n");
+};
+
+const generateLssDevelopmentSummaryWithOpencode = async (context: LssShutdownContext): Promise<string> => {
+  const prompt = buildLssDevelopmentPrompt(context);
+  const result = spawnSync(
+    "opencode",
+    ["run", "--model", "openai/gpt-5.2-chat-latest", prompt],
+    {
+      encoding: "utf8",
+      timeout: 30_000,
+    },
+  );
+
+  if (result.error) {
+    if ((result.error as NodeJS.ErrnoException).code === "ENOENT") {
+      throw new Error("opencode not found on PATH; ensure it is available for journal-write.");
+    }
+    throw new Error(`opencode failed: ${stripAnsi(result.error.message)}`);
+  }
+
+  if (result.status !== 0 || !result.stdout) {
+    const errorText = result.stderr?.trim();
+    if (errorText) {
+      throw new Error(`opencode failed: ${stripAnsi(errorText)}`);
+    }
+    throw new Error("opencode failed with no output");
+  }
+
+  const output = result.stdout.trim();
+  if (output.length === 0) {
+    throw new Error("opencode returned empty output");
+  }
+
+  return output.replace(/^```[a-z]*\n?/i, "").replace(/\n```$/, "").trim();
+};
+
+const fallbackLssSummary = (context: LssShutdownContext): string => {
+  if (!context.committed || context.changedFiles.length === 0) {
+    return "No LSS component changes were recorded before shutdown.";
+  }
+  const files = context.changedFiles.join(", ");
+  return `Captured and committed LSS component updates before shutdown across: ${files}.`;
+};
+
 export const formatJournalEntry = async (
   entry: JournalEntry,
-  options: { generateAreaSummary?: AreaSummaryGenerator } = {},
+  options: {
+    generateAreaSummary?: AreaSummaryGenerator;
+    generateLssSummary?: (context: LssShutdownContext) => Promise<string>;
+  } = {},
 ): Promise<string> => {
   const generateAreaSummary = options.generateAreaSummary ?? generateAreaSummaryWithOpencode;
+  const generateLssSummary = options.generateLssSummary ?? generateLssDevelopmentSummaryWithOpencode;
   const lines: string[] = [];
 
   lines.push(`# ${entry.date}`);
   lines.push("");
   lines.push(`**Deep work time:** ${formatDuration(entry.totalSeconds)}`);
   lines.push("");
+
+  const lssContext = entry.lssShutdownContext;
+  if (lssContext) {
+    let lssSummaryText: string;
+    if (!lssContext.committed || lssContext.changedFiles.length === 0) {
+      lssSummaryText = fallbackLssSummary(lssContext);
+    } else {
+      try {
+        lssSummaryText = (await generateLssSummary(lssContext)).replace(/\s*\n\s*/g, " ").trim();
+      } catch {
+        lssSummaryText = fallbackLssSummary(lssContext);
+      }
+    }
+    lines.push("## LSS developments");
+    lines.push(lssSummaryText);
+    lines.push("");
+  }
 
   const areaSummaries = await Promise.all(
     entry.areaSummaries.map(async (area) => ({
@@ -473,7 +567,7 @@ export const formatJournalEntry = async (
 export const buildJournalEntry = async (
   events: AWEvent[],
   date: Date,
-  options: { boardId?: string },
+  options: { boardId?: string; lssShutdownContext?: LssShutdownContext | null },
 ): Promise<JournalEntry> => {
   const totalSeconds = aggregateUniqueDuration(events);
   const hourlyBreakdown = buildHourlyBreakdown(events, date);
@@ -495,5 +589,6 @@ export const buildJournalEntry = async (
     hourlyBreakdown,
     worktreeSummaries,
     areaSummaries,
+    lssShutdownContext: options.lssShutdownContext ?? null,
   };
 };

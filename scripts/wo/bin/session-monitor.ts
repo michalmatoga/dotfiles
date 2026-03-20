@@ -4,10 +4,12 @@
  * session-monitor - Monitors work session time and triggers shutdown ritual
  *
  * Polls ActivityWatch for tmux session time, updates status bar, and triggers
- * forced shutdown when daily limit is reached.
+ * forced shutdown when daily limit is reached. At shutdown start, it commits
+ * LSS root/component note changes in the journal repo and feeds that diff to
+ * journal-write for an LSS developments summary.
  *
  * Usage:
- *   npx tsx scripts/wo/bin/session-monitor.ts [--limit <minutes>] [--grace <minutes>]
+ *   npx tsx scripts/wo/bin/session-monitor.ts [--limit <minutes>] [--grace <minutes>] [--dry-run-shutdown]
  *
  * Environment:
  *   WO_SESSION_LIMIT_MINUTES - Daily limit in minutes (default: 240 = 4h)
@@ -27,6 +29,10 @@ import {
   aggregateUniqueDurationByDataKey,
   isServerAvailable,
 } from "../lib/sessions/activitywatch";
+import {
+  createLssShutdownCheckpoint,
+  createLssShutdownPreview,
+} from "../lib/sessions/lss-shutdown";
 
 const STATUS_FILE = join(homedir(), ".wo", "session-status");
 const ALERT_FILE = join(homedir(), ".wo", "session-alert");
@@ -45,6 +51,7 @@ type Config = {
   limitMinutes: number;
   graceMinutes: number;
   protectedSessions: string[];
+  dryRunShutdown: boolean;
 };
 
 type MonitorState = {
@@ -67,6 +74,7 @@ const parseArgs = (): Config => {
   const args = process.argv.slice(2);
   let limitMinutes = Number(process.env.WO_SESSION_LIMIT_MINUTES) || DEFAULT_LIMIT_MINUTES;
   let graceMinutes = Number(process.env.WO_SESSION_GRACE_MINUTES) || DEFAULT_GRACE_MINUTES;
+  let dryRunShutdown = false;
   const protectedEnv = process.env.WO_SESSION_PROTECTED ?? "";
   let protectedSessions = protectedEnv
     ? protectedEnv.split(",").map((s) => s.trim())
@@ -82,10 +90,12 @@ const parseArgs = (): Config => {
     } else if (args[i] === "--protected" && args[i + 1]) {
       protectedSessions = args[i + 1].split(",").map((s) => s.trim());
       i++;
+    } else if (args[i] === "--dry-run-shutdown") {
+      dryRunShutdown = true;
     }
   }
 
-  return { limitMinutes, graceMinutes, protectedSessions };
+  return { limitMinutes, graceMinutes, protectedSessions, dryRunShutdown };
 };
 
 const formatDuration = (seconds: number): string => {
@@ -391,6 +401,17 @@ const ensureTargetSession = (sessionName: string, sessionPath: string): void => 
 const startShutdownRitual = async (config: Config): Promise<void> => {
   console.log("\n=== Starting Shutdown Ritual ===\n");
 
+  console.log("Creating LSS checkpoint in journal repo...");
+  const lssContext = await createLssShutdownCheckpoint({
+    journalPath: SHUTDOWN_TARGET_PATH,
+  });
+  if (lssContext.committed) {
+    console.log(`Committed LSS developments: ${lssContext.commitHash?.slice(0, 8) ?? "unknown"}`);
+    console.log(`Changed LSS files: ${lssContext.changedFiles.join(", ")}`);
+  } else {
+    console.log("No LSS developments to commit.");
+  }
+
   ensureTargetSession(SHUTDOWN_TARGET_SESSION, SHUTDOWN_TARGET_PATH);
   runTmux(["switch-client", "-t", SHUTDOWN_TARGET_SESSION]);
 
@@ -398,11 +419,18 @@ const startShutdownRitual = async (config: Config): Promise<void> => {
 
   const scriptDir = dirname(process.argv[1]);
   const journalScript = join(scriptDir, "journal-write.ts");
+  const lssContextPath = join(tmpdir(), `wo-lss-shutdown-${process.pid}-${Date.now()}.json`);
+  await writeFile(lssContextPath, `${JSON.stringify(lssContext)}\n`);
   console.log("Running journal writer...");
-  const journalResult = spawnSync("npx", ["--yes", "tsx", journalScript], {
-    stdio: "inherit",
-    cwd: process.cwd(),
-  });
+  const journalResult = spawnSync(
+    "npx",
+    ["--yes", "tsx", journalScript, "--lss-shutdown-context", lssContextPath],
+    {
+      stdio: "inherit",
+      cwd: process.cwd(),
+    },
+  );
+  await rm(lssContextPath, { force: true });
 
   if (journalResult.status !== 0) {
     throw new Error("Journal writer failed; aborting shutdown ritual.");
@@ -411,6 +439,43 @@ const startShutdownRitual = async (config: Config): Promise<void> => {
   killNonProtectedSessions(config.protectedSessions);
 
   console.log("\nShutdown ritual complete. Journal session is ready.");
+};
+
+const runShutdownDryRun = async (): Promise<void> => {
+  console.log("\n=== Shutdown Dry Run ===\n");
+  const lssContext = await createLssShutdownPreview({
+    journalPath: SHUTDOWN_TARGET_PATH,
+  });
+
+  if (lssContext.changedFiles.length > 0) {
+    console.log(`Detected LSS changes: ${lssContext.changedFiles.join(", ")}`);
+  } else {
+    console.log("No LSS changes detected in shutdown scope.");
+  }
+
+  const scriptDir = dirname(process.argv[1]);
+  const journalScript = join(scriptDir, "journal-write.ts");
+  const lssContextPath = join(tmpdir(), `wo-lss-shutdown-dry-run-${process.pid}-${Date.now()}.json`);
+  await writeFile(lssContextPath, `${JSON.stringify(lssContext)}\n`);
+
+  try {
+    console.log("Running journal writer dry run...");
+    const journalResult = spawnSync(
+      "npx",
+      ["--yes", "tsx", journalScript, "--dry-run", "--lss-shutdown-context", lssContextPath],
+      {
+        stdio: "inherit",
+        cwd: process.cwd(),
+      },
+    );
+    if (journalResult.status !== 0) {
+      throw new Error("journal-write dry run failed");
+    }
+  } finally {
+    await rm(lssContextPath, { force: true });
+  }
+
+  console.log("\nShutdown dry run complete. No commits or tmux sessions were modified.");
 };
 
 let shutdownInProgress = false;
@@ -587,6 +652,10 @@ const runMonitor = async (config: Config): Promise<void> => {
 (async function main() {
   try {
     const config = parseArgs();
+    if (config.dryRunShutdown) {
+      await runShutdownDryRun();
+      return;
+    }
     await runMonitor(config);
   } catch (error) {
     console.error(

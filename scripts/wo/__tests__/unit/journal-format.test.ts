@@ -94,6 +94,12 @@ describe("grouped journal formatting", () => {
       totalSeconds: 5400,
       hourlyBreakdown: [],
       worktreeSummaries: [],
+      lssShutdownContext: {
+        committed: true,
+        commitHash: "abc123",
+        changedFiles: ["lss.md", "ot-business.md"],
+        diff: "diff --git a/ot-business.md b/ot-business.md\n+new line",
+      },
       areaSummaries: [
         {
           key: "business",
@@ -117,6 +123,7 @@ describe("grouped journal formatting", () => {
     };
 
     const formatted = await formatJournalEntry(entry, {
+      generateLssSummary: async () => "Committed updates to LSS structure and business planning notes.",
       generateAreaSummary: async (summary) => {
         if (summary.key === "business") {
           return "Worked mainly on business tooling updates.";
@@ -127,6 +134,7 @@ describe("grouped journal formatting", () => {
 
     expect(formatted).toContain("# 2026-03-10");
     expect(formatted).toContain("**Deep work time:** 1h 30m");
+    expect(formatted).toContain("## LSS developments\nCommitted updates to LSS structure and business planning notes.");
     expect(formatted).toContain("## Business\n**Total:** 1h 0m\nWorked mainly on business tooling updates.");
     expect(formatted).toContain(
       "## Unmapped\n**Total:** 30m\nWorked on cards that did not map cleanly to a single LSS area.",
