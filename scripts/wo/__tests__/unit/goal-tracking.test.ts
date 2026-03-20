@@ -1,4 +1,7 @@
-import { buildGoalRangeSnippetsFromMarkdown } from "../../lib/metrics/goal-tracking";
+import {
+  buildGoalRangeSnippetsFromMarkdown,
+  defaultGoalTrackingSources,
+} from "../../lib/metrics/goal-tracking";
 
 describe("buildGoalRangeSnippetsFromMarkdown", () => {
   it("matches week and month blocks for selected ranges", () => {
@@ -68,5 +71,42 @@ describe("buildGoalRangeSnippetsFromMarkdown", () => {
     expect(snippets["this-week"].hasContent).toBe(false);
     expect(snippets["this-week"].markdown).toContain("Goal section not found");
     expect(snippets["this-month"].hasContent).toBe(false);
+  });
+});
+
+describe("defaultGoalTrackingSources", () => {
+  it("maps all LSS component notes to area labels", () => {
+    expect(defaultGoalTrackingSources).toEqual([
+      expect.objectContaining({
+        id: "business",
+        notePath: expect.stringContaining("/ot-business.md"),
+        labels: ["business"],
+      }),
+      expect.objectContaining({
+        id: "career",
+        notePath: expect.stringContaining("/ot-career.md"),
+        labels: ["career", "career-delivery", "review"],
+      }),
+      expect.objectContaining({
+        id: "health",
+        notePath: expect.stringContaining("/ot-health.md"),
+        labels: ["health"],
+      }),
+      expect.objectContaining({
+        id: "growth",
+        notePath: expect.stringContaining("/growth.md"),
+        labels: ["growth"],
+      }),
+      expect.objectContaining({
+        id: "household",
+        notePath: expect.stringContaining("/household.md"),
+        labels: ["household"],
+      }),
+      expect.objectContaining({
+        id: "relationships",
+        notePath: expect.stringContaining("/ot-relations.md"),
+        labels: ["relationships"],
+      }),
+    ]);
   });
 });

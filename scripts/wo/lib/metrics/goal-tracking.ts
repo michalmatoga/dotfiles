@@ -293,15 +293,39 @@ const defaultJournalPath = process.env.WO_JOURNAL_PATH ?? "/home/nixos/ghq/gitla
 
 export const defaultGoalTrackingSources: GoalNoteSourceConfig[] = [
   {
+    id: "business",
+    title: "OT Business",
+    notePath: join(defaultJournalPath, "ot-business.md"),
+    labels: ["business"],
+  },
+  {
     id: "career",
     title: "OT Career",
     notePath: join(defaultJournalPath, "ot-career.md"),
     labels: ["career", "career-delivery", "review"],
   },
   {
-    id: "business",
-    title: "OT Business",
-    notePath: join(defaultJournalPath, "ot-business.md"),
-    labels: ["business"],
+    id: "health",
+    title: "OT Health",
+    notePath: join(defaultJournalPath, "ot-health.md"),
+    labels: ["health"],
+  },
+  {
+    id: "growth",
+    title: "Growth",
+    notePath: join(defaultJournalPath, "growth.md"),
+    labels: ["growth"],
+  },
+  {
+    id: "household",
+    title: "Household",
+    notePath: join(defaultJournalPath, "household.md"),
+    labels: ["household"],
+  },
+  {
+    id: "relationships",
+    title: "OT Relations",
+    notePath: join(defaultJournalPath, "ot-relations.md"),
+    labels: ["relationships"],
   },
 ];

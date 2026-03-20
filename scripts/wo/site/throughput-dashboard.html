@@ -76,6 +76,54 @@
         gap: 0.5rem;
       }
 
+      .area-links {
+        margin-top: 0.6rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+
+      .chip-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        text-decoration: none;
+        color: inherit;
+      }
+
+      .chip-link:hover {
+        box-shadow: inset 0 0 0 1px rgb(36 52 66 / 20%);
+      }
+
+      .chip-link.is-active {
+        box-shadow: inset 0 0 0 1px rgb(53 95 64 / 28%);
+      }
+
+      .chip-link.confidence-on {
+        background: #e6f4dd;
+        border-color: #b2cf9f;
+      }
+
+      .chip-link.confidence-warn {
+        background: #fff3d7;
+        border-color: #e4c88c;
+      }
+
+      .chip-link.confidence-risk {
+        background: #fde7e4;
+        border-color: #e3b3ab;
+      }
+
+      .chip-link.confidence-na {
+        background: #f3f4f6;
+        border-color: #d1d5db;
+      }
+
+      .area-chip-meta {
+        font-size: 0.78rem;
+        opacity: 0.9;
+      }
+
       .meta {
         margin-top: 0.85rem;
         display: flex;
@@ -387,6 +435,7 @@
         <h1 id="page-title">WO Throughput</h1>
         <p class="subtle">Cumulative completed tasks per label (selected time range)</p>
         <div id="quick-range" class="quick-range" aria-label="Quick time range controls"></div>
+        <div id="area-links" class="area-links" aria-label="LSS area quick links"></div>
         <div class="meta-wrap">
           <details id="meta-details">
             <summary id="meta-toggle" class="chip meta-summary">Show controls</summary>
@@ -438,6 +487,7 @@
       const throughputStyleLegendEl = document.getElementById("throughput-style-legend");
       const throughputSeriesLegendEl = document.getElementById("throughput-series-legend");
       const quickRangeEl = document.getElementById("quick-range");
+      const areaLinksEl = document.getElementById("area-links");
       const goalTrackingEl = document.getElementById("goal-tracking");
       const reviewKpiCardEl = document.getElementById("review-kpi-card");
       const reviewKpiEl = document.getElementById("review-kpi");
@@ -458,6 +508,7 @@
       const timeRangePresetIds = new Set(timeRangePresets.map((preset) => preset.id));
       const quickRangePresets = [
         { id: "today", label: "Today" },
+        { id: "this-week", label: "This week" },
         { id: "this-month", label: "This month" },
       ];
       const timeRangeParam = (params.get("range") || "").trim().toLowerCase();
@@ -483,6 +534,15 @@
         "career-delivery": "#d9480f",
         review: "#2563eb",
       };
+      const lssAreaLinks = [
+        { label: "Business", areaLabel: "business" },
+        { label: "Career", areaLabel: "career" },
+        { label: "Health", areaLabel: "health" },
+        { label: "Growth", areaLabel: "growth" },
+        { label: "Household", areaLabel: "household" },
+        { label: "Relationships", areaLabel: "relationships" },
+      ];
+      const confidenceMaxPct = 200;
 
       const formatDateTime = (value) => {
         if (!value) {
@@ -730,6 +790,53 @@
           elapsedFraction,
           plannedNow,
           pacePct,
+        };
+      };
+
+      const getConfidenceBand = (confidencePct) => {
+        if (!Number.isFinite(confidencePct)) {
+          return "na";
+        }
+        if (confidencePct >= 100) {
+          return "on";
+        }
+        if (confidencePct >= 80) {
+          return "warn";
+        }
+        return "risk";
+      };
+
+      const formatConfidenceText = (confidencePct) => {
+        if (!Number.isFinite(confidencePct)) {
+          return "n/a";
+        }
+        if (confidencePct >= confidenceMaxPct) {
+          return `${confidenceMaxPct}%+`;
+        }
+        return `${Math.max(0, confidencePct).toFixed(0)}%`;
+      };
+
+      const getGoalMetricsForSource = (source, range, referenceNow) => {
+        if (!source) {
+          return { totalTasks: 0, doneTasks: 0, confidencePct: NaN, confidenceBand: "na", confidenceText: "n/a" };
+        }
+        const snippet = getGoalSnippetForSource(source);
+        const markdown = snippet && typeof snippet.markdown === "string" ? snippet.markdown : "";
+        const counts = countChecklistProgress(markdown);
+        const nowMsRaw = referenceNow instanceof Date ? referenceNow.getTime() : Date.now();
+        const nowMs = range && range.endMs !== null ? Math.min(nowMsRaw, range.endMs) : nowMsRaw;
+        const elapsedFraction = getElapsedFraction(range, nowMs);
+        const plannedNow = counts.total * elapsedFraction;
+        const confidenceRaw = plannedNow > 0 ? (counts.done / plannedNow) * 100 : NaN;
+        const confidencePct = Number.isFinite(confidenceRaw)
+          ? Math.min(confidenceMaxPct, Math.max(0, confidenceRaw))
+          : NaN;
+        return {
+          totalTasks: counts.total,
+          doneTasks: counts.done,
+          confidencePct,
+          confidenceBand: getConfidenceBand(confidencePct),
+          confidenceText: formatConfidenceText(confidencePct),
         };
       };
 
@@ -1129,6 +1236,7 @@
             selectedTimeRangeId = nextRange;
             syncUrlState(latestData);
             renderQuickRange(latestData);
+            renderAreaLinks(latestData);
             renderMeta(latestData);
             renderGoalTracking(latestData);
             renderReviewKpi(latestData);
@@ -1138,6 +1246,42 @@
             await renderCycleAreaByLabel(latestData);
           });
         });
+      };
+
+      const renderAreaLinks = (data) => {
+        if (!areaLinksEl) {
+          return;
+        }
+        const allLabels = normalizeLabels(data && data.labels);
+        const labelSet = new Set(allLabels);
+        const visibleLabelSet = getEffectiveVisibleLabels(allLabels);
+        const goalTracking = data && typeof data === "object" && data.goalTracking && typeof data.goalTracking === "object"
+          ? data.goalTracking
+          : null;
+        const goalSources = goalTracking && Array.isArray(goalTracking.sources) ? goalTracking.sources : [];
+        const activeRange = getSelectedTimeRange(data);
+        const referenceNow = getReferenceNow(data);
+        const baseUrl = new URL(window.location.href);
+
+        areaLinksEl.innerHTML = lssAreaLinks.map((entry) => {
+          const linkUrl = new URL(baseUrl.toString());
+          linkUrl.searchParams.set("range", selectedTimeRangeId);
+          linkUrl.searchParams.set("labels", entry.areaLabel);
+          const available = labelSet.has(entry.areaLabel);
+          const active = visibleLabelSet.has(entry.areaLabel);
+          const source = goalSources.find((candidate) => normalizeLabels(candidate && candidate.labels).includes(entry.areaLabel));
+          const metrics = getGoalMetricsForSource(source, activeRange, referenceNow);
+          const progressText = metrics.totalTasks > 0 ? `${metrics.doneTasks}/${metrics.totalTasks}` : "--";
+          const classes = ["chip", "chip-link"];
+          if (active) {
+            classes.push("is-active");
+          }
+          classes.push(`confidence-${metrics.confidenceBand}`);
+          const title = available
+            ? `Focus ${entry.label} (${progressText}, confidence ${metrics.confidenceText})`
+            : `${entry.label} currently has no series`;
+          return `<a class="${classes.join(" ")}" href="${linkUrl.toString()}" title="${title}"><span>${entry.label}</span><span class="area-chip-meta">${progressText} - ${metrics.confidenceText}</span></a>`;
+        }).join("");
       };
 
       const renderMeta = (data) => {
@@ -1231,6 +1375,7 @@
             }
             setVisibleLabels(next, allLabels);
             syncUrlState(latestData);
+            renderAreaLinks(latestData);
             renderMeta(latestData);
             renderGoalTracking(latestData);
             renderReviewKpi(latestData);
@@ -1253,6 +1398,7 @@
             selectedTimeRangeId = nextRange;
             syncUrlState(latestData);
             renderQuickRange(latestData);
+            renderAreaLinks(latestData);
             renderMeta(latestData);
             renderGoalTracking(latestData);
             renderReviewKpi(latestData);
@@ -1989,6 +2135,7 @@
           latestData = data;
           initializeVisibleLabelsFromQuery(data);
           renderQuickRange(data);
+          renderAreaLinks(data);
           renderMeta(data);
           renderGoalTracking(data);
           renderReviewKpi(data);
