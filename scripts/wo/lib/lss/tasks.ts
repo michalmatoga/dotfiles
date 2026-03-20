@@ -87,9 +87,39 @@ export type LssBackfillPlanResult = {
 };
 
 const normalizeHeading = (value: string): string => value.trim().toLowerCase();
+const weekHeadingPattern = /\bweek\s+(\d{1,2})\b/i;
+const yearHeadingPattern = /^\s*(20\d{2})\s*$/;
 
 export const isTodayHeadingPath = (headingPath: string[]): boolean =>
   normalizeHeading(headingPath[headingPath.length - 1] ?? "") === "today";
+
+export const extractWeekNumberFromHeadingPath = (headingPath: string[]): number | null => {
+  for (let index = headingPath.length - 1; index >= 0; index--) {
+    const match = headingPath[index]?.match(weekHeadingPattern);
+    if (!match) {
+      continue;
+    }
+    const parsed = parseInt(match[1], 10);
+    if (Number.isInteger(parsed) && parsed >= 1 && parsed <= 53) {
+      return parsed;
+    }
+  }
+  return null;
+};
+
+export const extractYearFromHeadingPath = (headingPath: string[]): number | null => {
+  for (let index = headingPath.length - 1; index >= 0; index--) {
+    const match = headingPath[index]?.match(yearHeadingPattern);
+    if (!match) {
+      continue;
+    }
+    const parsed = parseInt(match[1], 10);
+    if (Number.isInteger(parsed) && parsed >= 2000 && parsed <= 2999) {
+      return parsed;
+    }
+  }
+  return null;
+};
 
 const normalizeWhitespace = (value: string): string => value.replace(/\s+/g, " ").trim();
 

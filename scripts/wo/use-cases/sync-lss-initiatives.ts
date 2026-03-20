@@ -2,6 +2,8 @@ import {
   DEFAULT_JOURNAL_PATH,
   canonicalizeTrelloUrl,
   derivePlannerCards,
+  extractWeekNumberFromHeadingPath,
+  extractYearFromHeadingPath,
   isTodayHeadingPath,
   loadLssInitiativesFromJournal,
   normalizeTaskText,
@@ -49,6 +51,16 @@ const getLocalEndOfDayIso = (value: Date): string => {
   return end.toISOString();
 };
 
+const getIsoWeekEndLocalDate = (options: { year: number; week: number }): Date => {
+  const jan4 = new Date(options.year, 0, 4);
+  const jan4Day = (jan4.getDay() + 6) % 7;
+  const mondayOfWeek1 = new Date(options.year, 0, 4 - jan4Day);
+  const end = new Date(mondayOfWeek1);
+  end.setDate(mondayOfWeek1.getDate() + (options.week - 1) * 7 + 6);
+  end.setHours(23, 59, 59, 999);
+  return end;
+};
+
 const hasDueOnLocalDate = (due: string | null | undefined, localDateKey: string): boolean => {
   if (!due) {
     return false;
@@ -58,6 +70,31 @@ const hasDueOnLocalDate = (due: string | null | undefined, localDateKey: string)
     return false;
   }
   return toLocalDateKey(dueDate) === localDateKey;
+};
+
+const resolveInitiativeDueTarget = (options: {
+  initiative: LssInitiative;
+  nowDate: Date;
+}): { dueIso: string; localDateKey: string; source: "today" | "week" } | null => {
+  if (isTodayHeadingPath(options.initiative.headingPath)) {
+    return {
+      dueIso: getLocalEndOfDayIso(options.nowDate),
+      localDateKey: toLocalDateKey(options.nowDate),
+      source: "today",
+    };
+  }
+
+  const week = extractWeekNumberFromHeadingPath(options.initiative.headingPath);
+  if (!week) {
+    return null;
+  }
+  const year = extractYearFromHeadingPath(options.initiative.headingPath) ?? options.nowDate.getFullYear();
+  const weekEnd = getIsoWeekEndLocalDate({ year, week });
+  return {
+    dueIso: weekEnd.toISOString(),
+    localDateKey: toLocalDateKey(weekEnd),
+    source: "week",
+  };
 };
 
 const buildSyncBlock = (options: {
@@ -518,8 +555,6 @@ export const syncLssInitiativesUseCase = async (options: {
     cardByCanonicalUrl.set(canonicalUrl, card);
   }
 
-  const localTodayKey = toLocalDateKey(nowDate);
-  const localTodayDueIso = getLocalEndOfDayIso(nowDate);
   for (const initiative of parsedForPlanner.initiatives) {
     if (initiative.conflict) {
       continue;
@@ -534,13 +569,14 @@ export const syncLssInitiativesUseCase = async (options: {
       continue;
     }
 
-    if (isTodayHeadingPath(initiative.headingPath)) {
-      if (hasDueOnLocalDate(card.due, localTodayKey)) {
+    const dueTarget = resolveInitiativeDueTarget({ initiative, nowDate });
+    if (dueTarget) {
+      if (hasDueOnLocalDate(card.due, dueTarget.localDateKey)) {
         continue;
       }
       const updated = await updateCard({
         cardId: card.id,
-        due: localTodayDueIso,
+        due: dueTarget.dueIso,
       });
       trelloCardById.set(updated.id, updated);
       const canonicalUrl = resolveCanonicalCardUrl(updated);
@@ -555,11 +591,12 @@ export const syncLssInitiativesUseCase = async (options: {
           line: initiative.line,
           cardId: updated.id,
           cardUrl: resolveCardUrl(updated),
-          due: updated.due ?? localTodayDueIso,
+          due: updated.due ?? dueTarget.dueIso,
+          dueSource: dueTarget.source,
         },
       });
       if (options.verbose) {
-        console.log(`[wo:lss] due-set ${initiative.noteId}:${initiative.line} -> ${updated.id} (${localTodayDueIso})`);
+        console.log(`[wo:lss] due-set ${initiative.noteId}:${initiative.line} -> ${updated.id} (${dueTarget.dueIso})`);
       }
       continue;
     }

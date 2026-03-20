@@ -1,5 +1,7 @@
 import {
   derivePlannerCards,
+  extractWeekNumberFromHeadingPath,
+  extractYearFromHeadingPath,
   isTodayHeadingPath,
   parseLssInitiativesFromMarkdown,
   planLssJournalBackfillActions,
@@ -107,6 +109,18 @@ describe("LSS task parsing", () => {
     expect(tasks).toHaveLength(2);
     expect(isTodayHeadingPath(tasks[0].headingPath)).toBe(true);
     expect(isTodayHeadingPath(tasks[1].headingPath)).toBe(false);
+  });
+
+  it("extracts week number and year from heading path", () => {
+    const headingPath = ["2026", "March", "Week 13", "Today"];
+
+    expect(extractWeekNumberFromHeadingPath(headingPath)).toBe(13);
+    expect(extractYearFromHeadingPath(headingPath)).toBe(2026);
+  });
+
+  it("returns null when no valid week heading is present", () => {
+    expect(extractWeekNumberFromHeadingPath(["2026", "March", "Week X"])).toBe(null);
+    expect(extractYearFromHeadingPath(["March", "Week 13"])).toBe(null);
   });
 });
 
