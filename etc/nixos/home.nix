@@ -17,9 +17,25 @@ let
     vendorHash = "sha256-XoI6tu4Giy9IMDql4VmSP74FXaVD3nizOedmfPwIRCA=";
     subPackages = ["cmd/gwq"];
   };
+  pulumiLatest = pkgs.stdenvNoCC.mkDerivation rec {
+    pname = "pulumi";
+    version = "3.227.0";
+
+    src = pkgs.fetchurl {
+      url = "https://get.pulumi.com/releases/sdk/pulumi-v${version}-linux-x64.tar.gz";
+      sha256 = "sha256-tNeriEApcwPNTdBwwBILX+5Dr+fhTzO4Cn+YA/8/f4I=";
+    };
+
+    sourceRoot = ".";
+
+    installPhase = ''
+      runHook preInstall
+      mkdir -p "$out/bin"
+      cp -R pulumi/* "$out/bin/"
+      runHook postInstall
+    '';
+  };
   unstablePackages = with unstable; [
-    pulumi
-    pulumiPackages.pulumi-nodejs
     postgresql_18
   ];
 in
@@ -150,6 +166,7 @@ in
     opentofu
     pgadmin4
     php
+    pulumiLatest
     prettierd
     prisma-engines
     python3
