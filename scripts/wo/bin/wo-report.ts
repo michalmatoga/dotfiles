@@ -21,6 +21,7 @@ import { buildGoalTrackingData, defaultGoalTrackingSources } from "../lib/metric
 import { buildReviewKpiData } from "../lib/metrics/review-kpi";
 import { readJsonlEntries } from "../lib/state/jsonl";
 import { readLatestSnapshot } from "../lib/state/snapshots";
+import { loadLssAreas } from "../lib/trello/lss-areas";
 import { fetchBoardLabels } from "../lib/trello/labels";
 
 const formatDuration = (seconds: number): string => {
@@ -69,6 +70,84 @@ const normalizeCardUrl = (value: string | null): string | null => {
 
 const snapshotIntervalMinutes = 5;
 const snapshotWindowHours = 24;
+
+type WoEventEntry = {
+  ts?: string;
+  type?: string;
+  payload?: Record<string, unknown>;
+};
+
+const isDoneCompletionMetric = (metric: MetricsRecord): boolean => {
+  if (!metric.completedDate) {
+    return false;
+  }
+  if (metric.list !== "Done") {
+    return false;
+  }
+  return metric.eventType === "entered" || metric.eventType === "exited";
+};
+
+const buildSyntheticLssCompletionMetrics = (options: {
+  metrics: MetricsRecord[];
+  events: WoEventEntry[];
+  areaLabelByNoteId: Map<string, string>;
+}): MetricsRecord[] => {
+  const doneCardIds = new Set(options.metrics.filter(isDoneCompletionMetric).map((metric) => metric.cardId));
+  const byCardId = new Map<string, MetricsRecord>();
+
+  for (const event of options.events) {
+    if (!event || !event.type || !event.ts) {
+      continue;
+    }
+    const payload = event.payload ?? {};
+    const checked = payload.checked;
+    const isCheckedTransition = event.type === "lss.initiative.checked"
+      || (event.type === "lss.checkbox.mirrored" && checked === true);
+    if (!isCheckedTransition) {
+      continue;
+    }
+
+    const cardIdRaw = payload.cardId;
+    const cardId = typeof cardIdRaw === "string" && cardIdRaw.trim().length > 0 ? cardIdRaw : null;
+    if (!cardId || doneCardIds.has(cardId)) {
+      continue;
+    }
+
+    const atMs = Date.parse(event.ts);
+    if (!Number.isFinite(atMs)) {
+      continue;
+    }
+    const timestamp = new Date(atMs).toISOString();
+    const completedDate = timestamp.split("T")[0] ?? null;
+    const noteId = typeof payload.noteId === "string" ? payload.noteId : "";
+    const areaLabel = options.areaLabelByNoteId.get(noteId) ?? null;
+    const cardUrl = typeof payload.cardUrl === "string"
+      ? payload.cardUrl
+      : typeof payload.trelloUrl === "string"
+        ? payload.trelloUrl
+        : null;
+
+    const next: MetricsRecord = {
+      timestamp,
+      cardId,
+      url: cardUrl,
+      eventType: "entered",
+      list: "Done",
+      labels: areaLabel ? [areaLabel] : [],
+      secondsInList: null,
+      completedDate,
+    };
+
+    const existing = byCardId.get(cardId);
+    if (!existing || Date.parse(next.timestamp) < Date.parse(existing.timestamp)) {
+      byCardId.set(cardId, next);
+    }
+  }
+
+  return Array.from(byCardId.values()).sort(
+    (a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp),
+  );
+};
 
 const resolveCycleTimeSnapshotPath = (outputPath: string): string =>
   resolve(dirname(outputPath), "wo-cycle-time-snapshots.jsonl");
@@ -395,6 +474,17 @@ const writeChartData = async (options: {
 }) => {
   const now = new Date();
   const metrics = await readMetrics();
+  const events = await readJsonlEntries<WoEventEntry>(resolveEventsPath(options.outputPath));
+  const lssAreas = await loadLssAreas();
+  const areaLabelByNoteId = new Map(lssAreas.map((area) => [area.noteId, area.label]));
+  const syntheticLssCompletions = buildSyntheticLssCompletionMetrics({
+    metrics,
+    events,
+    areaLabelByNoteId,
+  });
+  const metricsWithLssCompletions = syntheticLssCompletions.length > 0
+    ? [...metrics, ...syntheticLssCompletions]
+    : metrics;
   const cardStates = Array.from((await readCardStates()).values());
   const latestSnapshot = await readLatestSnapshot();
   const worktreeByUrl = latestSnapshot?.worktrees?.byUrl ?? {};
@@ -415,17 +505,14 @@ const writeChartData = async (options: {
   const snapshotScopedCardStates = snapshotTrelloCards
     ? scopedCardStates.filter((state) => Boolean(snapshotTrelloCards[state.cardId]))
     : scopedCardStates;
-  const chartData = buildThroughputChartData({ metrics, labels: options.labels, now });
+  const chartData = buildThroughputChartData({ metrics: metricsWithLssCompletions, labels: options.labels, now });
   const goalTracking = await buildGoalTrackingData({
     now,
     sources: defaultGoalTrackingSources,
   });
-  const events = await readJsonlEntries<{ ts?: string; type?: string; payload?: Record<string, unknown> }>(
-    resolveEventsPath(options.outputPath),
-  );
   const reviewKpi = buildReviewKpiData({ now, events });
   const liveCycleTime = buildLiveCycleTimeData({
-    metrics,
+    metrics: metricsWithLssCompletions,
     cardStates: snapshotScopedCardStates,
     labels: options.labels,
     now,
