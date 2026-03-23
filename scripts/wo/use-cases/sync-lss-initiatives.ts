@@ -14,10 +14,12 @@ import {
 import { planLssCheckboxMirror } from "../lib/lss/checkbox-mirror";
 import {
   appendTaskUnderDeepestPlanningHeading,
+  appendRecurringTaskUnderClosestPlanningSlot,
+  convertTaskCheckboxToRecurringHistoryAtLine,
   injectTrelloUrlIntoTaskLine,
   setTaskCheckboxStateAtLine,
 } from "../lib/lss/journal-links";
-import { listNames } from "../lib/policy/mapping";
+import { labelNames, listAliases, listNames } from "../lib/policy/mapping";
 import { writeEvent } from "../lib/state/events";
 import { readLatestSnapshot, writeSnapshot } from "../lib/state/snapshots";
 import {
@@ -37,6 +39,14 @@ const resolveCardUrl = (card: { url?: string; shortUrl?: string } | null): strin
 
 const resolveCanonicalCardUrl = (card: { url?: string; shortUrl?: string } | null): string | null =>
   canonicalizeTrelloUrl(resolveCardUrl(card) ?? "");
+
+const canonicalListName = (options: { listById: Map<string, string>; listId: string }): string | null => {
+  const raw = options.listById.get(options.listId);
+  if (!raw) {
+    return null;
+  }
+  return listAliases[raw] ?? raw;
+};
 
 const toLocalDateKey = (value: Date): string => {
   const year = value.getFullYear();
@@ -161,6 +171,14 @@ export const syncLssInitiativesUseCase = async (options: {
   if (!triageList) {
     throw new Error("Missing Trello list mapping for Triage");
   }
+  const readyList = context.listByName.get(listNames.ready);
+  if (!readyList) {
+    throw new Error("Missing Trello list mapping for Ready");
+  }
+  const recurringLabel = context.labelByName.get(labelNames.recurring);
+  if (!recurringLabel) {
+    throw new Error(`Missing Trello label mapping for ${labelNames.recurring}`);
+  }
 
   const allCards = await fetchBoardCards(options.boardId);
   const trelloCardById = new Map(allCards.map((card) => [card.id, card]));
@@ -234,8 +252,137 @@ export const syncLssInitiativesUseCase = async (options: {
     parsed = await loadLssInitiativesFromJournal({ areas, journalPath });
   }
 
-  const cardsForPlanner = [...trelloCardById.values()];
   const listById = new Map(context.lists.map((list) => [list.id, list.name]));
+
+  const initiativesByUrl = new Map<string, LssInitiative[]>();
+  for (const initiative of parsed.initiatives) {
+    if (!initiative.trelloUrl || initiative.conflict) {
+      continue;
+    }
+    const existing = initiativesByUrl.get(initiative.trelloUrl) ?? [];
+    existing.push(initiative);
+    initiativesByUrl.set(initiative.trelloUrl, existing);
+  }
+
+  let recurringRollovers = 0;
+  for (const card of trelloCardById.values()) {
+    const meta = parseSyncMetadata(card.desc);
+    if (meta?.source !== "lss") {
+      continue;
+    }
+    if (!card.idLabels.includes(recurringLabel.id)) {
+      continue;
+    }
+    if (card.dueComplete !== false) {
+      continue;
+    }
+    const listName = canonicalListName({ listById, listId: card.idList });
+    if (listName !== listNames.done) {
+      continue;
+    }
+
+    const canonicalUrl = resolveCanonicalCardUrl(card) ?? canonicalizeTrelloUrl(meta.url ?? "");
+    if (!canonicalUrl) {
+      await writeEvent({
+        ts: now,
+        type: "lss.recurring.skipped",
+        payload: {
+          cardId: card.id,
+          reason: "missing-canonical-url",
+        },
+      });
+      continue;
+    }
+
+    const matches = initiativesByUrl.get(canonicalUrl) ?? [];
+    if (matches.length !== 1) {
+      await writeEvent({
+        ts: now,
+        type: "lss.recurring.skipped",
+        payload: {
+          cardId: card.id,
+          cardUrl: canonicalUrl,
+          reason: matches.length === 0 ? "missing-linked-initiative" : "multiple-linked-initiatives",
+          matchCount: matches.length,
+        },
+      });
+      continue;
+    }
+
+    const initiative = matches[0];
+    const converted = await convertTaskCheckboxToRecurringHistoryAtLine({
+      filePath: initiative.filePath,
+      line: initiative.line,
+      doneDate: toLocalDateKey(nowDate),
+    });
+    if (!converted.updated) {
+      await writeEvent({
+        ts: now,
+        type: "lss.recurring.skipped",
+        payload: {
+          cardId: card.id,
+          cardUrl: canonicalUrl,
+          noteId: initiative.noteId,
+          line: initiative.line,
+          reason: converted.reason ?? "history-conversion-failed",
+        },
+      });
+      continue;
+    }
+
+    const inserted = await appendRecurringTaskUnderClosestPlanningSlot({
+      filePath: initiative.filePath,
+      text: converted.text ?? initiative.text,
+      trelloUrl: converted.trelloUrl ?? canonicalUrl,
+      due: card.due,
+      sourceHeadingPath: initiative.headingPath,
+    });
+    if (!inserted.updated) {
+      await writeEvent({
+        ts: now,
+        type: "lss.recurring.skipped",
+        payload: {
+          cardId: card.id,
+          cardUrl: canonicalUrl,
+          noteId: initiative.noteId,
+          line: initiative.line,
+          reason: inserted.reason ?? "active-insert-failed",
+        },
+      });
+      continue;
+    }
+
+    const moved = await updateCard({
+      cardId: card.id,
+      listId: readyList.id,
+      pos: "bottom",
+    });
+    trelloCardById.set(moved.id, moved);
+    recurringRollovers += 1;
+    await writeEvent({
+      ts: now,
+      type: "lss.recurring.rolled_over",
+      payload: {
+        cardId: moved.id,
+        cardUrl: resolveCardUrl(moved),
+        noteId: initiative.noteId,
+        historyLine: initiative.line,
+        activeLine: inserted.line ?? null,
+        due: moved.due ?? null,
+      },
+    });
+    if (options.verbose) {
+      console.log(
+        `[wo:lss] recurring rollover ${initiative.noteId}:${initiative.line} -> ${moved.id} (${inserted.line ?? "?"})`,
+      );
+    }
+  }
+
+  if (recurringRollovers > 0) {
+    parsed = await loadLssInitiativesFromJournal({ areas, journalPath });
+  }
+
+  const cardsForPlanner = [...trelloCardById.values()];
 
   const checkboxMirrorPlan = planLssCheckboxMirror({
     initiatives: parsed.initiatives,
@@ -566,6 +713,9 @@ export const syncLssInitiativesUseCase = async (options: {
     const cardByUrl = initiative.trelloUrl ? cardByCanonicalUrl.get(initiative.trelloUrl) ?? null : null;
     const card = cardByAction ?? cardByUrl;
     if (!card) {
+      continue;
+    }
+    if (card.idLabels.includes(recurringLabel.id)) {
       continue;
     }
 

@@ -10,6 +10,7 @@ for Schibsted-labeled cards.
 - Pulls GitHub review requests and creates/updates Trello cards.
 - Syncs LSS journal initiatives into Trello (create/link/update-title + backlink write).
 - Mirrors Trello Done state back to linked LSS journal checkboxes for `source=lss` cards.
+- Rolls over `recurring` LSS cards from `Done` into the next cycle while preserving markdown history.
 - Moves Trello list changes back to GitHub project status (only for `schibsted` label).
 - Auto-moves review cards to Done once you approve the PR.
 
@@ -40,6 +41,7 @@ Labels (lowercase):
 - relationships
 - schibsted
 - review
+- recurring
 - household
 - elikonas
 - journal
@@ -156,6 +158,15 @@ Safe migration steps:
 - Snapshot includes LSS checkbox mirror markers (`lss.byUrl`) for reconciliation.
 - Trello wins if a card was moved since the last snapshot.
 - Project sync runs incrementally using `updatedAt`, with a daily full refresh.
+
+## Recurring LSS cards
+
+- Add label `recurring` to an LSS-linked Trello card to enable recurring rollover behavior.
+- When a recurring card sits in `Done` with `dueComplete=false`, `wo`:
+  - rewrites the completed markdown checkbox as a history line: `- ✅ [Task](https://trello.com/c/...) (done YYYY-MM-DD)`,
+  - inserts a new unchecked linked task under the due date slot (`Week <N>`), bubbling up to the closest available parent slot when needed,
+  - moves the card from `Done` to `Ready`.
+- Due dates for recurring cards are Trello-authoritative: journal heading-based due set/clear does not run for cards labeled `recurring`.
 
 ## Linked PR behavior
 

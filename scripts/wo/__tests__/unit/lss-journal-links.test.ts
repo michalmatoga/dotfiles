@@ -3,7 +3,9 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 import {
+  appendRecurringTaskUnderClosestPlanningSlot,
   appendTaskUnderDeepestPlanningHeading,
+  convertTaskCheckboxToRecurringHistoryAtLine,
   injectTrelloUrlIntoTaskLine,
   setTaskCheckboxStateAtLine,
 } from "../../lib/lss/journal-links";
@@ -188,5 +190,93 @@ describe("LSS journal backfill insertion", () => {
     });
 
     expect(result).toEqual({ updated: false, reason: "already-linked" });
+  });
+});
+
+describe("LSS recurring journal rollover", () => {
+  it("converts checked checkbox into emoji history while keeping Trello link", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "wo-lss-"));
+    const filePath = join(dir, "household.md");
+    await writeFile(
+      filePath,
+      [
+        "## Goal Setting to the Now",
+        "### 2026",
+        "#### March",
+        "##### Week 12",
+        "- [x] [Fold laundry](https://trello.com/c/AbCd1234)",
+      ].join("\n"),
+      "utf8",
+    );
+
+    const result = await convertTaskCheckboxToRecurringHistoryAtLine({
+      filePath,
+      line: 5,
+      doneDate: "2026-03-23",
+    });
+
+    expect(result).toEqual({
+      updated: true,
+      text: "Fold laundry",
+      trelloUrl: "https://trello.com/c/AbCd1234",
+    });
+    const content = await readFile(filePath, "utf8");
+    expect(content.split("\n")[4]).toBe("- ✅ [Fold laundry](https://trello.com/c/AbCd1234) (done 2026-03-23)");
+  });
+
+  it("inserts active recurring task under due week slot", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "wo-lss-"));
+    const filePath = join(dir, "household.md");
+    await writeFile(
+      filePath,
+      [
+        "## Goal Setting to the Now",
+        "### 2026",
+        "#### March",
+        "##### Week 13",
+        "- ✅ [Fold laundry](https://trello.com/c/AbCd1234) (done 2026-03-23)",
+      ].join("\n"),
+      "utf8",
+    );
+
+    const result = await appendRecurringTaskUnderClosestPlanningSlot({
+      filePath,
+      text: "Fold laundry",
+      trelloUrl: "https://trello.com/c/AbCd1234",
+      due: "2026-03-30T09:00:00.000Z",
+      sourceHeadingPath: ["2026", "March", "Week 13"],
+    });
+
+    expect(result).toEqual({ updated: true, line: 6 });
+    const content = await readFile(filePath, "utf8");
+    expect(content.split("\n")[5]).toBe("- [ ] [Fold laundry](https://trello.com/c/AbCd1234)");
+  });
+
+  it("bubbles up to month heading when due week slot is missing", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "wo-lss-"));
+    const filePath = join(dir, "household.md");
+    await writeFile(
+      filePath,
+      [
+        "## Goal Setting to the Now",
+        "### 2026",
+        "#### April",
+        "- ✅ [Fold laundry](https://trello.com/c/AbCd1234) (done 2026-03-23)",
+        "### Someday",
+      ].join("\n"),
+      "utf8",
+    );
+
+    const result = await appendRecurringTaskUnderClosestPlanningSlot({
+      filePath,
+      text: "Fold laundry",
+      trelloUrl: "https://trello.com/c/AbCd1234",
+      due: "2026-04-28T09:00:00.000Z",
+      sourceHeadingPath: ["2026", "April", "Week 17"],
+    });
+
+    expect(result).toEqual({ updated: true, line: 5 });
+    const content = await readFile(filePath, "utf8");
+    expect(content.split("\n")[4]).toBe("- [ ] [Fold laundry](https://trello.com/c/AbCd1234)");
   });
 });
