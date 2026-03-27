@@ -2063,7 +2063,6 @@
           data,
           valueTitle,
           metricByPoint,
-          totalByPoint,
         } = options;
         const containerWidth = containerEl ? containerEl.clientWidth : 0;
         const chartWidth = Math.max(280, Math.min(containerWidth > 0 ? containerWidth - 24 : window.innerWidth - 90, 980));
@@ -2071,8 +2070,23 @@
         const snapshotsRaw = burden && Array.isArray(burden.snapshots) ? burden.snapshots : [];
         const activeRange = getSelectedTimeRange(data);
         const activeRangeId = activeRange && activeRange.id ? String(activeRange.id) : "this-week";
+        const isTodayRange = activeRange.id === "today";
+        const isMonthRange = activeRange.id === "this-month";
+        const referenceNow = getReferenceNow(data);
+        const todayDateKey = getLocalDateKey(referenceNow);
+        const timelineXAxis = {
+          format: isTodayRange ? "%a %H:%M" : "%a %m-%d",
+          labelAngle: isMonthRange ? -62 : -25,
+          labelFontSize: isMonthRange ? 10 : 11,
+          labelOverlap: isMonthRange ? false : true,
+          tickCount: isMonthRange ? { interval: "day", step: 1 } : undefined,
+          labelFontWeight: {
+            expr: `timeFormat(datum.value, '%Y-%m-%d') === '${todayDateKey}' ? 'bold' : 'normal'`,
+          },
+        };
         const chartWindowDomain = getTimeRangeDomain(activeRange);
-        const allLabels = normalizeLabels(data.labels);
+        const burdenLabels = burden && Array.isArray(burden.labels) ? normalizeLabels(burden.labels) : [];
+        const allLabels = burdenLabels.length > 0 ? burdenLabels : normalizeLabels(data.labels);
         const labelColorMap = getLabelColorMap(allLabels);
         const labelColorRange = allLabels.map((label) => labelColorMap.get(label) || "#425466");
         const visibleLabelSet = getEffectiveVisibleLabels(data.labels);
@@ -2088,17 +2102,14 @@
             continue;
           }
           const byLabel = metricByPoint(point, activeRangeId);
-          let totalValue = Number(totalByPoint(point, activeRangeId));
-          if (!Number.isFinite(totalValue)) {
-            totalValue = 0;
-          }
-          totalValue = Math.max(0, Math.floor(totalValue));
+          let totalValue = 0;
           for (const label of allLabels) {
             if (!visibleLabelSet.has(label)) {
               continue;
             }
             const rawValue = Number(byLabel[label]);
             const metricValue = Number.isFinite(rawValue) ? Math.max(0, Math.floor(rawValue)) : 0;
+            totalValue += metricValue;
             points.push({
               at: String(point.at),
               label,
@@ -2122,8 +2133,8 @@
               x: {
                 field: "at",
                 type: "temporal",
-                title: "Snapshot time",
-                axis: { format: "%m-%d %H:%M" },
+                title: "Time",
+                axis: timelineXAxis,
               },
               y: {
                 field: "metricValue",
@@ -2167,8 +2178,8 @@
                 x: {
                   field: "at",
                   type: "temporal",
-                  title: "Snapshot time",
-                  axis: { format: "%m-%d %H:%M", labelAngle: -25 },
+                  title: "Time",
+                  axis: timelineXAxis,
                   scale: chartWindowDomain ? { domain: chartWindowDomain } : undefined,
                 },
                 y: {
@@ -2204,8 +2215,8 @@
                 x: {
                   field: "at",
                   type: "temporal",
-                  title: "Snapshot time",
-                  axis: { format: "%m-%d %H:%M", labelAngle: -25 },
+                  title: "Time",
+                  axis: timelineXAxis,
                   scale: chartWindowDomain ? { domain: chartWindowDomain } : undefined,
                 },
                 y: {
@@ -2240,16 +2251,6 @@
           point && point.trelloOpenByLabel && typeof point.trelloOpenByLabel === "object"
             ? point.trelloOpenByLabel
             : {},
-        totalByPoint: (point) => {
-          const total = Number(point && point.trelloOpenTotal);
-          if (Number.isFinite(total)) {
-            return total;
-          }
-          const byLabel = point && point.trelloOpenByLabel && typeof point.trelloOpenByLabel === "object"
-            ? point.trelloOpenByLabel
-            : {};
-          return Object.values(byLabel).reduce((sum, value) => sum + (Number(value) || 0), 0);
-        },
       });
 
       const renderMdBurdenAreaByLabel = async (data) => renderBurdenAreaByLabel({
@@ -2265,26 +2266,6 @@
             ? byRange[rangeId]
             : (byRange["this-week"] && typeof byRange["this-week"] === "object" ? byRange["this-week"] : {});
           return rangeMap;
-        },
-        totalByPoint: (point, rangeId) => {
-          const totalsByRange = point && point.mdUncheckedTotalByRange && typeof point.mdUncheckedTotalByRange === "object"
-            ? point.mdUncheckedTotalByRange
-            : {};
-          const direct = Number(totalsByRange[rangeId]);
-          if (Number.isFinite(direct)) {
-            return direct;
-          }
-          const fallback = Number(totalsByRange["this-week"]);
-          if (Number.isFinite(fallback)) {
-            return fallback;
-          }
-          const byRange = point && point.mdUncheckedByLabelByRange && typeof point.mdUncheckedByLabelByRange === "object"
-            ? point.mdUncheckedByLabelByRange
-            : {};
-          const rangeMap = byRange[rangeId] && typeof byRange[rangeId] === "object"
-            ? byRange[rangeId]
-            : (byRange["this-week"] && typeof byRange["this-week"] === "object" ? byRange["this-week"] : {});
-          return Object.values(rangeMap).reduce((sum, value) => sum + (Number(value) || 0), 0);
         },
       });
 

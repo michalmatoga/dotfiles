@@ -745,7 +745,12 @@ const writeChartData = async (options: {
     "utf8",
   );
 
-  const trackedLabels = options.labels.map((label) => normalizeLabelName(label)).filter((label) => label.length > 0);
+  const trackedLabelsFromAreas = lssAreas
+    .map((area) => normalizeLabelName(area.label))
+    .filter((label) => label.length > 0);
+  const trackedLabels = trackedLabelsFromAreas.length > 0
+    ? Array.from(new Set(trackedLabelsFromAreas))
+    : options.labels.map((label) => normalizeLabelName(label)).filter((label) => label.length > 0);
   const trackedLabelSet = new Set(trackedLabels);
   const labelIdByName = new Map<string, string>();
   for (const label of boardLabels) {
@@ -863,6 +868,7 @@ const writeChartData = async (options: {
     burden: {
       generatedAt: now.toISOString(),
       snapshotIntervalMinutes,
+      labels: trackedLabels,
       snapshots: persistedBurdenSnapshots,
     },
   };
