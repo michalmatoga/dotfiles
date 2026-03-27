@@ -10,19 +10,26 @@ import {
 } from "../lib/metrics/aw-time";
 import type { MetricsRecord } from "../lib/metrics/types";
 import {
+  burdenRangeIds,
   buildLiveCycleTimeData,
   buildThroughputChartData,
+  mergeBurdenSnapshots,
   mergeCycleTimeSnapshots,
   parseTrackedLabels,
   toFiveMinuteBucketIso,
+  type BurdenRangeId,
+  type BurdenSnapshotPoint,
   type CycleTimeSnapshotPoint,
 } from "../lib/metrics/chart-data";
 import { buildGoalTrackingData, defaultGoalTrackingSources } from "../lib/metrics/goal-tracking";
 import { buildReviewKpiData } from "../lib/metrics/review-kpi";
 import { readJsonlEntries } from "../lib/state/jsonl";
-import { readLatestSnapshot } from "../lib/state/snapshots";
+import { readLatestSnapshot, type Snapshot } from "../lib/state/snapshots";
 import { loadLssAreas } from "../lib/trello/lss-areas";
+import { fetchBoardCardsAll } from "../lib/trello/cards";
 import { fetchBoardLabels } from "../lib/trello/labels";
+import { fetchBoardLists } from "../lib/trello/lists";
+import { listAliases, listNames } from "../lib/policy/mapping";
 
 const formatDuration = (seconds: number): string => {
   if (seconds === 0) return "0m";
@@ -152,6 +159,12 @@ const buildSyntheticLssCompletionMetrics = (options: {
 const resolveCycleTimeSnapshotPath = (outputPath: string): string =>
   resolve(dirname(outputPath), "wo-cycle-time-snapshots.jsonl");
 
+const resolveBurdenSnapshotPath = (outputPath: string): string =>
+  resolve(dirname(outputPath), "wo-burden-snapshots.jsonl");
+
+const resolveWoSnapshotPath = (outputPath: string): string =>
+  resolve(dirname(outputPath), "wo-snapshots.jsonl");
+
 const resolveEventsPath = (outputPath: string): string =>
   resolve(dirname(outputPath), "wo-events.jsonl");
 
@@ -173,15 +186,168 @@ const readCycleTimeSnapshots = async (snapshotPath: string): Promise<CycleTimeSn
           })
           .filter(([label]) => label.length > 0),
       );
+      const unfinishedByLabel = Object.fromEntries(
+        Object.entries(entry.unfinishedCardsByLabel ?? {})
+          .map(([label, value]) => {
+            const normalized = label.trim().toLowerCase();
+            return [normalized, Math.max(0, Math.floor(Number(value) || 0))] as const;
+          })
+          .filter(([label]) => label.length > 0),
+      );
       return {
         at: new Date(atMs).toISOString(),
         cumulativeCycleTimeSeconds: Math.max(0, Math.floor(cycle)),
         unfinishedCards: Math.max(0, Math.floor(unfinishedCards)),
         cumulativeCycleTimeSecondsByLabel: cycleByLabel,
+        unfinishedCardsByLabel: unfinishedByLabel,
       };
     })
     .filter((entry): entry is CycleTimeSnapshotPoint => entry !== null)
     .sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
+};
+
+const readBurdenSnapshots = async (snapshotPath: string): Promise<BurdenSnapshotPoint[]> => {
+  const entries = await readJsonlEntries<BurdenSnapshotPoint>(snapshotPath);
+  return entries
+    .map((entry) => {
+      const atMs = Date.parse(entry.at ?? "");
+      if (!Number.isFinite(atMs)) {
+        return null;
+      }
+
+      const trelloOpenByLabel = Object.fromEntries(
+        Object.entries(entry.trelloOpenByLabel ?? {})
+          .map(([label, value]) => [label.trim().toLowerCase(), Math.max(0, Math.floor(Number(value) || 0))] as const)
+          .filter(([label]) => label.length > 0),
+      );
+
+      const mdUncheckedByLabelByRange = Object.fromEntries(
+        burdenRangeIds.map((rangeId) => {
+          const perLabelRaw = entry.mdUncheckedByLabelByRange && typeof entry.mdUncheckedByLabelByRange === "object"
+            ? entry.mdUncheckedByLabelByRange[rangeId] ?? {}
+            : {};
+          const perLabel = Object.fromEntries(
+            Object.entries(perLabelRaw ?? {})
+              .map(([label, value]) => [label.trim().toLowerCase(), Math.max(0, Math.floor(Number(value) || 0))] as const)
+              .filter(([label]) => label.length > 0),
+          );
+          return [rangeId, perLabel] as const;
+        }),
+      ) as Record<BurdenRangeId, Record<string, number>>;
+
+      const mdUncheckedTotalByRange = Object.fromEntries(
+        burdenRangeIds.map((rangeId) => {
+          const perLabel = mdUncheckedByLabelByRange[rangeId] ?? {};
+          const total = Object.values(perLabel).reduce((sum, count) => sum + (Number(count) || 0), 0);
+          return [rangeId, total] as const;
+        }),
+      ) as Record<BurdenRangeId, number>;
+
+      const trelloOpenTotal = Object.values(trelloOpenByLabel).reduce((sum, count) => sum + (Number(count) || 0), 0);
+
+      return {
+        at: new Date(atMs).toISOString(),
+        trelloOpenByLabel,
+        trelloOpenTotal,
+        mdUncheckedByLabelByRange,
+        mdUncheckedTotalByRange,
+      };
+    })
+    .filter((entry): entry is BurdenSnapshotPoint => entry !== null)
+    .sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
+};
+
+const mergeManyBurdenSnapshots = (
+  current: BurdenSnapshotPoint[],
+  points: BurdenSnapshotPoint[],
+): BurdenSnapshotPoint[] => points.reduce((acc, point) => mergeBurdenSnapshots(acc, point), current);
+
+const buildSyntheticBurdenSnapshotsFromWoState = async (options: {
+  outputPath: string;
+  cutoffMs: number;
+  trackedLabels: string[];
+  labelIdByName: Map<string, string>;
+  doneListIds: Set<string>;
+  mdUncheckedByLabelByRange: Record<BurdenRangeId, Record<string, number>>;
+  mdUncheckedTotalByRange: Record<BurdenRangeId, number>;
+}): Promise<BurdenSnapshotPoint[]> => {
+  const snapshotPath = resolveWoSnapshotPath(options.outputPath);
+  const entries = await readJsonlEntries<Snapshot>(snapshotPath);
+  const labelIdByLabel = options.trackedLabels.map((label) => [label, options.labelIdByName.get(label) ?? ""] as const);
+
+  const rawPoints = entries
+    .map((entry) => {
+      const atMs = Date.parse(entry?.ts ?? "");
+      if (!Number.isFinite(atMs) || atMs < options.cutoffMs) {
+        return null;
+      }
+      const trello = entry?.trello;
+      if (!trello || typeof trello !== "object") {
+        return null;
+      }
+      const trelloOpenByLabel = Object.fromEntries(options.trackedLabels.map((label) => [label, 0])) as Record<string, number>;
+      for (const card of Object.values(trello)) {
+        if (!card || typeof card !== "object") {
+          continue;
+        }
+        const listId = typeof card.listId === "string" ? card.listId : "";
+        if (!listId || options.doneListIds.has(listId)) {
+          continue;
+        }
+        const cardLabelSet = new Set(Array.isArray(card.labels) ? card.labels : []);
+        for (const [label, labelId] of labelIdByLabel) {
+          if (!labelId || !cardLabelSet.has(labelId)) {
+            continue;
+          }
+          trelloOpenByLabel[label] = (trelloOpenByLabel[label] ?? 0) + 1;
+        }
+      }
+      const trelloOpenTotal = Object.values(trelloOpenByLabel).reduce((sum, count) => sum + count, 0);
+      return {
+        at: toFiveMinuteBucketIso(new Date(atMs)),
+        trelloOpenByLabel,
+        trelloOpenTotal,
+        mdUncheckedByLabelByRange: options.mdUncheckedByLabelByRange,
+        mdUncheckedTotalByRange: options.mdUncheckedTotalByRange,
+      } satisfies BurdenSnapshotPoint;
+    })
+    .filter((entry): entry is BurdenSnapshotPoint => entry !== null)
+    .sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+
+  if (rawPoints.length === 0) {
+    return [];
+  }
+
+  const byBucket = new Map<string, BurdenSnapshotPoint>();
+  for (const point of rawPoints) {
+    byBucket.set(point.at, point);
+  }
+
+  const dense: BurdenSnapshotPoint[] = [];
+  const stepMs = snapshotIntervalMinutes * 60 * 1000;
+  const cutoffBucketMs = Date.parse(toFiveMinuteBucketIso(new Date(options.cutoffMs)));
+  const nowBucketMs = Date.parse(toFiveMinuteBucketIso(new Date()));
+  let lastPoint: BurdenSnapshotPoint | null = null;
+
+  for (let cursor = cutoffBucketMs; cursor <= nowBucketMs; cursor += stepMs) {
+    const atIso = new Date(cursor).toISOString();
+    const exact = byBucket.get(atIso);
+    if (exact) {
+      lastPoint = exact;
+    }
+    if (!lastPoint) {
+      continue;
+    }
+    dense.push({
+      at: atIso,
+      trelloOpenByLabel: lastPoint.trelloOpenByLabel,
+      trelloOpenTotal: lastPoint.trelloOpenTotal,
+      mdUncheckedByLabelByRange: lastPoint.mdUncheckedByLabelByRange,
+      mdUncheckedTotalByRange: lastPoint.mdUncheckedTotalByRange,
+    });
+  }
+
+  return dense;
 };
 
 const parseOptionValue = (args: string[], optionName: string): string | null => {
@@ -197,6 +363,22 @@ const parseOptionValue = (args: string[], optionName: string): string | null => 
 };
 
 const hasOption = (args: string[], optionName: string): boolean => args.includes(optionName);
+
+const normalizeLabelName = (value: string | null | undefined): string =>
+  value?.trim().toLowerCase() ?? "";
+
+const countUncheckedChecklistItems = (markdown: string): number => {
+  if (typeof markdown !== "string" || markdown.trim().length === 0) {
+    return 0;
+  }
+  const matches = markdown.match(/^\s*[-*]\s+\[(?: )\]\s+/gm) || [];
+  return matches.length;
+};
+
+const toCanonicalListName = (name: string | null | undefined): string => {
+  const normalized = typeof name === "string" ? name : "";
+  return listAliases[normalized] ?? normalized;
+};
 
 const computeLifecycleTimes = (metrics: MetricsRecord[]) => {
   const byCard = new Map<
@@ -473,6 +655,7 @@ const writeChartData = async (options: {
   outputPath: string;
 }) => {
   const now = new Date();
+  const boardId = requireEnv("TRELLO_BOARD_ID_WO");
   const metrics = await readMetrics();
   const events = await readJsonlEntries<WoEventEntry>(resolveEventsPath(options.outputPath));
   const lssAreas = await loadLssAreas();
@@ -510,6 +693,9 @@ const writeChartData = async (options: {
     now,
     sources: defaultGoalTrackingSources,
   });
+  const boardLabels = await fetchBoardLabels(boardId);
+  const boardLists = await fetchBoardLists(boardId);
+  const boardCards = await fetchBoardCardsAll(boardId);
   const reviewKpi = buildReviewKpiData({ now, events });
   const liveCycleTime = buildLiveCycleTimeData({
     metrics: metricsWithLssCompletions,
@@ -528,11 +714,21 @@ const writeChartData = async (options: {
       return [normalized, total] as const;
     }),
   );
+  const unfinishedCardsByLabel = Object.fromEntries(
+    options.labels.map((label) => {
+      const normalized = label.trim().toLowerCase();
+      const total = liveCycleTime.cards
+        .filter((card) => card.labels.includes(normalized))
+        .length;
+      return [normalized, total] as const;
+    }),
+  );
   const snapshotPoint: CycleTimeSnapshotPoint = {
     at: toFiveMinuteBucketIso(now),
     cumulativeCycleTimeSeconds: liveCycleTime.cumulativeCycleTimeSeconds,
     unfinishedCards: liveCycleTime.unfinishedCards,
     cumulativeCycleTimeSecondsByLabel,
+    unfinishedCardsByLabel,
   };
   const currentSnapshots = await readCycleTimeSnapshots(snapshotPath);
   const mergedSnapshots = mergeCycleTimeSnapshots(currentSnapshots, snapshotPoint);
@@ -549,6 +745,109 @@ const writeChartData = async (options: {
     "utf8",
   );
 
+  const trackedLabels = options.labels.map((label) => normalizeLabelName(label)).filter((label) => label.length > 0);
+  const trackedLabelSet = new Set(trackedLabels);
+  const labelIdByName = new Map<string, string>();
+  for (const label of boardLabels) {
+    const normalized = normalizeLabelName(label.name);
+    if (!normalized || labelIdByName.has(normalized)) {
+      continue;
+    }
+    labelIdByName.set(normalized, label.id);
+  }
+  const listNameById = new Map<string, string>();
+  for (const list of boardLists) {
+    listNameById.set(list.id, toCanonicalListName(list.name));
+  }
+  const doneListIds = new Set(
+    Array.from(listNameById.entries())
+      .filter(([, listName]) => listName === listNames.done)
+      .map(([listId]) => listId),
+  );
+
+  const trelloOpenByLabel = Object.fromEntries(trackedLabels.map((label) => [label, 0])) as Record<string, number>;
+  for (const card of boardCards) {
+    if (card.closed) {
+      continue;
+    }
+    if (doneListIds.has(card.idList)) {
+      continue;
+    }
+    const cardLabelSet = new Set(Array.isArray(card.idLabels) ? card.idLabels : []);
+    for (const label of trackedLabels) {
+      const labelId = labelIdByName.get(label);
+      if (!labelId || !cardLabelSet.has(labelId)) {
+        continue;
+      }
+      trelloOpenByLabel[label] = (trelloOpenByLabel[label] ?? 0) + 1;
+    }
+  }
+  const trelloOpenTotal = Object.values(trelloOpenByLabel).reduce((sum, count) => sum + count, 0);
+
+  const mdUncheckedByLabelByRange = Object.fromEntries(
+    burdenRangeIds.map((rangeId) => [rangeId, Object.fromEntries(trackedLabels.map((label) => [label, 0]))]),
+  ) as Record<BurdenRangeId, Record<string, number>>;
+  for (const source of goalTracking.sources) {
+    const sourceLabels = (source.labels ?? [])
+      .map((label) => normalizeLabelName(label))
+      .filter((label) => trackedLabelSet.has(label));
+    if (sourceLabels.length === 0) {
+      continue;
+    }
+    for (const rangeId of burdenRangeIds) {
+      const markdown = source.byRange?.[rangeId]?.markdown ?? "";
+      const unchecked = countUncheckedChecklistItems(markdown);
+      if (unchecked <= 0) {
+        continue;
+      }
+      for (const label of sourceLabels) {
+        mdUncheckedByLabelByRange[rangeId][label] = (mdUncheckedByLabelByRange[rangeId][label] ?? 0) + unchecked;
+      }
+    }
+  }
+  const mdUncheckedTotalByRange = Object.fromEntries(
+    burdenRangeIds.map((rangeId) => {
+      const total = Object.values(mdUncheckedByLabelByRange[rangeId]).reduce((sum, count) => sum + count, 0);
+      return [rangeId, total] as const;
+    }),
+  ) as Record<BurdenRangeId, number>;
+
+  const burdenSnapshotPoint: BurdenSnapshotPoint = {
+    at: toFiveMinuteBucketIso(now),
+    trelloOpenByLabel,
+    trelloOpenTotal,
+    mdUncheckedByLabelByRange,
+    mdUncheckedTotalByRange,
+  };
+  const burdenSnapshotPath = resolveBurdenSnapshotPath(options.outputPath);
+  const currentBurdenSnapshots = await readBurdenSnapshots(burdenSnapshotPath);
+  let burdenSeededSnapshots = currentBurdenSnapshots;
+  let syntheticBurdenSeedCount = 0;
+  if (currentBurdenSnapshots.length <= 6) {
+    const syntheticSnapshots = await buildSyntheticBurdenSnapshotsFromWoState({
+      outputPath: options.outputPath,
+      cutoffMs,
+      trackedLabels,
+      labelIdByName,
+      doneListIds,
+      mdUncheckedByLabelByRange,
+      mdUncheckedTotalByRange,
+    });
+    syntheticBurdenSeedCount = syntheticSnapshots.length;
+    burdenSeededSnapshots = mergeManyBurdenSnapshots(currentBurdenSnapshots, syntheticSnapshots);
+  }
+  const mergedBurdenSnapshots = mergeBurdenSnapshots(burdenSeededSnapshots, burdenSnapshotPoint);
+  const burdenSnapshots = mergedBurdenSnapshots.filter((point) => {
+    const pointMs = Date.parse(point.at);
+    return Number.isFinite(pointMs) && pointMs >= cutoffMs;
+  });
+  const persistedBurdenSnapshots = burdenSnapshots.length > 0 ? burdenSnapshots : [burdenSnapshotPoint];
+  await writeFile(
+    burdenSnapshotPath,
+    `${persistedBurdenSnapshots.map((point) => JSON.stringify(point)).join("\n")}\n`,
+    "utf8",
+  );
+
   const output = {
     ...chartData,
     goalTracking,
@@ -560,6 +859,11 @@ const writeChartData = async (options: {
       gaugeUnfinishedCards: liveCycleTime.unfinishedCards,
       cards: liveCycleTime.cards,
       snapshots: persistedSnapshots,
+    },
+    burden: {
+      generatedAt: now.toISOString(),
+      snapshotIntervalMinutes,
+      snapshots: persistedBurdenSnapshots,
     },
   };
 
@@ -577,6 +881,12 @@ const writeChartData = async (options: {
   console.log(`Live unfinished cards: ${liveCycleTime.unfinishedCards}`);
   console.log(`Live cumulative cycle time: ${formatDuration(liveCycleTime.cumulativeCycleTimeSeconds)}`);
   console.log(`Cycle snapshots (last ${snapshotWindowHours}h): ${persistedSnapshots.length}`);
+  console.log(`Trello open tasks: ${trelloOpenTotal}`);
+  console.log(`MD unchecked tasks (this-week): ${mdUncheckedTotalByRange["this-week"]}`);
+  if (syntheticBurdenSeedCount > 0) {
+    console.log(`Synthetic burden seeds from wo-snapshots: ${syntheticBurdenSeedCount}`);
+  }
+  console.log(`Burden snapshots (last ${snapshotWindowHours}h): ${persistedBurdenSnapshots.length}`);
 };
 
 const showChartData = async (args: string[]) => {

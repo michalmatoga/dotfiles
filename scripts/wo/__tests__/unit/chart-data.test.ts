@@ -1,6 +1,7 @@
 import {
   buildLiveCycleTimeData,
   buildThroughputChartData,
+  mergeBurdenSnapshots,
   mergeCycleTimeSnapshots,
   parseTrackedLabels,
   toFiveMinuteBucketIso,
@@ -276,6 +277,7 @@ describe("cycle-time snapshot helpers", () => {
         cumulativeCycleTimeSeconds: 120,
         unfinishedCards: 1,
         cumulativeCycleTimeSecondsByLabel: {},
+        unfinishedCardsByLabel: {},
       },
       {
         at: "2026-03-18T11:05:00.000Z",
@@ -283,5 +285,121 @@ describe("cycle-time snapshot helpers", () => {
         unfinishedCards: 3,
       },
     ]);
+  });
+
+  it("normalizes unfinished task counts by label in snapshots", () => {
+    const merged = mergeCycleTimeSnapshots(
+      [
+        {
+          at: "2026-03-18T11:00:00.000Z",
+          cumulativeCycleTimeSeconds: 120,
+          unfinishedCards: 1,
+          unfinishedCardsByLabel: {
+            " Career ": 2.8,
+            " ": 9,
+          },
+        },
+      ],
+      {
+        at: "2026-03-18T11:05:00.000Z",
+        cumulativeCycleTimeSeconds: 300,
+        unfinishedCards: 3,
+      },
+    );
+
+    expect(merged[0]?.unfinishedCardsByLabel).toEqual({
+      career: 2,
+    });
+  });
+});
+
+describe("burden snapshot helpers", () => {
+  it("deduplicates snapshots per bucket and keeps them ordered", () => {
+    const merged = mergeBurdenSnapshots(
+      [
+        {
+          at: "2026-03-18T11:00:00.000Z",
+          trelloOpenByLabel: { career: 2 },
+          trelloOpenTotal: 2,
+          mdUncheckedByLabelByRange: {
+            today: {},
+            "this-week": { career: 3 },
+            "last-7d": {},
+            "this-month": {},
+            all: {},
+          },
+          mdUncheckedTotalByRange: {
+            today: 0,
+            "this-week": 3,
+            "last-7d": 0,
+            "this-month": 0,
+            all: 0,
+          },
+        },
+      ],
+      {
+        at: "2026-03-18T11:00:00.000Z",
+        trelloOpenByLabel: { career: 4 },
+        trelloOpenTotal: 4,
+        mdUncheckedByLabelByRange: {
+          today: {},
+          "this-week": { career: 5 },
+          "last-7d": {},
+          "this-month": {},
+          all: {},
+        },
+        mdUncheckedTotalByRange: {
+          today: 0,
+          "this-week": 5,
+          "last-7d": 0,
+          "this-month": 0,
+          all: 0,
+        },
+      },
+    );
+
+    expect(merged).toHaveLength(1);
+    expect(merged[0]?.trelloOpenTotal).toBe(4);
+    expect(merged[0]?.mdUncheckedTotalByRange?.["this-week"]).toBe(5);
+  });
+
+  it("normalizes burden labels and counts", () => {
+    const merged = mergeBurdenSnapshots(
+      [
+        {
+          at: "2026-03-18T11:00:00.000Z",
+          trelloOpenByLabel: {
+            " Career ": 2.9,
+            " ": 11,
+          },
+          trelloOpenTotal: 2.4,
+          mdUncheckedByLabelByRange: {
+            today: {},
+            "this-week": {
+              " Career ": 7.7,
+              " ": 1,
+            },
+            "last-7d": {},
+            "this-month": {},
+            all: {},
+          },
+          mdUncheckedTotalByRange: {
+            today: 0,
+            "this-week": 7.2,
+            "last-7d": 0,
+            "this-month": 0,
+            all: 0,
+          },
+        },
+      ],
+      {
+        at: "2026-03-18T11:05:00.000Z",
+      },
+    );
+
+    expect(merged[0]?.trelloOpenByLabel).toEqual({ career: 2 });
+    expect(merged[0]?.trelloOpenTotal).toBe(2);
+    expect(merged[0]?.mdUncheckedByLabelByRange?.["this-week"]).toEqual({ career: 7 });
+    expect(merged[0]?.mdUncheckedTotalByRange?.["this-week"]).toBe(7);
   });
 });

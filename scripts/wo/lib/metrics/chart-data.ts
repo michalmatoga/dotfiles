@@ -39,6 +39,18 @@ export type CycleTimeSnapshotPoint = {
   cumulativeCycleTimeSeconds: number;
   unfinishedCards: number;
   cumulativeCycleTimeSecondsByLabel?: Record<string, number>;
+  unfinishedCardsByLabel?: Record<string, number>;
+};
+
+export const burdenRangeIds = ["today", "this-week", "last-7d", "this-month", "all"] as const;
+export type BurdenRangeId = (typeof burdenRangeIds)[number];
+
+export type BurdenSnapshotPoint = {
+  at: string;
+  trelloOpenByLabel?: Record<string, number>;
+  trelloOpenTotal?: number;
+  mdUncheckedByLabelByRange?: Record<BurdenRangeId, Record<string, number>>;
+  mdUncheckedTotalByRange?: Record<BurdenRangeId, number>;
 };
 
 const doneListName = "Done";
@@ -208,9 +220,81 @@ export const mergeCycleTimeSnapshots = (
           .map(([label, value]) => [normalizeLabel(label), Number(value) || 0])
           .filter(([label]) => label !== noLabelBucket),
       ),
+      unfinishedCardsByLabel: Object.fromEntries(
+        Object.entries(point.unfinishedCardsByLabel ?? {})
+          .map(([label, value]) => [normalizeLabel(label), Math.max(0, Math.floor(Number(value) || 0))])
+          .filter(([label]) => label !== noLabelBucket),
+      ),
     }));
 
   const byTimestamp = new Map<string, CycleTimeSnapshotPoint>();
+  for (const point of normalized) {
+    byTimestamp.set(point.at, point);
+  }
+  byTimestamp.set(nextPoint.at, nextPoint);
+
+  return Array.from(byTimestamp.values()).sort(
+    (a, b) => toComparableTime(a.at) - toComparableTime(b.at),
+  );
+};
+
+const isBurdenRangeId = (value: string): value is BurdenRangeId =>
+  burdenRangeIds.includes(value as BurdenRangeId);
+
+const normalizeLabelCountMap = (value: Record<string, unknown> | null | undefined): Record<string, number> =>
+  Object.fromEntries(
+    Object.entries(value ?? {})
+      .map(([label, count]) => [normalizeLabel(label), Math.max(0, Math.floor(Number(count) || 0))])
+      .filter(([label]) => label !== noLabelBucket),
+  );
+
+const normalizeRangeLabelCountMap = (
+  value: Record<string, unknown> | null | undefined,
+): Record<BurdenRangeId, Record<string, number>> => {
+  const byRange: Partial<Record<BurdenRangeId, Record<string, number>>> = {};
+  for (const [rangeId, rawCounts] of Object.entries(value ?? {})) {
+    if (!isBurdenRangeId(rangeId)) {
+      continue;
+    }
+    if (!rawCounts || typeof rawCounts !== "object") {
+      byRange[rangeId] = {};
+      continue;
+    }
+    byRange[rangeId] = normalizeLabelCountMap(rawCounts as Record<string, unknown>);
+  }
+  return byRange as Record<BurdenRangeId, Record<string, number>>;
+};
+
+const normalizeRangeTotalMap = (
+  value: Record<string, unknown> | null | undefined,
+): Record<BurdenRangeId, number> => {
+  const totals: Partial<Record<BurdenRangeId, number>> = {};
+  for (const [rangeId, rawTotal] of Object.entries(value ?? {})) {
+    if (!isBurdenRangeId(rangeId)) {
+      continue;
+    }
+    totals[rangeId] = Math.max(0, Math.floor(Number(rawTotal) || 0));
+  }
+  return totals as Record<BurdenRangeId, number>;
+};
+
+export const mergeBurdenSnapshots = (
+  current: BurdenSnapshotPoint[],
+  nextPoint: BurdenSnapshotPoint,
+): BurdenSnapshotPoint[] => {
+  const normalized = [...current]
+    .filter((point) => point && point.at)
+    .map((point) => ({
+      at: new Date(point.at).toISOString(),
+      trelloOpenByLabel: normalizeLabelCountMap(point.trelloOpenByLabel as Record<string, unknown> | undefined),
+      trelloOpenTotal: Math.max(0, Math.floor(Number(point.trelloOpenTotal) || 0)),
+      mdUncheckedByLabelByRange: normalizeRangeLabelCountMap(
+        point.mdUncheckedByLabelByRange as Record<string, unknown> | undefined,
+      ),
+      mdUncheckedTotalByRange: normalizeRangeTotalMap(point.mdUncheckedTotalByRange as Record<string, unknown> | undefined),
+    }));
+
+  const byTimestamp = new Map<string, BurdenSnapshotPoint>();
   for (const point of normalized) {
     byTimestamp.set(point.at, point);
   }

@@ -387,7 +387,8 @@
         min-height: 260px;
       }
 
-      #cycle-area-by-label {
+      #trello-burden-area-by-label,
+      #md-burden-area-by-label {
         min-height: 300px;
       }
 
@@ -395,8 +396,10 @@
       #throughput-chart svg,
       #cycle-area .vega-embed,
       #cycle-area svg,
-      #cycle-area-by-label .vega-embed,
-      #cycle-area-by-label svg {
+      #trello-burden-area-by-label .vega-embed,
+      #trello-burden-area-by-label svg,
+      #md-burden-area-by-label .vega-embed,
+      #md-burden-area-by-label svg {
         max-width: 100%;
       }
 
@@ -465,8 +468,13 @@
             <div id="cycle-area"></div>
           </div>
           <div class="chart-card chart-card-full">
-            <p class="chart-title">Cycle-time progression snapshots by label (5m)</p>
-            <div id="cycle-area-by-label"></div>
+            <p class="chart-title">Live Trello open tasks by label (5m)</p>
+            <p class="subtle">Multi-labeled cards are counted in each matching label.</p>
+            <div id="trello-burden-area-by-label"></div>
+          </div>
+          <div class="chart-card chart-card-full">
+            <p class="chart-title">Live MD unchecked tasks by label (5m, active range)</p>
+            <div id="md-burden-area-by-label"></div>
           </div>
         </div>
         <div id="error" class="error" hidden></div>
@@ -493,7 +501,8 @@
       const reviewKpiEl = document.getElementById("review-kpi");
       const cycleGaugeEl = document.getElementById("cycle-gauge");
       const cycleAreaEl = document.getElementById("cycle-area");
-      const cycleAreaByLabelEl = document.getElementById("cycle-area-by-label");
+      const trelloBurdenAreaByLabelEl = document.getElementById("trello-burden-area-by-label");
+      const mdBurdenAreaByLabelEl = document.getElementById("md-burden-area-by-label");
       const errorEl = document.getElementById("error");
       let latestData = null;
       let visibleLabels = null;
@@ -1243,7 +1252,8 @@
             await renderThroughputChart(latestData);
             await renderCycleGauge(latestData);
             await renderCycleArea(latestData);
-            await renderCycleAreaByLabel(latestData);
+            await renderTrelloBurdenAreaByLabel(latestData);
+            await renderMdBurdenAreaByLabel(latestData);
           });
         });
       };
@@ -1382,7 +1392,8 @@
             await renderThroughputChart(latestData);
             await renderCycleGauge(latestData);
             await renderCycleArea(latestData);
-            await renderCycleAreaByLabel(latestData);
+            await renderTrelloBurdenAreaByLabel(latestData);
+            await renderMdBurdenAreaByLabel(latestData);
           });
         });
 
@@ -1405,7 +1416,8 @@
             await renderThroughputChart(latestData);
             await renderCycleGauge(latestData);
             await renderCycleArea(latestData);
-            await renderCycleAreaByLabel(latestData);
+            await renderTrelloBurdenAreaByLabel(latestData);
+            await renderMdBurdenAreaByLabel(latestData);
           });
         });
 
@@ -2044,18 +2056,28 @@
         await vegaEmbed("#cycle-area", spec, { actions: false, renderer: "svg" });
       };
 
-      const renderCycleAreaByLabel = async (data) => {
-        const containerWidth = cycleAreaByLabelEl ? cycleAreaByLabelEl.clientWidth : 0;
+      const renderBurdenAreaByLabel = async (options) => {
+        const {
+          containerEl,
+          targetSelector,
+          data,
+          valueTitle,
+          metricByPoint,
+          totalByPoint,
+        } = options;
+        const containerWidth = containerEl ? containerEl.clientWidth : 0;
         const chartWidth = Math.max(280, Math.min(containerWidth > 0 ? containerWidth - 24 : window.innerWidth - 90, 980));
-        const cycle = data && typeof data === "object" ? data.cycleTime : null;
-        const snapshotsRaw = cycle && Array.isArray(cycle.snapshots) ? cycle.snapshots : [];
+        const burden = data && typeof data === "object" ? data.burden : null;
+        const snapshotsRaw = burden && Array.isArray(burden.snapshots) ? burden.snapshots : [];
         const activeRange = getSelectedTimeRange(data);
-        const cycleWindowDomain = getTimeRangeDomain(activeRange);
+        const activeRangeId = activeRange && activeRange.id ? String(activeRange.id) : "this-week";
+        const chartWindowDomain = getTimeRangeDomain(activeRange);
         const allLabels = normalizeLabels(data.labels);
         const labelColorMap = getLabelColorMap(allLabels);
         const labelColorRange = allLabels.map((label) => labelColorMap.get(label) || "#425466");
         const visibleLabelSet = getEffectiveVisibleLabels(data.labels);
         const points = [];
+        const totals = [];
 
         for (const point of snapshotsRaw) {
           if (!point || !point.at) {
@@ -2065,53 +2087,139 @@
           if (!isWithinTimeRangeMs(atMs, activeRange)) {
             continue;
           }
-          const byLabel = point.cumulativeCycleTimeSecondsByLabel && typeof point.cumulativeCycleTimeSecondsByLabel === "object"
-            ? point.cumulativeCycleTimeSecondsByLabel
-            : {};
+          const byLabel = metricByPoint(point, activeRangeId);
+          let totalValue = Number(totalByPoint(point, activeRangeId));
+          if (!Number.isFinite(totalValue)) {
+            totalValue = 0;
+          }
+          totalValue = Math.max(0, Math.floor(totalValue));
           for (const label of allLabels) {
             if (!visibleLabelSet.has(label)) {
               continue;
             }
-            const valueSeconds = Number(byLabel[label]);
+            const rawValue = Number(byLabel[label]);
+            const metricValue = Number.isFinite(rawValue) ? Math.max(0, Math.floor(rawValue)) : 0;
             points.push({
               at: String(point.at),
               label,
-              cumulativeCycleTimeHours: Number.isFinite(valueSeconds) ? valueSeconds / 3600 : 0,
+              metricValue,
             });
           }
+          totals.push({ at: String(point.at), totalValue });
+        }
+
+        const uniqueSnapshotCount = new Set(points.map((point) => point.at)).size;
+
+        if (uniqueSnapshotCount <= 1) {
+          const singleSnapshot = points.filter((point) => point.metricValue > 0);
+          const spec = {
+            $schema: "https://vega.github.io/schema/vega-lite/v5.json",
+            width: chartWidth,
+            height: 280,
+            data: { values: singleSnapshot },
+            mark: { type: "bar" },
+            encoding: {
+              x: {
+                field: "at",
+                type: "temporal",
+                title: "Snapshot time",
+                axis: { format: "%m-%d %H:%M" },
+              },
+              y: {
+                field: "metricValue",
+                type: "quantitative",
+                title: valueTitle,
+                stack: "zero",
+              },
+              color: {
+                field: "label",
+                type: "nominal",
+                title: "Label",
+                scale: allLabels.length > 0 ? { domain: allLabels, range: labelColorRange } : undefined,
+              },
+              tooltip: [
+                { field: "at", type: "temporal", title: "Snapshot", format: "%Y-%m-%d %H:%M:%S" },
+                { field: "label", type: "nominal", title: "Label" },
+                { field: "metricValue", type: "quantitative", title: valueTitle },
+              ],
+            },
+            config: {
+              background: "#fffaf0",
+              axis: { labelColor: "#1f2a35", titleColor: "#1f2a35", gridColor: "#e6e0cf" },
+              legend: { labelColor: "#1f2a35", titleColor: "#1f2a35" },
+              view: { stroke: "#d9d4c5" },
+            },
+          };
+
+          await vegaEmbed(targetSelector, spec, { actions: false, renderer: "svg" });
+          return;
         }
 
         const spec = {
           $schema: "https://vega.github.io/schema/vega-lite/v5.json",
           width: chartWidth,
           height: 280,
-          data: { values: points },
-          mark: { type: "line", point: true, strokeWidth: 2.2 },
-          encoding: {
-            x: {
-              field: "at",
-              type: "temporal",
-              title: "Snapshot time",
-              axis: { format: "%m-%d %H:%M", labelAngle: -25 },
-              scale: cycleWindowDomain ? { domain: cycleWindowDomain } : undefined,
+          layer: [
+            {
+              data: { values: points },
+              mark: { type: "area", opacity: 0.72 },
+              encoding: {
+                x: {
+                  field: "at",
+                  type: "temporal",
+                  title: "Snapshot time",
+                  axis: { format: "%m-%d %H:%M", labelAngle: -25 },
+                  scale: chartWindowDomain ? { domain: chartWindowDomain } : undefined,
+                },
+                y: {
+                  field: "metricValue",
+                  type: "quantitative",
+                  title: valueTitle,
+                  stack: "zero",
+                },
+                color: {
+                  field: "label",
+                  type: "nominal",
+                  title: "Label",
+                  scale: allLabels.length > 0 ? { domain: allLabels, range: labelColorRange } : undefined,
+                },
+                tooltip: [
+                  { field: "at", type: "temporal", title: "Snapshot", format: "%Y-%m-%d %H:%M:%S" },
+                  { field: "label", type: "nominal", title: "Label" },
+                  { field: "metricValue", type: "quantitative", title: valueTitle },
+                ],
+              },
             },
-            y: {
-              field: "cumulativeCycleTimeHours",
-              type: "quantitative",
-              title: "Cumulative cycle time (hours)",
+            {
+              data: { values: totals },
+              mark: {
+                type: "line",
+                strokeWidth: 2,
+                color: "#111827",
+                opacity: 0.9,
+                strokeDash: [6, 4],
+                point: { filled: true, color: "#111827", size: 58 },
+              },
+              encoding: {
+                x: {
+                  field: "at",
+                  type: "temporal",
+                  title: "Snapshot time",
+                  axis: { format: "%m-%d %H:%M", labelAngle: -25 },
+                  scale: chartWindowDomain ? { domain: chartWindowDomain } : undefined,
+                },
+                y: {
+                  field: "totalValue",
+                  type: "quantitative",
+                  title: valueTitle,
+                },
+                tooltip: [
+                  { field: "at", type: "temporal", title: "Snapshot", format: "%Y-%m-%d %H:%M:%S" },
+                  { field: "totalValue", type: "quantitative", title: `Total ${valueTitle.toLowerCase()}` },
+                ],
+              },
             },
-            color: {
-              field: "label",
-              type: "nominal",
-              title: "Label",
-              scale: allLabels.length > 0 ? { domain: allLabels, range: labelColorRange } : undefined,
-            },
-            tooltip: [
-              { field: "at", type: "temporal", title: "Snapshot", format: "%Y-%m-%d %H:%M:%S" },
-              { field: "label", type: "nominal", title: "Label" },
-              { field: "cumulativeCycleTimeHours", type: "quantitative", title: "Cycle time (h)", format: ".2f" },
-            ],
-          },
+          ],
           config: {
             background: "#fffaf0",
             axis: { labelColor: "#1f2a35", titleColor: "#1f2a35", gridColor: "#e6e0cf" },
@@ -2120,8 +2228,65 @@
           },
         };
 
-        await vegaEmbed("#cycle-area-by-label", spec, { actions: false, renderer: "svg" });
+        await vegaEmbed(targetSelector, spec, { actions: false, renderer: "svg" });
       };
+
+      const renderTrelloBurdenAreaByLabel = async (data) => renderBurdenAreaByLabel({
+        containerEl: trelloBurdenAreaByLabelEl,
+        targetSelector: "#trello-burden-area-by-label",
+        data,
+        valueTitle: "Open Trello tasks",
+        metricByPoint: (point) =>
+          point && point.trelloOpenByLabel && typeof point.trelloOpenByLabel === "object"
+            ? point.trelloOpenByLabel
+            : {},
+        totalByPoint: (point) => {
+          const total = Number(point && point.trelloOpenTotal);
+          if (Number.isFinite(total)) {
+            return total;
+          }
+          const byLabel = point && point.trelloOpenByLabel && typeof point.trelloOpenByLabel === "object"
+            ? point.trelloOpenByLabel
+            : {};
+          return Object.values(byLabel).reduce((sum, value) => sum + (Number(value) || 0), 0);
+        },
+      });
+
+      const renderMdBurdenAreaByLabel = async (data) => renderBurdenAreaByLabel({
+        containerEl: mdBurdenAreaByLabelEl,
+        targetSelector: "#md-burden-area-by-label",
+        data,
+        valueTitle: "Unchecked MD tasks",
+        metricByPoint: (point, rangeId) => {
+          const byRange = point && point.mdUncheckedByLabelByRange && typeof point.mdUncheckedByLabelByRange === "object"
+            ? point.mdUncheckedByLabelByRange
+            : {};
+          const rangeMap = byRange[rangeId] && typeof byRange[rangeId] === "object"
+            ? byRange[rangeId]
+            : (byRange["this-week"] && typeof byRange["this-week"] === "object" ? byRange["this-week"] : {});
+          return rangeMap;
+        },
+        totalByPoint: (point, rangeId) => {
+          const totalsByRange = point && point.mdUncheckedTotalByRange && typeof point.mdUncheckedTotalByRange === "object"
+            ? point.mdUncheckedTotalByRange
+            : {};
+          const direct = Number(totalsByRange[rangeId]);
+          if (Number.isFinite(direct)) {
+            return direct;
+          }
+          const fallback = Number(totalsByRange["this-week"]);
+          if (Number.isFinite(fallback)) {
+            return fallback;
+          }
+          const byRange = point && point.mdUncheckedByLabelByRange && typeof point.mdUncheckedByLabelByRange === "object"
+            ? point.mdUncheckedByLabelByRange
+            : {};
+          const rangeMap = byRange[rangeId] && typeof byRange[rangeId] === "object"
+            ? byRange[rangeId]
+            : (byRange["this-week"] && typeof byRange["this-week"] === "object" ? byRange["this-week"] : {});
+          return Object.values(rangeMap).reduce((sum, value) => sum + (Number(value) || 0), 0);
+        },
+      });
 
       const loadAndRender = async () => {
         try {
@@ -2140,7 +2305,8 @@
           await renderThroughputChart(data);
           await renderCycleGauge(data);
           await renderCycleArea(data);
-          await renderCycleAreaByLabel(data);
+          await renderTrelloBurdenAreaByLabel(data);
+          await renderMdBurdenAreaByLabel(data);
           errorEl.hidden = true;
           errorEl.textContent = "";
         } catch (error) {
