@@ -266,24 +266,31 @@ const buildSyntheticBurdenSnapshotsFromWoState = async (options: {
   outputPath: string;
   cutoffMs: number;
   trackedLabels: string[];
+  trackedLabelSet: Set<string>;
   labelIdByName: Map<string, string>;
   doneListIds: Set<string>;
-  mdUncheckedByLabelByRange: Record<BurdenRangeId, Record<string, number>>;
-  mdUncheckedTotalByRange: Record<BurdenRangeId, number>;
 }): Promise<BurdenSnapshotPoint[]> => {
   const snapshotPath = resolveWoSnapshotPath(options.outputPath);
   const entries = await readJsonlEntries<Snapshot>(snapshotPath);
   const labelIdByLabel = options.trackedLabels.map((label) => [label, options.labelIdByName.get(label) ?? ""] as const);
 
-  const rawPoints = entries
-    .map((entry) => {
+  const mdBurdenByLocalDate = new Map<
+    string,
+    {
+      mdUncheckedByLabelByRange: Record<BurdenRangeId, Record<string, number>>;
+      mdUncheckedTotalByRange: Record<BurdenRangeId, number>;
+    }
+  >();
+
+  const rawPoints: BurdenSnapshotPoint[] = [];
+  for (const entry of entries) {
       const atMs = Date.parse(entry?.ts ?? "");
       if (!Number.isFinite(atMs) || atMs < options.cutoffMs) {
-        return null;
+        continue;
       }
       const trello = entry?.trello;
       if (!trello || typeof trello !== "object") {
-        return null;
+        continue;
       }
       const trelloOpenByLabel = Object.fromEntries(options.trackedLabels.map((label) => [label, 0])) as Record<string, number>;
       for (const card of Object.values(trello)) {
@@ -303,16 +310,39 @@ const buildSyntheticBurdenSnapshotsFromWoState = async (options: {
         }
       }
       const trelloOpenTotal = Object.values(trelloOpenByLabel).reduce((sum, count) => sum + count, 0);
-      return {
-        at: toFiveMinuteBucketIso(new Date(atMs)),
+
+      const atDate = new Date(atMs);
+      const localDateKey = toLocalDateKey(atDate);
+      if (!mdBurdenByLocalDate.has(localDateKey)) {
+        const historicalGoalTracking = await buildGoalTrackingData({
+          now: atDate,
+          sources: defaultGoalTrackingSources,
+          offsetWindow: 0,
+        });
+        mdBurdenByLocalDate.set(
+          localDateKey,
+          buildMdUncheckedBurdenFromGoalTracking({
+            goalTracking: historicalGoalTracking,
+            trackedLabels: options.trackedLabels,
+            trackedLabelSet: options.trackedLabelSet,
+          }),
+        );
+      }
+      const mdBurden = mdBurdenByLocalDate.get(localDateKey);
+      if (!mdBurden) {
+        continue;
+      }
+
+      rawPoints.push({
+        at: toFiveMinuteBucketIso(atDate),
         trelloOpenByLabel,
         trelloOpenTotal,
-        mdUncheckedByLabelByRange: options.mdUncheckedByLabelByRange,
-        mdUncheckedTotalByRange: options.mdUncheckedTotalByRange,
-      } satisfies BurdenSnapshotPoint;
-    })
-    .filter((entry): entry is BurdenSnapshotPoint => entry !== null)
-    .sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+        mdUncheckedByLabelByRange: mdBurden.mdUncheckedByLabelByRange,
+        mdUncheckedTotalByRange: mdBurden.mdUncheckedTotalByRange,
+      });
+  }
+
+  rawPoints.sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
 
   if (rawPoints.length === 0) {
     return [];
@@ -373,6 +403,54 @@ const countUncheckedChecklistItems = (markdown: string): number => {
   }
   const matches = markdown.match(/^\s*[-*]\s+\[(?: )\]\s+/gm) || [];
   return matches.length;
+};
+
+const toLocalDateKey = (value: Date): string => {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const buildMdUncheckedBurdenFromGoalTracking = (options: {
+  goalTracking: Awaited<ReturnType<typeof buildGoalTrackingData>>;
+  trackedLabels: string[];
+  trackedLabelSet: Set<string>;
+}): {
+  mdUncheckedByLabelByRange: Record<BurdenRangeId, Record<string, number>>;
+  mdUncheckedTotalByRange: Record<BurdenRangeId, number>;
+} => {
+  const mdUncheckedByLabelByRange = Object.fromEntries(
+    burdenRangeIds.map((rangeId) => [rangeId, Object.fromEntries(options.trackedLabels.map((label) => [label, 0]))]),
+  ) as Record<BurdenRangeId, Record<string, number>>;
+
+  for (const source of options.goalTracking.sources) {
+    const sourceLabels = (source.labels ?? [])
+      .map((label) => normalizeLabelName(label))
+      .filter((label) => options.trackedLabelSet.has(label));
+    if (sourceLabels.length === 0) {
+      continue;
+    }
+    for (const rangeId of burdenRangeIds) {
+      const markdown = source.byRange?.[rangeId]?.markdown ?? "";
+      const unchecked = countUncheckedChecklistItems(markdown);
+      if (unchecked <= 0) {
+        continue;
+      }
+      for (const label of sourceLabels) {
+        mdUncheckedByLabelByRange[rangeId][label] = (mdUncheckedByLabelByRange[rangeId][label] ?? 0) + unchecked;
+      }
+    }
+  }
+
+  const mdUncheckedTotalByRange = Object.fromEntries(
+    burdenRangeIds.map((rangeId) => {
+      const total = Object.values(mdUncheckedByLabelByRange[rangeId]).reduce((sum, count) => sum + count, 0);
+      return [rangeId, total] as const;
+    }),
+  ) as Record<BurdenRangeId, number>;
+
+  return { mdUncheckedByLabelByRange, mdUncheckedTotalByRange };
 };
 
 const toCanonicalListName = (name: string | null | undefined): string => {
@@ -692,6 +770,7 @@ const writeChartData = async (options: {
   const goalTracking = await buildGoalTrackingData({
     now,
     sources: defaultGoalTrackingSources,
+    offsetWindow: 16,
   });
   const boardLabels = await fetchBoardLabels(boardId);
   const boardLists = await fetchBoardLists(boardId);
@@ -789,33 +868,11 @@ const writeChartData = async (options: {
   }
   const trelloOpenTotal = Object.values(trelloOpenByLabel).reduce((sum, count) => sum + count, 0);
 
-  const mdUncheckedByLabelByRange = Object.fromEntries(
-    burdenRangeIds.map((rangeId) => [rangeId, Object.fromEntries(trackedLabels.map((label) => [label, 0]))]),
-  ) as Record<BurdenRangeId, Record<string, number>>;
-  for (const source of goalTracking.sources) {
-    const sourceLabels = (source.labels ?? [])
-      .map((label) => normalizeLabelName(label))
-      .filter((label) => trackedLabelSet.has(label));
-    if (sourceLabels.length === 0) {
-      continue;
-    }
-    for (const rangeId of burdenRangeIds) {
-      const markdown = source.byRange?.[rangeId]?.markdown ?? "";
-      const unchecked = countUncheckedChecklistItems(markdown);
-      if (unchecked <= 0) {
-        continue;
-      }
-      for (const label of sourceLabels) {
-        mdUncheckedByLabelByRange[rangeId][label] = (mdUncheckedByLabelByRange[rangeId][label] ?? 0) + unchecked;
-      }
-    }
-  }
-  const mdUncheckedTotalByRange = Object.fromEntries(
-    burdenRangeIds.map((rangeId) => {
-      const total = Object.values(mdUncheckedByLabelByRange[rangeId]).reduce((sum, count) => sum + count, 0);
-      return [rangeId, total] as const;
-    }),
-  ) as Record<BurdenRangeId, number>;
+  const { mdUncheckedByLabelByRange, mdUncheckedTotalByRange } = buildMdUncheckedBurdenFromGoalTracking({
+    goalTracking,
+    trackedLabels,
+    trackedLabelSet,
+  });
 
   const burdenSnapshotPoint: BurdenSnapshotPoint = {
     at: toFiveMinuteBucketIso(now),
@@ -833,10 +890,9 @@ const writeChartData = async (options: {
       outputPath: options.outputPath,
       cutoffMs,
       trackedLabels,
+      trackedLabelSet,
       labelIdByName,
       doneListIds,
-      mdUncheckedByLabelByRange,
-      mdUncheckedTotalByRange,
     });
     syntheticBurdenSeedCount = syntheticSnapshots.length;
     burdenSeededSnapshots = mergeManyBurdenSnapshots(currentBurdenSnapshots, syntheticSnapshots);

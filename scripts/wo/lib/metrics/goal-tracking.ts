@@ -3,6 +3,8 @@ import { join } from "node:path";
 
 export type GoalRangeId = "today" | "this-week" | "last-7d" | "this-month" | "all";
 
+const goalRangeIds: GoalRangeId[] = ["today", "this-week", "last-7d", "this-month", "all"];
+
 export type GoalRangeSnippet = {
   markdown: string;
   matchedHeading: string | null;
@@ -18,6 +20,7 @@ export type GoalNoteSourceConfig = {
 
 export type GoalNoteSourceData = GoalNoteSourceConfig & {
   byRange: Record<GoalRangeId, GoalRangeSnippet>;
+  byRangeOffset?: Partial<Record<GoalRangeId, Record<string, GoalRangeSnippet>>>;
 };
 
 export type GoalTrackingData = {
@@ -214,6 +217,31 @@ const selectWeekBlock = (blocks: HeadingBlock[], referenceNow: Date): HeadingBlo
 const selectTodayBlock = (blocks: HeadingBlock[]): HeadingBlock | null =>
   blocks.find((block) => normalizeHeading(block.title) === "today") ?? null;
 
+const addLocalDays = (value: Date, days: number): Date => {
+  const date = new Date(value.getTime());
+  date.setDate(date.getDate() + days);
+  return date;
+};
+
+const addLocalMonths = (value: Date, months: number): Date => {
+  const date = new Date(value.getTime());
+  date.setMonth(date.getMonth() + months);
+  return date;
+};
+
+const shiftReferenceNowForRange = (referenceNow: Date, rangeId: GoalRangeId, offset: number): Date => {
+  if (!Number.isFinite(offset) || offset === 0 || rangeId === "all") {
+    return new Date(referenceNow.getTime());
+  }
+  if (rangeId === "this-week" || rangeId === "last-7d") {
+    return addLocalDays(referenceNow, offset * 7);
+  }
+  if (rangeId === "this-month") {
+    return addLocalMonths(referenceNow, offset);
+  }
+  return addLocalDays(referenceNow, offset);
+};
+
 export const buildGoalRangeSnippetsFromMarkdown = (
   markdown: string,
   referenceNow: Date,
@@ -261,17 +289,32 @@ export const buildGoalRangeSnippetsFromMarkdown = (
 export const buildGoalTrackingData = async (options: {
   now: Date;
   sources: GoalNoteSourceConfig[];
+  offsetWindow?: number;
 }): Promise<GoalTrackingData> => {
   const sources: GoalNoteSourceData[] = [];
+  const offsetWindow = Math.max(0, Math.floor(Number(options.offsetWindow) || 0));
 
   for (const source of options.sources) {
     try {
       const markdown = await readFile(source.notePath, "utf8");
       const byRange = buildGoalRangeSnippetsFromMarkdown(markdown, options.now);
+      const byRangeOffset: Partial<Record<GoalRangeId, Record<string, GoalRangeSnippet>>> = {};
+      if (offsetWindow > 0) {
+        for (const rangeId of goalRangeIds) {
+          const snippetsByOffset: Record<string, GoalRangeSnippet> = {};
+          for (let offset = -offsetWindow; offset <= offsetWindow; offset++) {
+            const shiftedNow = shiftReferenceNowForRange(options.now, rangeId, offset);
+            const shiftedSnippets = buildGoalRangeSnippetsFromMarkdown(markdown, shiftedNow);
+            snippetsByOffset[String(offset)] = shiftedSnippets[rangeId];
+          }
+          byRangeOffset[rangeId] = snippetsByOffset;
+        }
+      }
       sources.push({
         ...source,
         labels: source.labels.map((label) => label.trim().toLowerCase()).filter((label) => label.length > 0),
         byRange,
+        byRangeOffset,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

@@ -521,7 +521,9 @@
         { id: "this-month", label: "This month" },
       ];
       const timeRangeParam = (params.get("range") || "").trim().toLowerCase();
+      const rangeOffsetParamRaw = parseInt(params.get("range_offset") || "0", 10);
       let selectedTimeRangeId = timeRangePresetIds.has(timeRangeParam) ? timeRangeParam : "this-week";
+      let selectedRangeOffset = Number.isFinite(rangeOffsetParamRaw) ? rangeOffsetParamRaw : 0;
       const throughputPalette = [
         "#2f7d46",
         "#c03a2b",
@@ -596,6 +598,18 @@
         return date;
       };
 
+      const addLocalDays = (value, days) => {
+        const date = new Date(value);
+        date.setDate(date.getDate() + days);
+        return date;
+      };
+
+      const addLocalMonths = (value, months) => {
+        const date = new Date(value);
+        date.setMonth(date.getMonth() + months);
+        return date;
+      };
+
       const getStartOfLocalWeekMonday = (value) => {
         const date = getStartOfLocalDay(value);
         const day = (date.getDay() + 6) % 7;
@@ -647,7 +661,17 @@
 
       const getSelectedTimeRange = (data) => {
         const now = getReferenceNow(data);
-        const nowMs = now.getTime();
+        const offset = Number.isFinite(selectedRangeOffset) ? selectedRangeOffset : 0;
+        const nowWithOffset = selectedTimeRangeId === "all"
+          ? now
+          : selectedTimeRangeId === "this-week"
+            ? addLocalDays(now, offset * 7)
+            : selectedTimeRangeId === "last-7d"
+              ? addLocalDays(now, offset * 7)
+              : selectedTimeRangeId === "this-month"
+                ? addLocalMonths(now, offset)
+                : addLocalDays(now, offset);
+        const nowMs = nowWithOffset.getTime();
 
         if (selectedTimeRangeId === "all") {
           return {
@@ -662,8 +686,8 @@
           return {
             id: "today",
             label: "Today",
-            startMs: getStartOfLocalDay(now).getTime(),
-            endMs: getEndOfLocalDay(now).getTime(),
+            startMs: getStartOfLocalDay(nowWithOffset).getTime(),
+            endMs: getEndOfLocalDay(nowWithOffset).getTime(),
           };
         }
 
@@ -680,16 +704,16 @@
           return {
             id: "this-month",
             label: "This month",
-            startMs: getStartOfLocalMonth(now).getTime(),
-            endMs: getEndOfLocalMonth(now).getTime(),
+            startMs: getStartOfLocalMonth(nowWithOffset).getTime(),
+            endMs: getEndOfLocalMonth(nowWithOffset).getTime(),
           };
         }
 
         return {
           id: "this-week",
           label: "This week",
-          startMs: getStartOfLocalWeekMonday(now).getTime(),
-          endMs: getEndOfLocalWeekSunday(now).getTime(),
+          startMs: getStartOfLocalWeekMonday(nowWithOffset).getTime(),
+          endMs: getEndOfLocalWeekSunday(nowWithOffset).getTime(),
         };
       };
 
@@ -754,6 +778,19 @@
 
       const getGoalSnippetForSource = (source) => {
         const byRange = source && source.byRange && typeof source.byRange === "object" ? source.byRange : {};
+        const byRangeOffset = source && source.byRangeOffset && typeof source.byRangeOffset === "object"
+          ? source.byRangeOffset
+          : {};
+        const rangeOffsets = byRangeOffset[selectedTimeRangeId] && typeof byRangeOffset[selectedTimeRangeId] === "object"
+          ? byRangeOffset[selectedTimeRangeId]
+          : null;
+        if (rangeOffsets) {
+          const offsetKey = String(selectedRangeOffset);
+          const shifted = rangeOffsets[offsetKey];
+          if (shifted) {
+            return shifted;
+          }
+        }
         return byRange[selectedTimeRangeId] || byRange["this-week"] || byRange.all || null;
       };
 
@@ -993,6 +1030,11 @@
       const syncUrlState = (data) => {
         const nextUrl = new URL(window.location.href);
         nextUrl.searchParams.set("range", selectedTimeRangeId);
+        if (selectedRangeOffset === 0) {
+          nextUrl.searchParams.delete("range_offset");
+        } else {
+          nextUrl.searchParams.set("range_offset", String(selectedRangeOffset));
+        }
         const allLabels = normalizeLabels(data && data.labels);
         const visibleLabelSet = getEffectiveVisibleLabels(allLabels);
         if (allLabels.length === 0 || visibleLabelSet.size >= allLabels.length) {
@@ -1228,10 +1270,40 @@
         if (!quickRangeEl) {
           return;
         }
-        quickRangeEl.innerHTML = quickRangePresets.map((preset) => {
+        const shiftDisabled = selectedTimeRangeId === "all";
+        const quickButtons = quickRangePresets.map((preset) => {
           const active = selectedTimeRangeId === preset.id;
           return `<button type="button" class="chip chip-toggle range-toggle${active ? " is-active" : ""}" data-quick-range="${preset.id}">${preset.label}</button>`;
         }).join("");
+        quickRangeEl.innerHTML = [
+          `<button type="button" class="chip chip-toggle" data-quick-shift="-1"${shiftDisabled ? " disabled" : ""}>Prev</button>`,
+          quickButtons,
+          `<button type="button" class="chip chip-toggle" data-quick-shift="1"${shiftDisabled ? " disabled" : ""}>Next</button>`,
+        ].join("");
+
+        quickRangeEl.querySelectorAll("[data-quick-shift]").forEach((buttonEl) => {
+          buttonEl.addEventListener("click", async () => {
+            if (!latestData || selectedTimeRangeId === "all") {
+              return;
+            }
+            const delta = parseInt(buttonEl.getAttribute("data-quick-shift") || "0", 10);
+            if (!Number.isFinite(delta) || delta === 0) {
+              return;
+            }
+            selectedRangeOffset += delta;
+            syncUrlState(latestData);
+            renderQuickRange(latestData);
+            renderAreaLinks(latestData);
+            renderMeta(latestData);
+            renderGoalTracking(latestData);
+            renderReviewKpi(latestData);
+            await renderThroughputChart(latestData);
+            await renderCycleGauge(latestData);
+            await renderCycleArea(latestData);
+            await renderTrelloBurdenAreaByLabel(latestData);
+            await renderMdBurdenAreaByLabel(latestData);
+          });
+        });
 
         quickRangeEl.querySelectorAll("[data-quick-range]").forEach((buttonEl) => {
           buttonEl.addEventListener("click", async () => {
@@ -1243,6 +1315,7 @@
               return;
             }
             selectedTimeRangeId = nextRange;
+            selectedRangeOffset = 0;
             syncUrlState(latestData);
             renderQuickRange(latestData);
             renderAreaLinks(latestData);
@@ -1276,6 +1349,11 @@
         areaLinksEl.innerHTML = lssAreaLinks.map((entry) => {
           const linkUrl = new URL(baseUrl.toString());
           linkUrl.searchParams.set("range", selectedTimeRangeId);
+          if (selectedRangeOffset === 0) {
+            linkUrl.searchParams.delete("range_offset");
+          } else {
+            linkUrl.searchParams.set("range_offset", String(selectedRangeOffset));
+          }
           linkUrl.searchParams.set("labels", entry.areaLabel);
           const available = labelSet.has(entry.areaLabel);
           const active = visibleLabelSet.has(entry.areaLabel);
@@ -1352,6 +1430,7 @@
           `<span class="chip">Labels: ${labels}</span>`,
           `<span class="chip">Series:</span>${toggleButtons}`,
           `<span class="chip">Time range:</span>${rangeButtons}`,
+          selectedRangeOffset !== 0 ? `<span class="chip">Window shift: ${selectedRangeOffset > 0 ? `+${selectedRangeOffset}` : selectedRangeOffset}</span>` : "",
           `<span class="chip">${goalChip}</span>`,
           reviewChip ? `<span class="chip">${reviewChip}</span>` : "",
           `<span class="chip">Visible window: ${activeRange.label} (${formatSelectedRangeText(activeRange)})</span>`,
@@ -1407,6 +1486,7 @@
               return;
             }
             selectedTimeRangeId = nextRange;
+            selectedRangeOffset = 0;
             syncUrlState(latestData);
             renderQuickRange(latestData);
             renderAreaLinks(latestData);
