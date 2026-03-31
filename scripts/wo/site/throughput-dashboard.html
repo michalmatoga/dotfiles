@@ -71,9 +71,46 @@
 
       .quick-range {
         margin-top: 0.7rem;
+      }
+
+      .time-toolbar {
+        display: grid;
+        gap: 0.55rem;
+        padding: 0.6rem;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: #fbf8ee;
+      }
+
+      .time-toolbar-group {
         display: flex;
         flex-wrap: wrap;
+        align-items: center;
         gap: 0.5rem;
+      }
+
+      .time-nav {
+        justify-content: space-between;
+      }
+
+      .time-nav-left,
+      .time-nav-right {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+      }
+
+      .time-nav-label {
+        background: #ffffff;
+        border-color: #cfd9c1;
+        min-width: 12.2rem;
+        text-align: center;
+      }
+
+      .time-nav-context {
+        color: var(--muted);
+        font-size: 0.82rem;
+        margin-left: 0.15rem;
       }
 
       .area-links {
@@ -172,6 +209,18 @@
 
       .chip-toggle:not(.is-active) {
         opacity: 0.45;
+      }
+
+      .time-toolbar .chip-toggle,
+      .time-toolbar .chip-toggle:not(.is-active),
+      .time-toolbar .chip-toggle:disabled {
+        opacity: 1;
+      }
+
+      .time-toolbar .chip-toggle:disabled {
+        cursor: not-allowed;
+        color: #9ba5ad;
+        border-color: #d8dbe0;
       }
 
       .status-ok {
@@ -1266,20 +1315,96 @@
 
       setMetaExpanded(false);
 
+      const formatRangeWindowLabel = (range) => {
+        if (!range) {
+          return "--";
+        }
+        if (range.id === "all" || range.startMs === null || range.endMs === null) {
+          return "All available data";
+        }
+        if (range.id === "today") {
+          return new Intl.DateTimeFormat(undefined, {
+            weekday: "short",
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+          }).format(new Date(range.startMs));
+        }
+        if (range.id === "this-month") {
+          return new Intl.DateTimeFormat(undefined, {
+            year: "numeric",
+            month: "long",
+          }).format(new Date(range.startMs));
+        }
+        return `${formatDateOnly(new Date(range.startMs))} - ${formatDateOnly(new Date(range.endMs))}`;
+      };
+
+      const formatRangeShiftContext = () => {
+        if (!Number.isFinite(selectedRangeOffset) || selectedRangeOffset === 0) {
+          return "Current window";
+        }
+        const direction = selectedRangeOffset > 0 ? "ahead" : "back";
+        const steps = Math.abs(selectedRangeOffset);
+        if (selectedTimeRangeId === "this-month") {
+          return `${steps} month${steps === 1 ? "" : "s"} ${direction}`;
+        }
+        if (selectedTimeRangeId === "today") {
+          return `${steps} day${steps === 1 ? "" : "s"} ${direction}`;
+        }
+        return `${steps} window${steps === 1 ? "" : "s"} ${direction}`;
+      };
+
+      const rerenderDashboard = async (data) => {
+        if (!data) {
+          return;
+        }
+        renderQuickRange(data);
+        renderAreaLinks(data);
+        renderMeta(data);
+        renderGoalTracking(data);
+        renderReviewKpi(data);
+        await renderThroughputChart(data);
+        await renderCycleGauge(data);
+        await renderCycleArea(data);
+        await renderTrelloBurdenAreaByLabel(data);
+        await renderMdBurdenAreaByLabel(data);
+      };
+
       const renderQuickRange = (data) => {
         if (!quickRangeEl) {
           return;
         }
         const shiftDisabled = selectedTimeRangeId === "all";
+        const activeRange = getSelectedTimeRange(data);
+        const windowLabel = formatRangeWindowLabel(activeRange);
+        const shiftContext = formatRangeShiftContext();
+        const resetDisabled = shiftDisabled || selectedRangeOffset === 0;
         const quickButtons = quickRangePresets.map((preset) => {
           const active = selectedTimeRangeId === preset.id;
           return `<button type="button" class="chip chip-toggle range-toggle${active ? " is-active" : ""}" data-quick-range="${preset.id}">${preset.label}</button>`;
         }).join("");
         quickRangeEl.innerHTML = [
-          `<button type="button" class="chip chip-toggle" data-quick-shift="-1"${shiftDisabled ? " disabled" : ""}>Prev</button>`,
-          quickButtons,
-          `<button type="button" class="chip chip-toggle" data-quick-shift="1"${shiftDisabled ? " disabled" : ""}>Next</button>`,
+          "<div class=\"time-toolbar\">",
+          `  <div class="time-toolbar-group">${quickButtons}<button type="button" class="chip chip-toggle range-toggle${selectedTimeRangeId === "all" ? " is-active" : ""}" data-quick-range="all">All</button></div>`,
+          "  <div class=\"time-toolbar-group time-nav\">",
+          `    <span class="time-nav-left"><button type="button" class="chip chip-toggle" data-quick-shift="-1"${shiftDisabled ? " disabled" : ""}>Prev</button></span>`,
+          `    <span class="chip time-nav-label">${windowLabel}</span>`,
+          `    <span class="time-nav-right"><button type="button" class="chip chip-toggle" data-quick-shift="1"${shiftDisabled ? " disabled" : ""}>Next</button><button type="button" class="chip chip-toggle" data-quick-reset${resetDisabled ? " disabled" : ""}>Reset</button></span>`,
+          "  </div>",
+          `  <p class="time-nav-context">${shiftContext}</p>`,
+          "</div>",
         ].join("");
+
+        quickRangeEl.querySelectorAll("[data-quick-reset]").forEach((buttonEl) => {
+          buttonEl.addEventListener("click", async () => {
+            if (!latestData || selectedRangeOffset === 0) {
+              return;
+            }
+            selectedRangeOffset = 0;
+            syncUrlState(latestData);
+            await rerenderDashboard(latestData);
+          });
+        });
 
         quickRangeEl.querySelectorAll("[data-quick-shift]").forEach((buttonEl) => {
           buttonEl.addEventListener("click", async () => {
@@ -1292,16 +1417,7 @@
             }
             selectedRangeOffset += delta;
             syncUrlState(latestData);
-            renderQuickRange(latestData);
-            renderAreaLinks(latestData);
-            renderMeta(latestData);
-            renderGoalTracking(latestData);
-            renderReviewKpi(latestData);
-            await renderThroughputChart(latestData);
-            await renderCycleGauge(latestData);
-            await renderCycleArea(latestData);
-            await renderTrelloBurdenAreaByLabel(latestData);
-            await renderMdBurdenAreaByLabel(latestData);
+            await rerenderDashboard(latestData);
           });
         });
 
@@ -1317,16 +1433,7 @@
             selectedTimeRangeId = nextRange;
             selectedRangeOffset = 0;
             syncUrlState(latestData);
-            renderQuickRange(latestData);
-            renderAreaLinks(latestData);
-            renderMeta(latestData);
-            renderGoalTracking(latestData);
-            renderReviewKpi(latestData);
-            await renderThroughputChart(latestData);
-            await renderCycleGauge(latestData);
-            await renderCycleArea(latestData);
-            await renderTrelloBurdenAreaByLabel(latestData);
-            await renderMdBurdenAreaByLabel(latestData);
+            await rerenderDashboard(latestData);
           });
         });
       };
@@ -1383,10 +1490,6 @@
             return `<button type="button" class="chip chip-toggle${active ? " is-active" : ""}" data-label="${label}">${label}</button>`;
           }).join("")
           : "<span class=\"chip\">No series</span>";
-        const rangeButtons = timeRangePresets.map((preset) => {
-          const active = selectedTimeRangeId === preset.id;
-          return `<button type="button" class="chip chip-toggle range-toggle${active ? " is-active" : ""}" data-range="${preset.id}">${preset.label}</button>`;
-        }).join("");
         const generatedAt = formatDateTime(data.generatedAt);
         const filteredCycleCards = getVisibleCycleCards(data, activeRange);
         const unfinishedCards = filteredCycleCards.length;
@@ -1429,11 +1532,9 @@
         metaEl.innerHTML = [
           `<span class="chip">Labels: ${labels}</span>`,
           `<span class="chip">Series:</span>${toggleButtons}`,
-          `<span class="chip">Time range:</span>${rangeButtons}`,
-          selectedRangeOffset !== 0 ? `<span class="chip">Window shift: ${selectedRangeOffset > 0 ? `+${selectedRangeOffset}` : selectedRangeOffset}</span>` : "",
+          `<span class="chip">Time window: ${activeRange.label} (${formatSelectedRangeText(activeRange)})</span>`,
           `<span class="chip">${goalChip}</span>`,
           reviewChip ? `<span class="chip">${reviewChip}</span>` : "",
-          `<span class="chip">Visible window: ${activeRange.label} (${formatSelectedRangeText(activeRange)})</span>`,
           `<span class="chip">Completed cards: ${data.totalCompletedCards}</span>`,
           `<span class="chip">Unfinished in cycle: ${unfinishedCards}</span>`,
           `<span class="chip">Live cycle sum: ${formatDuration(cumulativeCycleTimeSeconds)}</span>`,
@@ -1464,40 +1565,7 @@
             }
             setVisibleLabels(next, allLabels);
             syncUrlState(latestData);
-            renderAreaLinks(latestData);
-            renderMeta(latestData);
-            renderGoalTracking(latestData);
-            renderReviewKpi(latestData);
-            await renderThroughputChart(latestData);
-            await renderCycleGauge(latestData);
-            await renderCycleArea(latestData);
-            await renderTrelloBurdenAreaByLabel(latestData);
-            await renderMdBurdenAreaByLabel(latestData);
-          });
-        });
-
-        metaEl.querySelectorAll(".range-toggle").forEach((buttonEl) => {
-          buttonEl.addEventListener("click", async () => {
-            if (!latestData) {
-              return;
-            }
-            const nextRange = buttonEl.getAttribute("data-range");
-            if (!nextRange || !timeRangePresetIds.has(nextRange) || nextRange === selectedTimeRangeId) {
-              return;
-            }
-            selectedTimeRangeId = nextRange;
-            selectedRangeOffset = 0;
-            syncUrlState(latestData);
-            renderQuickRange(latestData);
-            renderAreaLinks(latestData);
-            renderMeta(latestData);
-            renderGoalTracking(latestData);
-            renderReviewKpi(latestData);
-            await renderThroughputChart(latestData);
-            await renderCycleGauge(latestData);
-            await renderCycleArea(latestData);
-            await renderTrelloBurdenAreaByLabel(latestData);
-            await renderMdBurdenAreaByLabel(latestData);
+            await rerenderDashboard(latestData);
           });
         });
 
@@ -2358,16 +2426,8 @@
           const data = await response.json();
           latestData = data;
           initializeVisibleLabelsFromQuery(data);
-          renderQuickRange(data);
-          renderAreaLinks(data);
-          renderMeta(data);
-          renderGoalTracking(data);
-          renderReviewKpi(data);
-          await renderThroughputChart(data);
-          await renderCycleGauge(data);
-          await renderCycleArea(data);
-          await renderTrelloBurdenAreaByLabel(data);
-          await renderMdBurdenAreaByLabel(data);
+          syncUrlState(data);
+          await rerenderDashboard(data);
           errorEl.hidden = true;
           errorEl.textContent = "";
         } catch (error) {
