@@ -65,6 +65,7 @@ in
   networking.extraHosts =
   ''
     23.50.55.26 svp-api-stage.akamaized.net
+    23.50.55.25 svp.vg.no
   '';
 
 
