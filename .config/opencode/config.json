@@ -57,7 +57,9 @@
           "name": "GPT-5.2 Codex (LiteLLM)"
         },
         "openai/gpt-5.3-codex": {
-          "name": "GPT-5.3 Codex (LiteLLM)"
+          "name": "GPT-5.3 Codex (LiteLLM)",
+          "reasoning": true,
+          "interleaved": { "field": "reasoning_content" }
         }
       }
     },
