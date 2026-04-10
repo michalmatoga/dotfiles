@@ -3,7 +3,7 @@
   email = michal.matoga@schibsted.com
   signingkey = AB007B7061670124
 [core]
-  editor = nvim
+  editor = true
   pager = less
   excludesfile = ~/.config/git/gitignore-global
 [log]
@@ -15,6 +15,10 @@
   branch = false
 [commit]
   gpgsign = true
+[merge]
+  autoEdit = no
+[sequence]
+  editor = true
 [includeIf "gitdir:~/ghq/gitlab.com/"]
   path = ~/.config/git/personal.cfg
 [includeIf "gitdir:~/ghq/github.com/"]
