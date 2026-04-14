@@ -135,4 +135,71 @@ describe("worktree npm bootstrap", () => {
     );
     expect(pnpmCall).toBeDefined();
   });
+
+  it("refreshes origin main/master before creating branch", async () => {
+    const repoPath = join(state.mockHome, "ghq", "github.com", "acme", "widget");
+
+    await ensureWorktreeForRepo({
+      repoPath,
+      segment: "127-refresh-base",
+      verbose: false,
+    });
+
+    const fetchMainIndex = runCommandMock.mock.calls.findIndex(
+      ([command, args]) =>
+        command === "git"
+        && Array.isArray(args)
+        && args[0] === "-C"
+        && args[2] === "fetch"
+        && args[5] === "main",
+    );
+    const branchIndex = runCommandMock.mock.calls.findIndex(
+      ([command, args]) => command === "git" && Array.isArray(args) && args[2] === "branch",
+    );
+
+    expect(fetchMainIndex).toBeGreaterThan(-1);
+    expect(branchIndex).toBeGreaterThan(fetchMainIndex);
+  });
+
+  it("creates branch from refreshed origin/master when master is default", async () => {
+    runCommandCaptureMock.mockImplementation(async (_command: string, args: string[]) => {
+      if (args.includes("show-ref")) {
+        throw new Error("branch missing");
+      }
+      if (args.includes("symbolic-ref")) {
+        return "refs/remotes/origin/master\n";
+      }
+      if (args.includes("rev-parse")) {
+        const gitPath = args[args.length - 1] ?? "git-crypt";
+        return `.git/${gitPath}\n`;
+      }
+      return "";
+    });
+
+    const repoPath = join(state.mockHome, "ghq", "github.com", "acme", "widget");
+    await ensureWorktreeForRepo({
+      repoPath,
+      segment: "128-master-default",
+      verbose: false,
+    });
+
+    const fetchMasterCall = runCommandMock.mock.calls.find(
+      ([command, args]) =>
+        command === "git"
+        && Array.isArray(args)
+        && args[0] === "-C"
+        && args[2] === "fetch"
+        && args[5] === "master",
+    );
+    const branchCall = runCommandMock.mock.calls.find(
+      ([command, args]) =>
+        command === "git"
+        && Array.isArray(args)
+        && args[2] === "branch"
+        && args[4] === "origin/master",
+    );
+
+    expect(fetchMasterCall).toBeDefined();
+    expect(branchCall).toBeDefined();
+  });
 });

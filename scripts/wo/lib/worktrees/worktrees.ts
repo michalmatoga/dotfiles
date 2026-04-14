@@ -339,6 +339,21 @@ const resolveDefaultBranch = async (repoPath: string): Promise<string> => {
   }
 };
 
+const refreshDefaultBaseRefs = async (repoPath: string, defaultBranch: string, options: { verbose: boolean }) => {
+  const branches = Array.from(new Set([defaultBranch, "main", "master"]));
+  for (const branch of branches) {
+    try {
+      await runCommand("git", ["-C", repoPath, "fetch", "--prune", "origin", branch], {
+        verbose: options.verbose,
+      });
+    } catch (error) {
+      if (branch === defaultBranch) {
+        throw error;
+      }
+    }
+  }
+};
+
 const ensureBranchFromDefault = async (repoPath: string, branch: string, options: { verbose: boolean }) => {
   if (!(await pathExists(repoPath))) {
     return;
@@ -347,6 +362,7 @@ const ensureBranchFromDefault = async (repoPath: string, branch: string, options
     return;
   }
   const defaultBranch = await resolveDefaultBranch(repoPath);
+  await refreshDefaultBaseRefs(repoPath, defaultBranch, options);
   await runCommand(
     "git",
     ["-C", repoPath, "branch", branch, `origin/${defaultBranch}`],
