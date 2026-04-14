@@ -142,7 +142,7 @@ describe("sync metadata for lss source", () => {
 });
 
 describe("LSS journal backfill insertion", () => {
-  it("appends task under deepest active planning heading", async () => {
+  it("appends task under current week planning heading", async () => {
     const dir = await mkdtemp(join(tmpdir(), "wo-lss-"));
     const filePath = join(dir, "ot-business.md");
     await writeFile(
@@ -163,11 +163,12 @@ describe("LSS journal backfill insertion", () => {
       filePath,
       text: "Backfilled task",
       trelloUrl: "https://trello.com/c/KWdx4kBz/154-something",
+      now: new Date("2026-03-18T12:00:00.000Z"),
     });
 
-    expect(result).toEqual({ updated: true, line: 8 });
+    expect(result).toEqual({ updated: true, line: 6 });
     const content = await readFile(filePath, "utf8");
-    expect(content.split("\n")[7]).toBe("- [ ] [Backfilled task](https://trello.com/c/KWdx4kBz)");
+    expect(content.split("\n")[5]).toBe("- [ ] [Backfilled task](https://trello.com/c/KWdx4kBz)");
   });
 
   it("returns already-linked when URL already exists", async () => {

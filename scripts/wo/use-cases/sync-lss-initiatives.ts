@@ -202,6 +202,7 @@ export const syncLssInitiativesUseCase = async (options: {
       filePath: action.filePath,
       text: action.text,
       trelloUrl: action.trelloUrl,
+      now: nowDate,
     });
     if (!appended.updated) {
       await writeEvent({

@@ -327,6 +327,7 @@ export const appendTaskUnderDeepestPlanningHeading = async (options: {
   filePath: string;
   text: string;
   trelloUrl: string;
+  now?: Date;
 }): Promise<{ updated: boolean; line?: number; reason?: string }> => {
   const canonicalUrl = canonicalizeTrelloUrl(options.trelloUrl);
   if (!canonicalUrl) {
@@ -357,7 +358,11 @@ export const appendTaskUnderDeepestPlanningHeading = async (options: {
     start: goalRange.start,
     end: goalRange.end,
   });
-  const target = resolveDeepestPlanningHeading(headings);
+  const now = options.now ?? new Date();
+  const target = resolveRecurringSlotHeading({
+    headings,
+    due: now.toISOString(),
+  }) ?? resolveDeepestPlanningHeading(headings);
   if (!target) {
     return { updated: false, reason: "missing-planning-heading" };
   }
