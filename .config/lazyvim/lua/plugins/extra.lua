@@ -38,4 +38,12 @@ return {
       { "<leader>fR", function() Snacks.picker.recent() end, desc = "Recent (Global)" },
     },
   },
+  { import = "lazyvim.plugins.extras.lang.json" },
+  {
+    "nvim-treesitter/nvim-treesitter",
+    opts = function(_, opts)
+      opts.ensure_installed = opts.ensure_installed or {}
+      vim.list_extend(opts.ensure_installed, { "json", "json5", "jsonc" })
+    end,
+  },
 }
